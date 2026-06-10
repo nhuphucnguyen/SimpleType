@@ -1,3 +1,34 @@
 <resources>
     <string name="app_name">SimpleType</string>
+    <string name="ime_label">SimpleType Keyboard</string>
+
+    <string name="subtype_en">English</string>
+    <string name="subtype_vi">Tiếng Việt</string>
+
+    <!-- Settings screen -->
+    <string name="settings_title">SimpleType Keyboard</string>
+    <string name="settings_intro">On-device voice typing for English &amp; Vietnamese. Set up in two steps:</string>
+    <string name="step_enable">1. Enable SimpleType in system settings</string>
+    <string name="step_select">2. Select SimpleType as your active keyboard</string>
+    <string name="action_enable">Enable keyboard</string>
+    <string name="action_select">Switch keyboard</string>
+    <string name="action_try">Try it out</string>
+    <string name="try_hint">Tap here and start typing…</string>
+    <string name="status_enabled">SimpleType is enabled ✓</string>
+    <string name="status_not_enabled">SimpleType is not enabled yet</string>
+
+    <!-- Keyboard key labels / content descriptions -->
+    <string name="key_shift">Shift</string>
+    <string name="key_delete">Delete</string>
+    <string name="key_enter">Enter</string>
+    <string name="key_space">Space</string>
+    <string name="key_symbols">Symbols</string>
+    <string name="key_language">Switch language</string>
+    <string name="key_mic">Voice typing</string>
+
+    <!-- Voice -->
+    <string name="voice_unavailable">Voice typing model not installed yet (M2)</string>
+    <string name="voice_listening">Listening…</string>
+    <string name="voice_need_permission">Microphone permission needed for voice typing</string>
+    <string name="voice_password_disabled">Voice typing is disabled in password fields</string>
 </resources>

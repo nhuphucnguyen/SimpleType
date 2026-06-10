@@ -1,4 +1,5 @@
 plugins {
+    // AGP 9+ has built-in Kotlin support; no separate kotlin-android plugin needed.
     alias(libs.plugins.android.application)
 }
 
@@ -37,6 +38,7 @@ dependencies {
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
+    implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)

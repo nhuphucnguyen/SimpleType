@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="kb_row_height">52dp</dimen>
+    <dimen name="kb_key_gap">4dp</dimen>
+    <dimen name="kb_key_radius">7dp</dimen>
+    <dimen name="kb_key_text_size">22sp</dimen>
+    <dimen name="kb_key_label_text_size">13sp</dimen>
+    <dimen name="kb_status_height">34dp</dimen>
+    <dimen name="kb_vertical_padding">6dp</dimen>
+</resources>

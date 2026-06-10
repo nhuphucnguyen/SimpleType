@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Root view returned by SimpleTypeIME.onCreateInputView: a thin status strip above the keys. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/kb_background">
+
+    <TextView
+        android:id="@+id/voice_status"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/kb_status_height"
+        android:gravity="center"
+        android:textColor="@color/kb_status_text"
+        android:textSize="13sp"
+        android:visibility="gone"
+        tools:ignore="UnusedAttribute"
+        xmlns:tools="http://schemas.android.com/tools" />
+
+    <dev.phucngu.simpletype.ime.LatinKeyboardView
+        android:id="@+id/keyboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+</LinearLayout>

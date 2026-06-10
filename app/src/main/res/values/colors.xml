@@ -7,4 +7,15 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Keyboard palette (light) -->
+    <color name="kb_background">#FFECEFF1</color>
+    <color name="kb_key">#FFFFFFFF</color>
+    <color name="kb_key_pressed">#FFB0BEC5</color>
+    <color name="kb_key_special">#FFCFD8DC</color>
+    <color name="kb_key_text">#FF1C1C1C</color>
+    <color name="kb_key_special_text">#FF37474F</color>
+    <color name="kb_accent">#FF6200EE</color>
+    <color name="kb_mic_active">#FFE53935</color>
+    <color name="kb_status_text">#FF455A64</color>
 </resources>
