@@ -64,6 +64,34 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="@string/voice_models_title"
+            android:textSize="17sp"
+            android:textStyle="bold"
+            android:paddingBottom="2dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/voice_models_intro"
+            android:textSize="14sp"
+            android:paddingBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_model_en"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/action_download_en" />
+
+        <Button
+            android:id="@+id/btn_model_vi"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/action_download_vi"
+            android:layout_marginBottom="28dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="@string/action_try"
             android:textSize="15sp"
             android:paddingBottom="4dp" />

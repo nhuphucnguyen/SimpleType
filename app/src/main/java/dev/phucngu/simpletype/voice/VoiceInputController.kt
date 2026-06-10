@@ -16,26 +16,34 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * Drives the on-device voice pipeline:
  *
- *   AudioRecord (16 kHz mono PCM) → [Vad] (speech start/end) → [AsrEngine] → [AsrListener]
+ *   AudioRecord (16 kHz mono PCM) → [AsrEngine] → [AsrListener]
  *
- * Capture runs on a dedicated thread; partial/final results are posted back to the main
- * thread for the IME. End-of-utterance is detected by a run of silent frames (VAD), with a
- * tap-to-stop fallback via [stop]. Media playback is ducked while listening, matching the
- * spec's audio-focus requirement.
+ * Capture runs on a dedicated thread; the engine is fed raw PCM and pushes partial/final
+ * results, which this controller marshals back to the main thread for the IME. Streaming
+ * engines (Vosk) endpoint utterances internally; [stop] flushes a final via
+ * [AsrEngine.endOfUtterance]. Media playback is ducked while listening, per the spec's
+ * audio-focus requirement.
  *
- * The ASR engine is injected so the same controller serves Whisper (EN), PhoWhisper (VI),
- * or the Vosk fallback. When the active engine is unavailable (no model yet), [start]
+ * The active [AsrEngine] is injected via [setEngine] so the same controller serves Vosk,
+ * Whisper (EN) or PhoWhisper (VI). When the engine is unavailable (no model yet), [start]
  * reports an error instead of capturing audio.
  */
 class VoiceInputController(
     private val context: Context,
     private val listener: AsrListener,
-    private val vad: Vad = EnergyVad(),
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val running = AtomicBoolean(false)
     private var captureThread: Thread? = null
     private var engine: AsrEngine = NoopAsrEngine()
+
+    /** Forwards engine callbacks (fired on the audio thread) to the main thread. */
+    private val mainThreadListener = object : AsrListener {
+        override fun onPartial(text: String) = post { listener.onPartial(text) }
+        override fun onFinal(text: String, confidence: Float) =
+            post { listener.onFinal(text, confidence) }
+        override fun onError(message: String) = post { listener.onError(message) }
+    }
 
     val isListening: Boolean get() = running.get()
 
@@ -70,6 +78,12 @@ class VoiceInputController(
         abandonAudioFocus()
     }
 
+    /** Frees the active engine's native resources. Call when the IME is destroyed. */
+    fun release() {
+        stop()
+        engine.release()
+    }
+
     @SuppressLint("MissingPermission") // guarded by hasAudioPermission() in start()
     private fun captureLoop() {
         val minBuf = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL, ENCODING)
@@ -80,35 +94,26 @@ class VoiceInputController(
         )
         if (record.state != AudioRecord.STATE_INITIALIZED) {
             record.release()
-            post { listener.onError(CAPTURE_FAILED) }
+            mainThreadListener.onError(CAPTURE_FAILED)
             running.set(false)
             return
         }
 
-        engine.load()
-        vad.reset()
-        val frame = ShortArray(FRAME_SAMPLES)
-        var silentFrames = 0
-        var sawSpeech = false
+        try {
+            engine.load(mainThreadListener)
+        } catch (t: Throwable) {
+            record.release()
+            mainThreadListener.onError(CAPTURE_FAILED)
+            running.set(false)
+            return
+        }
 
+        val frame = ShortArray(FRAME_SAMPLES)
         record.startRecording()
         try {
             while (running.get()) {
                 val read = record.read(frame, 0, frame.size)
-                if (read <= 0) continue
-                engine.feed(frame, read)
-
-                if (vad.isSpeech(frame, read)) {
-                    sawSpeech = true
-                    silentFrames = 0
-                } else if (sawSpeech) {
-                    silentFrames++
-                    if (silentFrames >= SILENCE_FRAMES_TO_ENDPOINT) {
-                        engine.endOfUtterance() // engine delivers onFinal via its own callback wiring
-                        sawSpeech = false
-                        silentFrames = 0
-                    }
-                }
+                if (read > 0) engine.feed(frame, read)
             }
         } finally {
             record.stop()
@@ -129,7 +134,9 @@ class VoiceInputController(
         am.abandonAudioFocus(null)
     }
 
-    private fun post(block: () -> Unit) = mainHandler.post(block)
+    private fun post(block: () -> Unit) {
+        mainHandler.post(block)
+    }
 
     companion object {
         const val ENGINE_UNAVAILABLE = "engine_unavailable"
@@ -139,8 +146,6 @@ class VoiceInputController(
         private const val SAMPLE_RATE = 16_000
         private const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
-        private const val FRAME_SAMPLES = 512 // 32 ms at 16 kHz
-        // ~600 ms of trailing silence ends the utterance.
-        private const val SILENCE_FRAMES_TO_ENDPOINT = 19
+        private const val FRAME_SAMPLES = 1600 // 100 ms at 16 kHz — Vosk-friendly chunk
     }
 }

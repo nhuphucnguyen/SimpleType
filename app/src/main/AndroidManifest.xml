@@ -4,6 +4,8 @@
 
     <!-- Voice typing captures audio fully on-device; nothing leaves the phone. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- One-time download of the on-device voice models (no audio/text is ever sent). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:allowBackup="true"

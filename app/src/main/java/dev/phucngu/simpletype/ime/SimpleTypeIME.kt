@@ -10,11 +10,14 @@ import android.widget.TextView
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
+import dev.phucngu.simpletype.voice.AsrEngine
 import dev.phucngu.simpletype.voice.AsrListener
 import dev.phucngu.simpletype.voice.CommandMatcher
+import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
+import dev.phucngu.simpletype.voice.VoskAsrEngine
 
 /**
  * The SimpleType input method.
@@ -45,6 +48,14 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private val voice: VoiceInputController by lazy {
         VoiceInputController(this, voiceListener)
+    }
+    private val modelManager by lazy { ModelManager(this) }
+    private val engines = mutableMapOf<VoiceLanguage, AsrEngine>()
+
+    /** Cached on-device ASR engine for [lang]; the model is loaded lazily on first use. */
+    private fun engineFor(lang: VoiceLanguage): AsrEngine = engines.getOrPut(lang) {
+        val tag = if (lang == VoiceLanguage.ENGLISH) "vosk-en" else "vosk-vi"
+        VoskAsrEngine(modelManager.modelDir(lang).path, tag)
     }
 
     // Voice-command pipeline: finalized utterances are matched to a command (or text) and
@@ -84,6 +95,13 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         super.onFinishInputView(finishingInput)
         if (voice.isListening) voice.stop()
         telex.reset()
+    }
+
+    override fun onDestroy() {
+        voice.release()
+        engines.values.forEach { it.release() }
+        engines.clear()
+        super.onDestroy()
     }
 
     // ---- Key handling ----
@@ -272,6 +290,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             return
         }
         currentInputConnection?.let { finishComposing(it) }
+        voice.setEngine(engineFor(language))
         voice.start()
     }
 

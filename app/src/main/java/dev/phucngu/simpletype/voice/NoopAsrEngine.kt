@@ -7,7 +7,7 @@ package dev.phucngu.simpletype.voice
  */
 class NoopAsrEngine(override val name: String = "noop") : AsrEngine {
     override val isAvailable: Boolean = false
-    override fun load() {}
+    override fun load(listener: AsrListener) {}
     override fun feed(samples: ShortArray, length: Int) {}
     override fun endOfUtterance() {}
     override fun release() {}

@@ -27,8 +27,17 @@
     <string name="key_mic">Voice typing</string>
 
     <!-- Voice -->
-    <string name="voice_unavailable">Voice typing model not installed yet (M2)</string>
+    <string name="voice_unavailable">Voice model not installed — open SimpleType to download it</string>
     <string name="voice_listening">Listening…</string>
     <string name="voice_need_permission">Microphone permission needed for voice typing</string>
     <string name="voice_password_disabled">Voice typing is disabled in password fields</string>
+
+    <!-- Voice model download (settings) -->
+    <string name="voice_models_title">Voice typing models</string>
+    <string name="voice_models_intro">Download once; recognition then runs fully offline.</string>
+    <string name="action_download_en">Download English model (~40 MB)</string>
+    <string name="action_download_vi">Download Vietnamese model (~50 MB)</string>
+    <string name="model_installed">Installed ✓</string>
+    <string name="model_downloading">Downloading… %1$d%%</string>
+    <string name="model_download_failed">Download failed: %1$s</string>
 </resources>
