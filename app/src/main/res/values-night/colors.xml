@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark keyboard palette, applied automatically in system dark mode so the keyboard
+     matches dark host apps instead of glaring white. Mirrors the keys in values/colors.xml. -->
+<resources>
+    <color name="kb_background">#FF202124</color>
+    <color name="kb_key">#FF3C4043</color>
+    <color name="kb_key_pressed">#FF5F6368</color>
+    <color name="kb_key_special">#FF2A2C2E</color>
+    <color name="kb_key_text">#FFE8EAED</color>
+    <color name="kb_key_special_text">#FFC4C7CC</color>
+    <color name="kb_accent">#FF7C4DFF</color>
+    <color name="kb_mic_active">#FFEF5350</color>
+    <color name="kb_status_text">#FF9AA0A6</color>
+</resources>

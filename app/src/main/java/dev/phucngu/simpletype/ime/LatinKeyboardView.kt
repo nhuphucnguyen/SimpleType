@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
+import android.graphics.drawable.Drawable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -58,6 +59,9 @@ class LatinKeyboardView @JvmOverloads constructor(
     private val keyGap = dp(R.dimen.kb_key_gap)
     private val keyRadius = dp(R.dimen.kb_key_radius)
     private val vPad = dp(R.dimen.kb_vertical_padding)
+
+    private val iconSize = dp(R.dimen.kb_icon_size)
+    private val iconCache = HashMap<Int, Drawable>()
 
     private val placements = ArrayList<Placement>()
     private var pressed: Placement? = null
@@ -153,24 +157,47 @@ class LatinKeyboardView @JvmOverloads constructor(
         val cx = rr.centerX()
         val cy = rr.centerY() - (fm.ascent + fm.descent) / 2f
 
-        when (key.code) {
-            KeyCode.SPACE -> {
+        val onAccent = active || key.code == KeyCode.ENTER
+        when {
+            key.code == KeyCode.SPACE -> {
                 labelPaint.color = color(R.color.kb_key_special_text)
-                canvas.drawText(spaceLabel, cx, rr.centerY() - (labelPaint.fontMetrics.ascent + labelPaint.fontMetrics.descent) / 2f, labelPaint)
+                canvas.drawText(spaceLabel, cx, baselineFor(labelPaint, rr), labelPaint)
+            }
+            iconResFor(key) != null -> {
+                val tint = if (onAccent) Color.WHITE else color(R.color.kb_key_special_text)
+                drawIcon(canvas, iconResFor(key)!!, rr, tint)
+            }
+            key.style == KeyStyle.SPECIAL || !key.isPrintable -> {
+                labelPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_special_text)
+                canvas.drawText(key.label, cx, baselineFor(labelPaint, rr), labelPaint)
             }
             else -> {
-                val onAccent = active || key.code == KeyCode.ENTER
-                if (key.style == KeyStyle.SPECIAL || key.code == KeyCode.ENTER || !key.isPrintable) {
-                    labelPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_special_text)
-                    canvas.drawText(key.label, cx,
-                        rr.centerY() - (labelPaint.fontMetrics.ascent + labelPaint.fontMetrics.descent) / 2f,
-                        labelPaint)
-                } else {
-                    textPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_text)
-                    canvas.drawText(displayLabel(key), cx, cy, textPaint)
-                }
+                textPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_text)
+                canvas.drawText(displayLabel(key), cx, cy, textPaint)
             }
         }
+    }
+
+    /** Vertically-centered text baseline within [rr] for the given paint. */
+    private fun baselineFor(paint: Paint, rr: RectF): Float {
+        val fm = paint.fontMetrics
+        return rr.centerY() - (fm.ascent + fm.descent) / 2f
+    }
+
+    /** Shift swaps to a caps-lock glyph; other keys use their declared icon. */
+    private fun iconResFor(key: Key): Int? = when {
+        key.code == KeyCode.SHIFT && capsLock -> R.drawable.ic_kb_shift_lock
+        else -> key.iconRes
+    }
+
+    private fun drawIcon(canvas: Canvas, res: Int, rr: RectF, tint: Int) {
+        val d = iconCache.getOrPut(res) { ContextCompat.getDrawable(context, res)!!.mutate() }
+        d.setTint(tint)
+        val half = iconSize / 2f
+        val l = (rr.centerX() - half).toInt()
+        val t = (rr.centerY() - half).toInt()
+        d.setBounds(l, t, l + iconSize.toInt(), t + iconSize.toInt())
+        d.draw(canvas)
     }
 
     private fun displayLabel(key: Key): String {

@@ -1,5 +1,8 @@
 package dev.phucngu.simpletype.ime
 
+import androidx.annotation.DrawableRes
+import dev.phucngu.simpletype.R
+
 /**
  * Data model for a keyboard layout: a list of rows, each a list of [Key]s.
  *
@@ -29,6 +32,8 @@ data class Key(
     val weight: Float = 1f,
     val style: KeyStyle = KeyStyle.NORMAL,
     val repeatable: Boolean = false,
+    /** When set, the key draws this monochrome icon instead of [label]. */
+    @param:DrawableRes val iconRes: Int? = null,
 ) {
     val isPrintable: Boolean get() = code >= 32
 }
@@ -53,10 +58,12 @@ object KeyboardLayouts {
             // Indent the middle row by giving the edges half-gap padding via weights.
             lettersRow("asdfghjkl"),
             row(
-                Key(KeyCode.SHIFT, "⇧", weight = 1.5f, style = KeyStyle.SPECIAL),
+                Key(KeyCode.SHIFT, "Shift", weight = 1.5f, style = KeyStyle.SPECIAL,
+                    iconRes = R.drawable.ic_kb_shift),
                 letter('z'), letter('x'), letter('c'), letter('v'),
                 letter('b'), letter('n'), letter('m'),
-                Key(KeyCode.DELETE, "⌫", weight = 1.5f, style = KeyStyle.SPECIAL, repeatable = true),
+                Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
+                    repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ),
             bottomRow(),
         )
@@ -64,12 +71,15 @@ object KeyboardLayouts {
 
     private fun bottomRow(): KeyboardRow = row(
         Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(KeyCode.LANGUAGE, "🌐", weight = 1.2f, style = KeyStyle.SPECIAL),
-        Key(KeyCode.MIC, "🎤", weight = 1.2f, style = KeyStyle.SPECIAL),
+        Key(KeyCode.LANGUAGE, "Language", weight = 1.2f, style = KeyStyle.SPECIAL,
+            iconRes = R.drawable.ic_kb_language),
+        Key(KeyCode.MIC, "Voice", weight = 1.2f, style = KeyStyle.SPECIAL,
+            iconRes = R.drawable.ic_kb_mic),
         Key(','.code, ","),
         Key(KeyCode.SPACE, "", weight = 4f),
         Key('.'.code, "."),
-        Key(KeyCode.ENTER, "⏎", weight = 1.8f, style = KeyStyle.ACCENT),
+        Key(KeyCode.ENTER, "Enter", weight = 1.8f, style = KeyStyle.ACCENT,
+            iconRes = R.drawable.ic_kb_enter),
     )
 
     /** Symbols page 1: numbers and common punctuation. */
@@ -80,7 +90,8 @@ object KeyboardLayouts {
             row(
                 Key(KeyCode.SYMBOLS_ALT, "=\\<", weight = 1.5f, style = KeyStyle.SPECIAL),
                 *"*\"':;!?".map { Key(it.code, it.toString()) }.toTypedArray(),
-                Key(KeyCode.DELETE, "⌫", weight = 1.5f, style = KeyStyle.SPECIAL, repeatable = true),
+                Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
+                    repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ),
             symbolsBottomRow(),
         )
@@ -94,7 +105,8 @@ object KeyboardLayouts {
             row(
                 Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
                 *"\\©®™%[]".map { Key(it.code, it.toString()) }.toTypedArray(),
-                Key(KeyCode.DELETE, "⌫", weight = 1.5f, style = KeyStyle.SPECIAL, repeatable = true),
+                Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
+                    repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ),
             symbolsBottomRow(),
         )
@@ -102,10 +114,12 @@ object KeyboardLayouts {
 
     private fun symbolsBottomRow(): KeyboardRow = row(
         Key(KeyCode.ALPHA, "ABC", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(KeyCode.LANGUAGE, "🌐", weight = 1.2f, style = KeyStyle.SPECIAL),
+        Key(KeyCode.LANGUAGE, "Language", weight = 1.2f, style = KeyStyle.SPECIAL,
+            iconRes = R.drawable.ic_kb_language),
         Key(','.code, ","),
         Key(KeyCode.SPACE, "", weight = 4f),
         Key('.'.code, "."),
-        Key(KeyCode.ENTER, "⏎", weight = 1.8f, style = KeyStyle.ACCENT),
+        Key(KeyCode.ENTER, "Enter", weight = 1.8f, style = KeyStyle.ACCENT,
+            iconRes = R.drawable.ic_kb_enter),
     )
 }

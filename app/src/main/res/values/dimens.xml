@@ -5,6 +5,10 @@
     <dimen name="kb_key_radius">7dp</dimen>
     <dimen name="kb_key_text_size">22sp</dimen>
     <dimen name="kb_key_label_text_size">13sp</dimen>
+    <dimen name="kb_icon_size">23dp</dimen>
     <dimen name="kb_status_height">34dp</dimen>
     <dimen name="kb_vertical_padding">6dp</dimen>
+    <!-- Gap below the bottom row so corner keys clear rounded screen corners / gesture bar,
+         on top of any navigation-bar inset added at runtime. -->
+    <dimen name="kb_bottom_padding">8dp</dimen>
 </resources>

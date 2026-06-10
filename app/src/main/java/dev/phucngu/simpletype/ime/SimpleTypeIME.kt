@@ -7,6 +7,9 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
@@ -72,8 +75,24 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         keyboardView = root.findViewById(R.id.keyboard)
         statusView = root.findViewById(R.id.voice_status)
         keyboardView.listener = this
+        applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyLayout()
         return root
+    }
+
+    /**
+     * Keep the bottom row clear of the navigation bar and rounded screen corners: pad the
+     * keyboard's bottom by the nav-bar inset plus a fixed gap (as Gboard does), so corner
+     * keys are never clipped by the display curve or overlapped by the gesture bar.
+     */
+    private fun applyBottomInset(root: View) {
+        val base = resources.getDimensionPixelSize(R.dimen.kb_bottom_padding)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
+            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+            v.updatePadding(bottom = base + navBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
