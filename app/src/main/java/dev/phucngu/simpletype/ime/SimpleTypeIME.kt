@@ -11,6 +11,8 @@ import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
 import dev.phucngu.simpletype.voice.AsrListener
+import dev.phucngu.simpletype.voice.CommandMatcher
+import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 
@@ -45,6 +47,13 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         VoiceInputController(this, voiceListener)
     }
 
+    // Voice-command pipeline: finalized utterances are matched to a command (or text) and
+    // executed against the field, with every edit kept undoable.
+    private val commandMatcher = CommandMatcher()
+    private val commandHandler by lazy {
+        VoiceCommandHandler(InputConnectionTextEditor { currentInputConnection })
+    }
+
     // ---- Lifecycle ----
 
     override fun onCreateInputView(): View {
@@ -59,6 +68,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
         telex.reset()
+        commandHandler.clearHistory()
         layout = Layout.ALPHA
         capsLock = false
         passwordField = isPasswordField(info)
@@ -282,7 +292,14 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         override fun onFinal(text: String, confidence: Float) {
             val ic = currentInputConnection ?: return
             ic.finishComposingText()
-            if (text.isNotEmpty()) ic.commitText(text, 1)
+            // A whole utterance matches a command only if it is one in full (spec §3.3);
+            // otherwise it is committed as text. Either way the handler keeps it undoable.
+            val action = commandMatcher.match(text, confidence)
+            if (commandHandler.handle(action, text) == VoiceCommandHandler.Result.STOP_LISTENING) {
+                voice.stop()
+                keyboardView.micActive = false
+                hideStatus()
+            }
         }
 
         override fun onError(message: String) {
