@@ -37,10 +37,6 @@ class LatinKeyboardView @JvmOverloads constructor(
     var spaceLabel: String = ""
         set(value) { field = value; invalidate() }
 
-    /** Whether the mic key should render in its "listening" colour. */
-    var micActive: Boolean = false
-        set(value) { field = value; invalidate() }
-
     var shifted: Boolean = false
         set(value) { field = value; invalidate() }
 
@@ -71,7 +67,6 @@ class LatinKeyboardView @JvmOverloads constructor(
     private val keyPressedColor = color(R.color.kb_key_pressed)
     private val keySpecialColor = color(R.color.kb_key_special)
     private val accentColor = color(R.color.kb_accent)
-    private val micActiveColor = color(R.color.kb_mic_active)
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -138,12 +133,10 @@ class LatinKeyboardView @JvmOverloads constructor(
         val key = p.key
         val r = p.rect
         val isPressed = p == pressed
-        val active = (key.code == KeyCode.SHIFT && (shifted || capsLock)) ||
-            (key.code == KeyCode.MIC && micActive)
+        val active = key.code == KeyCode.SHIFT && (shifted || capsLock)
 
         keyPaint.color = when {
             isPressed -> keyPressedColor
-            active && key.code == KeyCode.MIC -> micActiveColor
             active -> accentColor
             key.style == KeyStyle.SPECIAL -> keySpecialColor
             else -> keyColor

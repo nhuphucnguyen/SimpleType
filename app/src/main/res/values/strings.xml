@@ -23,15 +23,10 @@
     <string name="key_enter">Enter</string>
     <string name="key_space">Space</string>
     <string name="key_symbols">Symbols</string>
-    <string name="key_language">Switch language</string>
-    <string name="key_mic">Voice typing</string>
-    <string name="key_emoji">Emoji</string>
 
-    <!-- Toolbar / bottom strip chrome -->
+    <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
     <string name="toolbar_mic">Voice typing</string>
-    <string name="strip_collapse">Hide keyboard</string>
-    <string name="strip_language">Switch language</string>
 
     <!-- Voice -->
     <string name="voice_unavailable">Voice model not installed — open SimpleType to download it</string>

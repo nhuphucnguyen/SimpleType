@@ -6,6 +6,8 @@ import android.text.InputType
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputMethodManager
+import android.view.inputmethod.InputMethodSubtype
 import android.widget.ImageButton
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -83,8 +85,6 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         micButton = root.findViewById<ImageButton>(R.id.toolbar_mic).apply {
             setOnClickListener { handleMic() }
         }
-        root.findViewById<ImageButton>(R.id.strip_language).setOnClickListener { toggleLanguage() }
-        root.findViewById<ImageButton>(R.id.strip_collapse).setOnClickListener { requestHideSelf(0) }
         // Keyboard menu is a placeholder until the suggestion/clipboard tools land.
         root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener { }
 
@@ -118,6 +118,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         hideStatus()
         if (voice.isListening) voice.stop()
         setMicListening(false)
+        syncLanguageFromSubtype()
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)
@@ -148,8 +149,6 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             KeyCode.SYMBOLS -> switchLayout(Layout.SYMBOLS)
             KeyCode.SYMBOLS_ALT -> switchLayout(Layout.SYMBOLS_ALT)
             KeyCode.ALPHA -> switchLayout(Layout.ALPHA)
-            KeyCode.LANGUAGE -> toggleLanguage()
-            KeyCode.MIC -> handleMic()
             KeyCode.EMOJI -> handleEmoji(ic)
             else -> if (key.isPrintable) handlePrintable(ic, key)
         }
@@ -302,14 +301,26 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         syncShiftToView()
     }
 
-    private fun toggleLanguage() {
+    /**
+     * The keyboard language follows the active input-method subtype, so the system globe
+     * (shown by the navigation bar / IME switcher) cycles EN ⇄ VI for us.
+     */
+    override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
+        super.onCurrentInputMethodSubtypeChanged(newSubtype)
         currentInputConnection?.let { finishComposing(it) }
-        language = if (language == VoiceLanguage.ENGLISH) {
-            VoiceLanguage.VIETNAMESE
-        } else {
-            VoiceLanguage.ENGLISH
-        }
+        applySubtype(newSubtype)
         keyboardView.spaceLabel = languageLabel()
+    }
+
+    private fun syncLanguageFromSubtype() {
+        val imm = getSystemService(InputMethodManager::class.java)
+        applySubtype(imm?.currentInputMethodSubtype)
+    }
+
+    private fun applySubtype(subtype: InputMethodSubtype?) {
+        val tag = subtype?.languageTag?.takeIf { it.isNotEmpty() }
+            ?: @Suppress("DEPRECATION") subtype?.locale ?: ""
+        language = if (tag.startsWith("vi")) VoiceLanguage.VIETNAMESE else VoiceLanguage.ENGLISH
     }
 
     private fun languageLabel(): String = when (language) {

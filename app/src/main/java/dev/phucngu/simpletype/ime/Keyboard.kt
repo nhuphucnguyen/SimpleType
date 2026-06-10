@@ -18,10 +18,10 @@ object KeyCode {
     const val SYMBOLS = -4   // letters → symbols page 1
     const val ALPHA = -5     // symbols → letters
     const val SYMBOLS_ALT = -6 // symbols page 1 ↔ page 2
-    const val LANGUAGE = -7  // globe: cycle EN ⇄ VI (lives in the bottom strip)
-    const val MIC = -8       // voice typing (lives in the top toolbar)
     const val EMOJI = -9     // emoji key (panel TBD)
     const val SPACE = ' '.code
+    // Note: language switching is the system globe (IME subtype) and voice is the toolbar
+    // mic button, so neither has a grid key / KeyCode here.
 }
 
 enum class KeyStyle { NORMAL, SPECIAL, ACCENT }
