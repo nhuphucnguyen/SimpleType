@@ -145,7 +145,6 @@ class LatinKeyboardView @JvmOverloads constructor(
             isPressed -> keyPressedColor
             active && key.code == KeyCode.MIC -> micActiveColor
             active -> accentColor
-            key.code == KeyCode.ENTER -> accentColor
             key.style == KeyStyle.SPECIAL -> keySpecialColor
             else -> keyColor
         }
@@ -157,22 +156,29 @@ class LatinKeyboardView @JvmOverloads constructor(
         val cx = rr.centerX()
         val cy = rr.centerY() - (fm.ascent + fm.descent) / 2f
 
-        val onAccent = active || key.code == KeyCode.ENTER
+        val special = key.style == KeyStyle.SPECIAL
         when {
             key.code == KeyCode.SPACE -> {
                 labelPaint.color = color(R.color.kb_key_special_text)
                 canvas.drawText(spaceLabel, cx, baselineFor(labelPaint, rr), labelPaint)
             }
             iconResFor(key) != null -> {
-                val tint = if (onAccent) Color.WHITE else color(R.color.kb_key_special_text)
+                val tint = if (active) Color.WHITE else color(R.color.kb_key_special_text)
                 drawIcon(canvas, iconResFor(key)!!, rr, tint)
             }
-            key.style == KeyStyle.SPECIAL || !key.isPrintable -> {
-                labelPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_special_text)
+            !key.isPrintable -> {
+                // Control keys with word labels (?123, ABC, =\<) use the smaller label paint.
+                labelPaint.color = if (active) Color.WHITE else color(R.color.kb_key_special_text)
                 canvas.drawText(key.label, cx, baselineFor(labelPaint, rr), labelPaint)
             }
             else -> {
-                textPaint.color = if (onAccent) Color.WHITE else color(R.color.kb_key_text)
+                // Printable glyphs always draw at full size; special keys (comma, period)
+                // just take the muted special-text colour.
+                textPaint.color = when {
+                    active -> Color.WHITE
+                    special -> color(R.color.kb_key_special_text)
+                    else -> color(R.color.kb_key_text)
+                }
                 canvas.drawText(displayLabel(key), cx, cy, textPaint)
             }
         }

@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Root view returned by SimpleTypeIME.onCreateInputView: a thin status strip above the keys. -->
+<!-- Root view returned by SimpleTypeIME.onCreateInputView: a top toolbar (menu · suggestions ·
+     mic), the keys, and a bottom strip (collapse chevron · globe), matching Gboard's chrome. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/keyboard_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -9,19 +11,86 @@
     android:clipToPadding="false"
     android:paddingBottom="@dimen/kb_bottom_padding">
 
-    <TextView
-        android:id="@+id/voice_status"
+    <!-- Top toolbar: menu (left), suggestion area (center, empty for now), mic (right). -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="@dimen/kb_status_height"
-        android:gravity="center"
-        android:textColor="@color/kb_status_text"
-        android:textSize="13sp"
-        android:visibility="gone"
-        tools:ignore="UnusedAttribute"
-        xmlns:tools="http://schemas.android.com/tools" />
+        android:layout_height="@dimen/kb_toolbar_height"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="10dp">
+
+        <ImageButton
+            android:id="@+id/toolbar_menu"
+            android:layout_width="@dimen/kb_toolbar_height"
+            android:layout_height="@dimen/kb_toolbar_height"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_kb_menu"
+            android:scaleType="centerInside"
+            android:tint="@color/kb_chrome_icon"
+            android:contentDescription="@string/toolbar_menu" />
+
+        <!-- Suggestion chips will live here later; also hosts the voice status text. -->
+        <TextView
+            android:id="@+id/voice_status"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:textColor="@color/kb_status_text"
+            android:textSize="13sp"
+            android:text=""
+            tools:ignore="UnusedAttribute" />
+
+        <ImageButton
+            android:id="@+id/toolbar_mic"
+            android:layout_width="@dimen/kb_toolbar_mic_size"
+            android:layout_height="@dimen/kb_toolbar_mic_size"
+            android:background="@drawable/bg_kb_circle"
+            android:src="@drawable/ic_kb_mic"
+            android:scaleType="centerInside"
+            android:padding="7dp"
+            android:tint="@color/kb_chrome_icon"
+            android:contentDescription="@string/toolbar_mic" />
+    </LinearLayout>
 
     <dev.phucngu.simpletype.ime.LatinKeyboardView
         android:id="@+id/keyboard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content" />
+
+    <!-- Bottom strip: collapse keyboard (left), language/globe (right). -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/kb_strip_height"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="6dp"
+        android:paddingEnd="10dp">
+
+        <ImageButton
+            android:id="@+id/strip_collapse"
+            android:layout_width="@dimen/kb_strip_height"
+            android:layout_height="@dimen/kb_strip_height"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_kb_chevron_down"
+            android:scaleType="centerInside"
+            android:tint="@color/kb_chrome_icon"
+            android:contentDescription="@string/strip_collapse" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <ImageButton
+            android:id="@+id/strip_language"
+            android:layout_width="@dimen/kb_strip_height"
+            android:layout_height="@dimen/kb_strip_height"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_kb_language"
+            android:scaleType="centerInside"
+            android:tint="@color/kb_chrome_icon"
+            android:contentDescription="@string/strip_language" />
+    </LinearLayout>
 </LinearLayout>

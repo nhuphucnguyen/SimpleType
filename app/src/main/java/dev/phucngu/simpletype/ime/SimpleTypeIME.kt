@@ -6,7 +6,9 @@ import android.text.InputType
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.widget.ImageButton
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -38,6 +40,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private lateinit var keyboardView: LatinKeyboardView
     private var statusView: TextView? = null
+    private var micButton: ImageButton? = null
 
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
@@ -75,6 +78,16 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         keyboardView = root.findViewById(R.id.keyboard)
         statusView = root.findViewById(R.id.voice_status)
         keyboardView.listener = this
+
+        // Toolbar (top) hosts the mic; the bottom strip hosts language switching and collapse.
+        micButton = root.findViewById<ImageButton>(R.id.toolbar_mic).apply {
+            setOnClickListener { handleMic() }
+        }
+        root.findViewById<ImageButton>(R.id.strip_language).setOnClickListener { toggleLanguage() }
+        root.findViewById<ImageButton>(R.id.strip_collapse).setOnClickListener { requestHideSelf(0) }
+        // Keyboard menu is a placeholder until the suggestion/clipboard tools land.
+        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener { }
+
         applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyLayout()
         return root
@@ -104,7 +117,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         passwordField = isPasswordField(info)
         hideStatus()
         if (voice.isListening) voice.stop()
-        keyboardView.micActive = false
+        setMicListening(false)
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)
@@ -137,6 +150,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             KeyCode.ALPHA -> switchLayout(Layout.ALPHA)
             KeyCode.LANGUAGE -> toggleLanguage()
             KeyCode.MIC -> handleMic()
+            KeyCode.EMOJI -> handleEmoji(ic)
             else -> if (key.isPrintable) handlePrintable(ic, key)
         }
     }
@@ -188,6 +202,12 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         finishComposing(ic)
         ic.commitText(" ", 1)
         updateAutoCapitalize(currentInputEditorInfo)
+    }
+
+    // Placeholder until a full emoji panel exists: commit a single smiley so the key is live.
+    private fun handleEmoji(ic: InputConnection) {
+        finishComposing(ic)
+        ic.commitText("🙂", 1)
     }
 
     private fun handleEnter(ic: InputConnection) {
@@ -250,6 +270,12 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         keyboardView.capsLock = capsLock
     }
 
+    /** Tint the toolbar mic red while the recogniser is listening, chrome colour otherwise. */
+    private fun setMicListening(active: Boolean) {
+        val tint = if (active) R.color.kb_mic_active else R.color.kb_chrome_icon
+        micButton?.setColorFilter(ContextCompat.getColor(this, tint))
+    }
+
     // ---- Layout & language ----
 
     private fun switchLayout(target: Layout) {
@@ -300,7 +326,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         }
         if (voice.isListening) {
             voice.stop()
-            keyboardView.micActive = false
+            setMicListening(false)
             hideStatus()
             return
         }
@@ -322,7 +348,7 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private val voiceListener = object : AsrListener {
         override fun onPartial(text: String) {
-            keyboardView.micActive = true
+            setMicListening(true)
             showStatus(getString(R.string.voice_listening))
             currentInputConnection?.setComposingText(text, 1)
         }
@@ -335,13 +361,13 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             val action = commandMatcher.match(text, confidence)
             if (commandHandler.handle(action, text) == VoiceCommandHandler.Result.STOP_LISTENING) {
                 voice.stop()
-                keyboardView.micActive = false
+                setMicListening(false)
                 hideStatus()
             }
         }
 
         override fun onError(message: String) {
-            keyboardView.micActive = false
+            setMicListening(false)
             val msg = when (message) {
                 VoiceInputController.ENGINE_UNAVAILABLE -> getString(R.string.voice_unavailable)
                 VoiceInputController.NEEDS_PERMISSION -> getString(R.string.voice_need_permission)

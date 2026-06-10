@@ -7,6 +7,13 @@
     <dimen name="kb_key_label_text_size">13sp</dimen>
     <dimen name="kb_icon_size">23dp</dimen>
     <dimen name="kb_status_height">34dp</dimen>
+    <!-- Top suggestion/toolbar bar (menu · suggestions · mic) above the keys. -->
+    <dimen name="kb_toolbar_height">46dp</dimen>
+    <dimen name="kb_toolbar_icon">24dp</dimen>
+    <dimen name="kb_toolbar_mic_size">38dp</dimen>
+    <!-- Bottom strip (collapse chevron · gesture handle · globe) below the keys. -->
+    <dimen name="kb_strip_height">38dp</dimen>
+    <dimen name="kb_strip_icon">22dp</dimen>
     <dimen name="kb_vertical_padding">6dp</dimen>
     <!-- Gap below the bottom row so corner keys clear rounded screen corners / gesture bar,
          on top of any navigation-bar inset added at runtime. -->

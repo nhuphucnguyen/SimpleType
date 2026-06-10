@@ -18,8 +18,9 @@ object KeyCode {
     const val SYMBOLS = -4   // letters → symbols page 1
     const val ALPHA = -5     // symbols → letters
     const val SYMBOLS_ALT = -6 // symbols page 1 ↔ page 2
-    const val LANGUAGE = -7  // globe: cycle EN ⇄ VI
-    const val MIC = -8       // voice typing
+    const val LANGUAGE = -7  // globe: cycle EN ⇄ VI (lives in the bottom strip)
+    const val MIC = -8       // voice typing (lives in the top toolbar)
+    const val EMOJI = -9     // emoji key (panel TBD)
     const val SPACE = ' '.code
 }
 
@@ -69,16 +70,15 @@ object KeyboardLayouts {
         )
     )
 
+    // Mic now lives in the top toolbar and the globe in the bottom strip, so the bottom
+    // row mirrors Gboard: ?123 · , · emoji · space · . · enter.
     private fun bottomRow(): KeyboardRow = row(
         Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(KeyCode.LANGUAGE, "Language", weight = 1.2f, style = KeyStyle.SPECIAL,
-            iconRes = R.drawable.ic_kb_language),
-        Key(KeyCode.MIC, "Voice", weight = 1.2f, style = KeyStyle.SPECIAL,
-            iconRes = R.drawable.ic_kb_mic),
-        Key(','.code, ","),
+        Key(','.code, ",", style = KeyStyle.SPECIAL),
+        Key(KeyCode.EMOJI, "Emoji", style = KeyStyle.SPECIAL, iconRes = R.drawable.ic_kb_emoji),
         Key(KeyCode.SPACE, "", weight = 4f),
-        Key('.'.code, "."),
-        Key(KeyCode.ENTER, "Enter", weight = 1.8f, style = KeyStyle.ACCENT,
+        Key('.'.code, ".", style = KeyStyle.SPECIAL),
+        Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
             iconRes = R.drawable.ic_kb_enter),
     )
 
@@ -114,12 +114,11 @@ object KeyboardLayouts {
 
     private fun symbolsBottomRow(): KeyboardRow = row(
         Key(KeyCode.ALPHA, "ABC", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(KeyCode.LANGUAGE, "Language", weight = 1.2f, style = KeyStyle.SPECIAL,
-            iconRes = R.drawable.ic_kb_language),
-        Key(','.code, ","),
+        Key(','.code, ",", style = KeyStyle.SPECIAL),
+        Key(KeyCode.EMOJI, "Emoji", style = KeyStyle.SPECIAL, iconRes = R.drawable.ic_kb_emoji),
         Key(KeyCode.SPACE, "", weight = 4f),
-        Key('.'.code, "."),
-        Key(KeyCode.ENTER, "Enter", weight = 1.8f, style = KeyStyle.ACCENT,
+        Key('.'.code, ".", style = KeyStyle.SPECIAL),
+        Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
             iconRes = R.drawable.ic_kb_enter),
     )
 }

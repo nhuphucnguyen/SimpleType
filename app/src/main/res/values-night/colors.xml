@@ -11,4 +11,5 @@
     <color name="kb_accent">#FF7C4DFF</color>
     <color name="kb_mic_active">#FFEF5350</color>
     <color name="kb_status_text">#FF9AA0A6</color>
+    <color name="kb_chrome_icon">#FFC4C7CC</color>
 </resources>
