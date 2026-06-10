@@ -118,7 +118,12 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         hideStatus()
         if (voice.isListening) voice.stop()
         setMicListening(false)
-        syncLanguageFromSubtype()
+
+        // Persist language choice across fields and restarts.
+        val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
+        val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
+        language = VoiceLanguage.valueOf(langTag ?: VoiceLanguage.ENGLISH.name)
+
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)
@@ -158,6 +163,9 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         val ic = currentInputConnection ?: return
         if (key.code == KeyCode.DELETE) handleDelete(ic)
     }
+
+    /** Swiping across the space bar toggles EN ⇄ VI (only two languages, so direction is moot). */
+    override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
     private fun handlePrintable(ic: InputConnection, key: Key) {
         var c = key.code.toChar()
@@ -301,26 +309,38 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         syncShiftToView()
     }
 
+    /** Primary language switch: swipe the space bar. Toggles EN ⇄ VI and persists across fields. */
+    private fun toggleLanguage() {
+        currentInputConnection?.let { finishComposing(it) }
+        if (voice.isListening) {
+            voice.stop()
+            setMicListening(false)
+            hideStatus()
+        }
+
+        language = if (language == VoiceLanguage.ENGLISH) {
+            VoiceLanguage.VIETNAMESE
+        } else {
+            VoiceLanguage.ENGLISH
+        }
+        keyboardView.spaceLabel = languageLabel()
+
+        getSharedPreferences("simpletype_prefs", MODE_PRIVATE).edit()
+            .putString("language", language.name)
+            .apply()
+    }
+
     /**
-     * The keyboard language follows the active input-method subtype, so the system globe
-     * (shown by the navigation bar / IME switcher) cycles EN ⇄ VI for us.
+     * Honour an explicit system input-method-subtype change too (e.g. if the user enables the
+     * Vietnamese subtype and switches via the system globe), keeping our state in sync.
      */
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
         currentInputConnection?.let { finishComposing(it) }
-        applySubtype(newSubtype)
-        keyboardView.spaceLabel = languageLabel()
-    }
-
-    private fun syncLanguageFromSubtype() {
-        val imm = getSystemService(InputMethodManager::class.java)
-        applySubtype(imm?.currentInputMethodSubtype)
-    }
-
-    private fun applySubtype(subtype: InputMethodSubtype?) {
-        val tag = subtype?.languageTag?.takeIf { it.isNotEmpty() }
-            ?: @Suppress("DEPRECATION") subtype?.locale ?: ""
+        val tag = newSubtype?.languageTag?.takeIf { it.isNotEmpty() }
+            ?: @Suppress("DEPRECATION") newSubtype?.locale ?: ""
         language = if (tag.startsWith("vi")) VoiceLanguage.VIETNAMESE else VoiceLanguage.ENGLISH
+        keyboardView.spaceLabel = languageLabel()
     }
 
     private fun languageLabel(): String = when (language) {

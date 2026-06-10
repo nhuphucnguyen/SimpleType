@@ -29,6 +29,8 @@ class LatinKeyboardView @JvmOverloads constructor(
         fun onKey(key: Key)
         /** Fired repeatedly while a repeatable key (backspace) is held down. */
         fun onKeyRepeat(key: Key)
+        /** Horizontal swipe across the space bar to switch language ([direction]: -1 left, +1 right). */
+        fun onSpaceSwipe(direction: Int)
     }
 
     var listener: Listener? = null
@@ -79,8 +81,27 @@ class LatinKeyboardView @JvmOverloads constructor(
         color = color(R.color.kb_key_special_text)
         textSize = dp(R.dimen.kb_key_label_text_size)
     }
+    // Faint chevrons flanking the space-bar label, hinting the swipe-to-switch-language gesture.
+    private val chevronPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dpf(1.5f)
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        color = color(R.color.kb_key_special_text)
+        alpha = 110
+    }
+
+    /** Minimum horizontal travel on the space bar that counts as a language-switch swipe. */
+    private val swipeThreshold = dpf(28f)
 
     private data class Placement(val key: Key, val rect: RectF)
+
+    // Space-bar swipe tracking: when the touch starts on space, a far-enough horizontal drag
+    // switches language instead of committing a space.
+    private var downOnSpace = false
+    private var swipeStartX = 0f
+    private var swipeFired = false
+    private var swipeOffset = 0f
 
     private val repeatRunnable = object : Runnable {
         override fun run() {
@@ -152,8 +173,10 @@ class LatinKeyboardView @JvmOverloads constructor(
         val special = key.style == KeyStyle.SPECIAL
         when {
             key.code == KeyCode.SPACE -> {
+                val shiftedCx = cx + swipeOffset
                 labelPaint.color = color(R.color.kb_key_special_text)
-                canvas.drawText(spaceLabel, cx, baselineFor(labelPaint, rr), labelPaint)
+                canvas.drawText(spaceLabel, shiftedCx, baselineFor(labelPaint, rr), labelPaint)
+                drawSpaceArrows(canvas, rr, shiftedCx)
             }
             iconResFor(key) != null -> {
                 val tint = if (active) Color.WHITE else color(R.color.kb_key_special_text)
@@ -181,6 +204,31 @@ class LatinKeyboardView @JvmOverloads constructor(
     private fun baselineFor(paint: Paint, rr: RectF): Float {
         val fm = paint.fontMetrics
         return rr.centerY() - (fm.ascent + fm.descent) / 2f
+    }
+
+    /** Draw small ‹ › chevrons just outside the space label to hint the swipe gesture. */
+    private fun drawSpaceArrows(canvas: Canvas, rr: RectF, cx: Float) {
+        val labelHalf = labelPaint.measureText(spaceLabel) / 2f
+        val cy = rr.centerY()
+        val s = dpf(4f)             // chevron half-height / width
+        val gap = dpf(9f)           // distance from label edge to the chevron base
+
+        // Highlight the arrows more clearly when a swipe is in progress or just fired.
+        val baseAlpha = 110
+        chevronPaint.alpha = if (swipeFired || (downOnSpace && kotlin.math.abs(swipeOffset) > dpf(8f))) {
+            255
+        } else {
+            baseAlpha
+        }
+
+        val lx = cx - labelHalf - gap
+        canvas.drawLine(lx, cy - s, lx - s, cy, chevronPaint)
+        canvas.drawLine(lx - s, cy, lx, cy + s, chevronPaint)
+        val rx = cx + labelHalf + gap
+        canvas.drawLine(rx, cy - s, rx + s, cy, chevronPaint)
+        canvas.drawLine(rx + s, cy, rx, cy + s, chevronPaint)
+
+        chevronPaint.alpha = baseAlpha
     }
 
     /** Shift swaps to a caps-lock glyph; other keys use their declared icon. */
@@ -214,12 +262,26 @@ class LatinKeyboardView @JvmOverloads constructor(
             MotionEvent.ACTION_DOWN -> {
                 val p = placementAt(event.x, event.y) ?: return true
                 setPressed(p)
+                downOnSpace = p.key.code == KeyCode.SPACE
+                swipeStartX = event.x
+                swipeFired = false
+                swipeOffset = 0f
                 if (p.key.repeatable) {
                     listener?.onKeyRepeat(p.key)
                     postDelayed(repeatRunnable, REPEAT_INITIAL_DELAY_MS)
                 }
             }
             MotionEvent.ACTION_MOVE -> {
+                if (downOnSpace) {
+                    swipeOffset = event.x - swipeStartX
+                    // Stay locked on space and fire one language switch once the drag is far enough.
+                    if (!swipeFired && kotlin.math.abs(swipeOffset) >= swipeThreshold) {
+                        swipeFired = true
+                        listener?.onSpaceSwipe(if (swipeOffset > 0) 1 else -1)
+                    }
+                    invalidate()
+                    return true
+                }
                 val p = placementAt(event.x, event.y)
                 if (p != pressed) {
                     // Slid onto a different key: cancel any repeat and re-highlight.
@@ -234,13 +296,18 @@ class LatinKeyboardView @JvmOverloads constructor(
                 removeCallbacks(repeatRunnable)
                 val p = pressed
                 setPressed(null)
-                if (p != null && !p.key.repeatable) {
+                downOnSpace = false
+                swipeOffset = 0f
+                // A swipe already switched language, so don't also commit a space.
+                if (p != null && !p.key.repeatable && !swipeFired) {
                     listener?.onKey(p.key)
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(repeatRunnable)
                 setPressed(null)
+                downOnSpace = false
+                swipeOffset = 0f
             }
         }
         return true
@@ -259,6 +326,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     // ---- Helpers ----
 
     private fun dp(dimenRes: Int): Float = resources.getDimension(dimenRes)
+    private fun dpf(value: Float): Float = value * resources.displayMetrics.density
     private fun color(colorRes: Int): Int = ContextCompat.getColor(context, colorRes)
 
     companion object {
