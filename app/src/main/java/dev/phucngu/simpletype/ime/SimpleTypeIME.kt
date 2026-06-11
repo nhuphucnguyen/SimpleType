@@ -201,8 +201,26 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             }
             return
         }
+        // One-shot shift turns Delete into delete-word-backwards (caps lock keeps single-char).
+        if (shifted && !capsLock) {
+            deleteWordBeforeCursor(ic)
+            consumeShift()
+            updateAutoCapitalize(currentInputEditorInfo)
+            return
+        }
         ic.deleteSurroundingText(1, 0)
         updateAutoCapitalize(currentInputEditorInfo)
+    }
+
+    /** Delete any trailing whitespace plus the word before the cursor; falls back to one char. */
+    private fun deleteWordBeforeCursor(ic: InputConnection) {
+        val before = ic.getTextBeforeCursor(WORD_DELETE_LOOKBEHIND, 0) ?: ""
+        if (before.isEmpty()) return
+        var i = before.length
+        while (i > 0 && before[i - 1].isWhitespace()) i--
+        while (i > 0 && !before[i - 1].isWhitespace()) i--
+        val count = before.length - i
+        ic.deleteSurroundingText(if (count > 0) count else 1, 0)
     }
 
     private fun handleSpace(ic: InputConnection) {
@@ -440,5 +458,10 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private fun hideStatus() {
         statusView?.visibility = View.GONE
+    }
+
+    private companion object {
+        /** How far back to scan for the start of the word when shift-deleting. */
+        const val WORD_DELETE_LOOKBEHIND = 64
     }
 }
