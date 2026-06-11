@@ -13,14 +13,22 @@ package dev.phucngu.simpletype.text
  *  - Pressing the same modifier/tone key again reverts and emits the literal key
  *    (Telex's escape behaviour, e.g. "ass" → "as").
  *
- * Tone placement uses a simplified but practical rule covering the common cases
- * (marked vowels win; `qu`/`gi` glides are skipped; otherwise last vowel before a
- * final consonant, else the first vowel of the run). Full orthographic placement is
- * left for later tuning — every action stays undoable so mistakes are cheap.
+ * Tone placement follows the orthographic rules used by Unikey/OpenKey (ported from
+ * xkey's `VowelSequenceValidator.calculateTonePosition`): a circumflex/horn vowel wins,
+ * triple vowels take the middle vowel, `qu`/`gi` glides are skipped, and the remaining
+ * diphthongs follow a small rule set keyed on the vowel pair and whether a final consonant
+ * follows. [modernStyle] selects "oà/uý" (new) over "òa/úy" (old) for the oa/oe/uy cases.
+ *
+ * The tone is also re-placed after every keystroke ([repositionTone]) so that adding a
+ * final consonant or a later vowel migrates an already-typed tone to the correct vowel
+ * (e.g. "hoaf" then "n" → "hoàn", not "hòan").
  *
  * The class is pure Kotlin with no Android dependencies so it is unit-testable.
+ *
+ * @param modernStyle when true, oa/oe with a final consonant and all `uy` syllables place
+ *   the tone on the second vowel (hoàn/thuý); when false, the traditional placement is used.
  */
-class TelexEngine {
+class TelexEngine(private val modernStyle: Boolean = true) {
 
     private val buffer = StringBuilder()
 
@@ -43,20 +51,24 @@ class TelexEngine {
     fun input(c: Char): Boolean {
         if (!c.isLetter()) return false
         val lower = c.lowercaseChar()
-        val upper = c.isUpperCase()
 
-        when (lower) {
-            's' -> if (applyTone(TONE_SAC, c)) return true
-            'f' -> if (applyTone(TONE_HUYEN, c)) return true
-            'r' -> if (applyTone(TONE_HOI, c)) return true
-            'x' -> if (applyTone(TONE_NGA, c)) return true
-            'j' -> if (applyTone(TONE_NANG, c)) return true
-            'z' -> if (removeTone()) return true
-            'a', 'e', 'o' -> if (applyCircumflex(lower, c)) return true
-            'd' -> if (applyDForDd(c)) return true
-            'w' -> { applyHorn(c); return true }
+        val consumedAsModifier = when (lower) {
+            's' -> applyTone(TONE_SAC, c)
+            'f' -> applyTone(TONE_HUYEN, c)
+            'r' -> applyTone(TONE_HOI, c)
+            'x' -> applyTone(TONE_NGA, c)
+            'j' -> applyTone(TONE_NANG, c)
+            'z' -> removeTone()
+            'a', 'e', 'o' -> applyCircumflex(lower, c)
+            'd' -> applyDForDd(c)
+            'w' -> { applyHorn(c); true }
+            else -> false
         }
-        buffer.append(c)
+        if (!consumedAsModifier) buffer.append(c)
+
+        // Adding a letter can change the syllable's shape (new vowel or a final
+        // consonant), so migrate any tone already on the word to the right vowel.
+        repositionTone()
         return true
     }
 
@@ -155,38 +167,113 @@ class TelexEngine {
         return true
     }
 
+    /** A vowel in the current word, decomposed into its base letter and diacritics. */
+    private data class Vowel(
+        val base: Char,        // one of a e i o u y (toneless, diacritic stripped)
+        val circumflex: Boolean, // â ê ô
+        val horn: Boolean,       // ơ ư
+        val bufIndex: Int,       // position in [buffer]
+    )
+
     /**
      * Choose which vowel in the current word should carry the tone.
      * Returns the buffer index, or null if there is no vowel.
      */
     private fun findToneTarget(): Int? {
-        val vowels = ArrayList<Int>()
-        for (i in buffer.indices) {
-            if (isVowel(buffer[i])) vowels.add(i)
-        }
-        if (vowels.isEmpty()) return null
-        if (vowels.size == 1) return vowels[0]
+        val indices = ArrayList<Int>()
+        for (i in buffer.indices) if (isVowel(buffer[i])) indices.add(i)
+        if (indices.isEmpty()) return null
 
-        // 1) A vowel already bearing a circumflex/horn/breve mark wins.
-        for (i in vowels.asReversed()) {
-            if (isMarkedVowel(buffer[i])) return i
-        }
-
-        // 2) Skip glides: "qu…" and "gi…" — the u/i is part of the onset, not the nucleus.
-        var run = vowels
-        val first = vowels.first()
-        if (first > 0) {
-            val onset = buffer[first - 1].lowercaseChar()
-            val firstBase = decompose(buffer[first]).first.lowercaseChar()
-            if ((onset == 'q' && firstBase == 'u') || (onset == 'g' && firstBase == 'i')) {
-                if (vowels.size > 1) run = ArrayList(vowels.drop(1))
+        // Skip the onset glide of "qu…" and "gi…" — its u/i is not the nucleus.
+        if (indices.size > 1) {
+            val first = indices.first()
+            if (first > 0) {
+                val onset = buffer[first - 1].lowercaseChar()
+                val firstBase = decompose(buffer[first]).first.lowercaseChar()
+                if ((onset == 'q' && firstBase == 'u') || (onset == 'g' && firstBase == 'i')) {
+                    indices.removeAt(0)
+                }
             }
         }
-        if (run.size == 1) return run[0]
+        if (indices.size == 1) return indices[0]
 
-        // 3) Word ends in a consonant → tone the last vowel of the run; otherwise the first.
-        val endsWithVowel = isVowel(buffer[buffer.length - 1])
-        return if (endsWithVowel) run.first() else run.last()
+        val run = indices.map { classifyVowel(buffer[it], it) }
+        val hasFinalConsonant = indices.last() < buffer.length - 1
+        return run[tonePosition(run, hasFinalConsonant)].bufIndex
+    }
+
+    private fun classifyVowel(displayChar: Char, bufIndex: Int): Vowel {
+        val base = decompose(displayChar).first.lowercaseChar()
+        return when (base) {
+            'â' -> Vowel('a', circumflex = true, horn = false, bufIndex)
+            'ê' -> Vowel('e', circumflex = true, horn = false, bufIndex)
+            'ô' -> Vowel('o', circumflex = true, horn = false, bufIndex)
+            'ơ' -> Vowel('o', circumflex = false, horn = true, bufIndex)
+            'ư' -> Vowel('u', circumflex = false, horn = true, bufIndex)
+            'ă' -> Vowel('a', circumflex = false, horn = false, bufIndex) // breve: like plain a
+            else -> Vowel(base, circumflex = false, horn = false, bufIndex)
+        }
+    }
+
+    /**
+     * Index within [run] that should carry the tone. Ported from xkey's
+     * `VowelSequenceValidator.calculateTonePosition` (itself a port of Unikey's rule).
+     */
+    private fun tonePosition(run: List<Vowel>, hasFinalConsonant: Boolean): Int {
+        if (run.size == 1) return 0
+
+        // A circumflex vowel (â ê ô) always takes the tone.
+        run.indexOfFirst { it.circumflex }.let { if (it >= 0) return it }
+
+        // A horn vowel (ơ ư) takes the tone, except ươ / ươi / ươu → tone on ơ.
+        val horn = run.indexOfFirst { it.horn }
+        if (horn >= 0) {
+            if (horn == 0 && run[0].base == 'u' && run.size >= 2 &&
+                run[1].horn && run[1].base == 'o'
+            ) return 1
+            return horn
+        }
+
+        // Triple vowels (oai, uyu, …) place the tone on the middle vowel.
+        if (run.size == 3) return 1
+
+        // Diphthongs (no circumflex/horn).
+        val a = run[0].base
+        val b = run[1].base
+        return when {
+            // oi, ai, ui and open "ay" keep the tone on the first vowel.
+            (a == 'o' || a == 'a' || a == 'u') && b == 'i' -> 0
+            a == 'a' && b == 'y' && !hasFinalConsonant -> 0
+            // oo (rare, e.g. "thoóng") → second vowel.
+            a == 'o' && b == 'o' -> 1
+            // ua/ia/iu/io/ya without a final consonant stay on the first vowel
+            // (của, mía); after a "gi" onset the i is already dropped above.
+            a == 'u' && b == 'a' && !hasFinalConsonant -> 0
+            (a == 'i' || a == 'y') && (b == 'a' || b == 'u' || b == 'o') -> 0
+            // Modern style: uy → tone on y (thuý, quý, huỳnh).
+            modernStyle && a == 'u' && b == 'y' -> 1
+            // oa/oe (and the rest): first vowel when the syllable is open, else the
+            // vowel adjacent to the final consonant.
+            else -> if (hasFinalConsonant) 1 else 0
+        }
+    }
+
+    /**
+     * If the word already carries a tone, move it to whichever vowel [findToneTarget]
+     * now points at. This keeps placement correct as the syllable grows or shrinks.
+     */
+    private fun repositionTone() {
+        var current = -1
+        var tone = TONE_NONE
+        for (i in buffer.indices) {
+            val (_, t) = decompose(buffer[i])
+            if (t != TONE_NONE) { current = i; tone = t; break }
+        }
+        if (current < 0) return
+        val target = findToneTarget() ?: return
+        if (target == current) return
+        buffer[current] = compose(decompose(buffer[current]).first, TONE_NONE)
+        buffer[target] = compose(decompose(buffer[target]).first, tone)
     }
 
     // ---- Character (de)composition helpers ----
@@ -212,9 +299,6 @@ class TelexEngine {
 
     private fun isVowel(c: Char): Boolean = REVERSE.containsKey(c.lowercaseChar())
 
-    private fun isMarkedVowel(c: Char): Boolean =
-        decompose(c).first.lowercaseChar() in MARKED_BASES
-
     companion object {
         private const val TONE_NONE = 0
         private const val TONE_SAC = 1   // s
@@ -222,8 +306,6 @@ class TelexEngine {
         private const val TONE_HOI = 3   // r
         private const val TONE_NGA = 4   // x
         private const val TONE_NANG = 5  // j
-
-        private val MARKED_BASES = setOf('ă', 'â', 'ê', 'ô', 'ơ', 'ư')
 
         /** base (toneless) → 6 toned forms, ordered: none, sắc, huyền, hỏi, ngã, nặng. */
         private val TONE_TABLE: Map<Char, String> = mapOf(

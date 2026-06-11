@@ -64,6 +64,35 @@ class TelexEngineTest {
 
     @Test fun final_consonant_takes_last_vowel() = assertEquals("nước", type("nuwowcs"))
 
+    // ---- Orthographic tone placement (ported from xkey / Unikey rules) ----
+
+    @Test fun triple_vowel_takes_middle() = assertEquals("ngoài", type("ngoaif"))
+
+    @Test fun oai_with_sac() = assertEquals("hoáy", type("hoays"))
+
+    @Test fun uoi_horn_takes_o_horn() = assertEquals("người", type("nguwowif"))
+
+    @Test fun ruou_horn_triple() = assertEquals("rượu", type("ruwowuj"))
+
+    @Test fun modern_uy_tones_y() = assertEquals("thuý", type("thuys"))
+
+    @Test fun old_uy_tones_u() =
+        assertEquals("thúy", TelexEngine(modernStyle = false).let { e -> "thuys".forEach { e.input(it) }; e.composing })
+
+    @Test fun oa_open_tones_o() = assertEquals("hóa", type("hoas"))
+
+    @Test fun oa_closed_tones_a() = assertEquals("khoản", type("khoanr"))
+
+    @Test fun ua_open_tones_u() = assertEquals("của", type("cuar"))
+
+    @Test fun mia_tones_i() = assertEquals("mía", type("mias"))
+
+    // ---- Tone re-positioning as the syllable grows ----
+
+    @Test fun tone_migrates_when_final_consonant_added() = assertEquals("hoàn", type("hoafn"))
+
+    @Test fun tone_migrates_when_vowel_added() = assertEquals("táo", type("taso"))
+
     // ---- Casing ----
 
     @Test fun uppercase_circumflex_preserved() = assertEquals("Â", type("Aa"))
