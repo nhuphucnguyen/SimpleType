@@ -114,6 +114,15 @@ class TelexEngine(private val modernStyle: Boolean = true) {
                 'a' -> 'ă'; 'o' -> 'ơ'; 'u' -> 'ư'; else -> null
             }
             if (horn != null) {
+                // "uo" + w → "ươ": a single w horns both vowels (hương, đường), unless
+                // the u is the "qu" glide ("quo" + w → "quơ", keeping u bare).
+                if (baseLower == 'o' && idx >= 1) {
+                    val (prevBase, prevTone) = decompose(buffer[idx - 1])
+                    val afterQu = idx >= 2 && buffer[idx - 2].lowercaseChar() == 'q'
+                    if (prevBase.lowercaseChar() == 'u' && !afterQu) {
+                        setCharPreserveCase(idx - 1, 'ư', prevBase.isUpperCase(), prevTone)
+                    }
+                }
                 setCharPreserveCase(idx, horn, base.isUpperCase(), tone)
                 return
             }

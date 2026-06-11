@@ -74,6 +74,8 @@ class TelexEngineTest {
 
     @Test fun ruou_horn_triple() = assertEquals("rượu", type("ruwowuj"))
 
+    @Test fun uo_single_w_horns_both() = assertEquals("hường", type("huowngf"))
+
     @Test fun modern_uy_tones_y() = assertEquals("thuý", type("thuys"))
 
     @Test fun old_uy_tones_u() =
