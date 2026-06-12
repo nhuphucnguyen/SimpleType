@@ -39,6 +39,14 @@ class TelexEngine(private val modernStyle: Boolean = true) {
      */
     private var loneHornIndex = -1
 
+    /**
+     * Buffer index of the next coda consonant to "echo-swallow", or -1. Armed when a vowel key
+     * circumflexes an earlier vowel in a closed syllable (e.g. `trong` + `o` → `trông`, the user
+     * re-typing the rime). The following keystrokes that repeat the existing coda (`ng`) are then
+     * absorbed instead of duplicated, so `trongongs` → `trống` rather than `trôngngs`.
+     */
+    private var codaEchoIndex = -1
+
     /** Current Vietnamese display form of the word being composed. */
     val composing: String
         get() = buffer.toString()
@@ -49,6 +57,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     fun reset() {
         buffer.setLength(0)
         loneHornIndex = -1
+        codaEchoIndex = -1
     }
 
     /**
@@ -60,9 +69,19 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (!c.isLetter()) return false
         val lower = c.lowercaseChar()
 
-        // The lone-w escape is only armed for the keystroke right after a lone w → ư.
+        // These escapes are only armed for the single keystroke that follows.
         val prevLoneHorn = loneHornIndex
         loneHornIndex = -1
+        val prevCodaEcho = codaEchoIndex
+        codaEchoIndex = -1
+
+        // Re-typing the coda after a circumflex retype (trong+o→trông, then "ng") swallows the
+        // duplicate consonants instead of appending them, so the rime is not doubled.
+        if (prevCodaEcho in buffer.indices && lower == buffer[prevCodaEcho].lowercaseChar()) {
+            val next = prevCodaEcho + 1
+            codaEchoIndex = if (next < buffer.length && isConsonant(buffer[next])) next else -1
+            return true
+        }
 
         val consumedAsModifier = when (lower) {
             's' -> applyTone(TONE_SAC, c)
@@ -71,7 +90,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             'x' -> applyTone(TONE_NGA, c)
             'j' -> applyTone(TONE_NANG, c)
             'z' -> removeTone()
-            'a', 'e', 'o' -> applyCircumflex(lower, c)
+            'a', 'e', 'o' -> applyCircumflex(lower, c) || applyCircumflexRetype(lower)
             'd' -> applyDForDd(c)
             'w' -> { applyHorn(c, prevLoneHorn); true }
             else -> false
@@ -114,6 +133,27 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             else -> false
         }
     }
+
+    /**
+     * Circumflex an earlier vowel when the user re-types it across the coda of a closed syllable,
+     * e.g. `trong` + `o` → `trông`. Only fires when the syllable's last vowel is a plain a/e/o that
+     * matches [lower] and is followed by one or more consonants (the coda). Arms [codaEchoIndex] so
+     * a re-typed coda is then absorbed. Returns true if it consumed the key.
+     */
+    private fun applyCircumflexRetype(lower: Char): Boolean {
+        val circ = when (lower) { 'a' -> 'â'; 'e' -> 'ê'; 'o' -> 'ô'; else -> return false }
+        // Find the last vowel; everything after it must be the consonant coda (≥1 char).
+        val v = buffer.indices.lastOrNull { isVowel(buffer[it]) } ?: return false
+        if (v == buffer.length - 1) return false // vowel is last → adjacent case, handled elsewhere
+        for (i in v + 1 until buffer.length) if (!isConsonant(buffer[i])) return false
+        val (base, tone) = decompose(buffer[v])
+        if (base.lowercaseChar() != lower) return false // must be a plain a/e/o matching the key
+        setCharPreserveCase(v, circ, base.isUpperCase(), tone)
+        codaEchoIndex = v + 1
+        return true
+    }
+
+    private fun isConsonant(c: Char): Boolean = c.isLetter() && !isVowel(c)
 
     // ---- Horn / breve via w: aw→ă, ow→ơ, uw→ư, lone w→ư ----
 

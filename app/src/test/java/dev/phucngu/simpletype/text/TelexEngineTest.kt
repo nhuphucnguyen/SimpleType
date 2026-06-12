@@ -60,6 +60,13 @@ class TelexEngineTest {
 
     @Test fun phuong_horns() = assertEquals("phương", type("phuwowng"))
 
+    // Re-typing a closed rime circumflexes the earlier vowel and absorbs the repeated coda:
+    // "trong" + "ong" + tone → "trống" (the doubled o acts like oo→ô across the "ng").
+    @Test fun retype_rime_circumflex_trong() = assertEquals("trống", type("trongongs"))
+    @Test fun retype_rime_circumflex_cong() = assertEquals("công", type("conong"))
+    // Without re-typing the coda, the lone repeated vowel still circumflexes: "trong" + "o" + "s".
+    @Test fun retype_vowel_only_circumflex() = assertEquals("trống", type("trongos"))
+
     @Test fun duong_with_tone() = assertEquals("đường", type("dduwowngf"))
 
     @Test fun qu_glide_skips_u() = assertEquals("quá", type("quas"))
