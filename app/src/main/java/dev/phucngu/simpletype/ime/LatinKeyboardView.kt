@@ -31,6 +31,12 @@ class LatinKeyboardView @JvmOverloads constructor(
         fun onKeyRepeat(key: Key)
         /** Horizontal swipe across the space bar to switch language ([direction]: -1 left, +1 right). */
         fun onSpaceSwipe(direction: Int)
+        /**
+         * Shift used as a held modifier: fired with true when a second finger presses another key
+         * while Shift is physically held, and false when Shift is released. Lets the user hold Shift
+         * and tap Delete (word-delete) or letters (caps) without the one-shot toggle being consumed.
+         */
+        fun onShiftHold(active: Boolean) {}
     }
 
     var listener: Listener? = null
@@ -103,6 +109,13 @@ class LatinKeyboardView @JvmOverloads constructor(
     private var swipeFired = false
     private var swipeOffset = 0f
 
+    // Multi-touch: Shift can be held with one finger while another finger taps keys. The Shift
+    // pointer is tracked separately from the single "active" pointer that drives normal keys.
+    private var shiftPointerId = INVALID_POINTER
+    private var shiftKey: Key? = null
+    private var shiftUsedAsModifier = false
+    private var activePointerId = INVALID_POINTER
+
     private val repeatRunnable = object : Runnable {
         override fun run() {
             val p = pressed ?: return
@@ -153,7 +166,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     private fun drawKey(canvas: Canvas, p: Placement, fm: Paint.FontMetrics) {
         val key = p.key
         val r = p.rect
-        val isPressed = p == pressed
+        val isPressed = p == pressed || (key.code == KeyCode.SHIFT && shiftPointerId != INVALID_POINTER)
         val active = key.code == KeyCode.SHIFT && (shifted || capsLock)
 
         keyPaint.color = when {
@@ -259,21 +272,33 @@ class LatinKeyboardView @JvmOverloads constructor(
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                val p = placementAt(event.x, event.y) ?: return true
-                setPressed(p)
-                downOnSpace = p.key.code == KeyCode.SPACE
-                swipeStartX = event.x
-                swipeFired = false
-                swipeOffset = 0f
-                if (p.key.repeatable) {
-                    listener?.onKeyRepeat(p.key)
-                    postDelayed(repeatRunnable, REPEAT_INITIAL_DELAY_MS)
+            MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                val idx = event.actionIndex
+                val id = event.getPointerId(idx)
+                val x = event.getX(idx)
+                val y = event.getY(idx)
+                val p = placementAt(x, y) ?: return true
+                when {
+                    // First finger on Shift becomes a held modifier (not committed until release).
+                    p.key.code == KeyCode.SHIFT && shiftPointerId == INVALID_POINTER -> {
+                        shiftPointerId = id
+                        shiftKey = p.key
+                        shiftUsedAsModifier = false
+                        invalidate()
+                    }
+                    // A normal key: only one active pointer drives taps/repeat/space-swipe.
+                    activePointerId == INVALID_POINTER -> {
+                        activePointerId = id
+                        beginActiveKey(p, x)
+                    }
                 }
             }
             MotionEvent.ACTION_MOVE -> {
+                val ai = if (activePointerId != INVALID_POINTER) event.findPointerIndex(activePointerId) else -1
+                if (ai < 0) return true
+                val x = event.getX(ai)
                 if (downOnSpace) {
-                    swipeOffset = event.x - swipeStartX
+                    swipeOffset = x - swipeStartX
                     // Stay locked on space and fire one language switch once the drag is far enough.
                     if (!swipeFired && kotlin.math.abs(swipeOffset) >= swipeThreshold) {
                         swipeFired = true
@@ -282,7 +307,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                     invalidate()
                     return true
                 }
-                val p = placementAt(event.x, event.y)
+                val p = placementAt(x, event.getY(ai))
                 if (p != pressed) {
                     // Slid onto a different key: cancel any repeat and re-highlight.
                     removeCallbacks(repeatRunnable)
@@ -292,25 +317,71 @@ class LatinKeyboardView @JvmOverloads constructor(
                     }
                 }
             }
-            MotionEvent.ACTION_UP -> {
-                removeCallbacks(repeatRunnable)
-                val p = pressed
-                setPressed(null)
-                downOnSpace = false
-                swipeOffset = 0f
-                // A swipe already switched language, so don't also commit a space.
-                if (p != null && !p.key.repeatable && !swipeFired) {
-                    listener?.onKey(p.key)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
+                val id = event.getPointerId(event.actionIndex)
+                when (id) {
+                    shiftPointerId -> releaseShift()
+                    activePointerId -> {
+                        removeCallbacks(repeatRunnable)
+                        val p = pressed
+                        setPressed(null)
+                        activePointerId = INVALID_POINTER
+                        downOnSpace = false
+                        swipeOffset = 0f
+                        // A swipe already switched language, so don't also commit a space.
+                        if (p != null && !p.key.repeatable && !swipeFired) {
+                            listener?.onKey(p.key)
+                        }
+                    }
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(repeatRunnable)
                 setPressed(null)
+                activePointerId = INVALID_POINTER
                 downOnSpace = false
                 swipeOffset = 0f
+                if (shiftPointerId != INVALID_POINTER) {
+                    if (shiftUsedAsModifier) listener?.onShiftHold(false)
+                    shiftPointerId = INVALID_POINTER
+                    shiftUsedAsModifier = false
+                    invalidate()
+                }
             }
         }
         return true
+    }
+
+    /** Start tracking a normal key under the active pointer. Arms Shift-hold if Shift is down. */
+    private fun beginActiveKey(p: Placement, x: Float) {
+        setPressed(p)
+        downOnSpace = p.key.code == KeyCode.SPACE
+        swipeStartX = x
+        swipeFired = false
+        swipeOffset = 0f
+        // Pressing any key while Shift is physically held turns Shift into a modifier (no toggle).
+        if (shiftPointerId != INVALID_POINTER && !shiftUsedAsModifier) {
+            shiftUsedAsModifier = true
+            listener?.onShiftHold(true)
+        }
+        if (p.key.repeatable) {
+            listener?.onKeyRepeat(p.key)
+            postDelayed(repeatRunnable, REPEAT_INITIAL_DELAY_MS)
+        }
+    }
+
+    /** Release the held Shift: deactivate the modifier if it was used, else fire the normal toggle. */
+    private fun releaseShift() {
+        val key = shiftKey
+        shiftPointerId = INVALID_POINTER
+        shiftKey = null
+        if (shiftUsedAsModifier) {
+            listener?.onShiftHold(false)
+        } else if (key != null) {
+            listener?.onKey(key)
+        }
+        shiftUsedAsModifier = false
+        invalidate()
     }
 
     private fun setPressed(p: Placement?) {
@@ -332,5 +403,6 @@ class LatinKeyboardView @JvmOverloads constructor(
     companion object {
         private const val REPEAT_INITIAL_DELAY_MS = 400L
         private const val REPEAT_INTERVAL_MS = 55L
+        private const val INVALID_POINTER = -1
     }
 }

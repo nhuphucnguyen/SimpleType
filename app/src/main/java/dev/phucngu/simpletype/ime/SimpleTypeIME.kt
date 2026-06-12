@@ -52,6 +52,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private var shifted = false
     private var capsLock = false
+    private var shiftHeld = false
     private var passwordField = false
 
     private val voice: VoiceInputController by lazy {
@@ -167,6 +168,18 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     /** Swiping across the space bar toggles EN ⇄ VI (only two languages, so direction is moot). */
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
+    /**
+     * Shift held as a modifier (one finger holds Shift, another taps keys). Keep shift active for
+     * the whole hold so repeated Delete taps delete words and letters come out capitalised; restore
+     * when released. Caps lock takes precedence and is left untouched.
+     */
+    override fun onShiftHold(active: Boolean) {
+        shiftHeld = active
+        if (capsLock) return
+        shifted = active
+        syncShiftToView()
+    }
+
     private fun handlePrintable(ic: InputConnection, key: Key) {
         var c = key.code.toChar()
         if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
@@ -263,16 +276,16 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         syncShiftToView()
     }
 
-    /** One-shot shift is cleared after a character is typed; caps lock persists. */
+    /** One-shot shift is cleared after a character is typed; caps lock and a held Shift persist. */
     private fun consumeShift() {
-        if (shifted && !capsLock) {
+        if (shifted && !capsLock && !shiftHeld) {
             shifted = false
             syncShiftToView()
         }
     }
 
     private fun updateAutoCapitalize(info: EditorInfo?) {
-        if (capsLock || passwordField || layout != Layout.ALPHA) return
+        if (capsLock || shiftHeld || passwordField || layout != Layout.ALPHA) return
         info ?: return
         val capSentences = info.inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0
         val capWords = info.inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0
