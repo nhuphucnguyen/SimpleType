@@ -42,4 +42,11 @@
     <string name="model_installed">Installed ✓</string>
     <string name="model_downloading">Downloading… %1$d%%</string>
     <string name="model_download_failed">Download failed: %1$s</string>
+
+    <string name="size_title">Keyboard size</string>
+    <string name="size_intro">Make keys taller and add more space between them to type more accurately.</string>
+    <string name="size_row_height">Key height: %1$d dp</string>
+    <string name="size_gap_h">Horizontal gap: %1$d dp</string>
+    <string name="size_gap_v">Vertical gap: %1$d dp</string>
+    <string name="size_reset">Reset to default</string>
 </resources>

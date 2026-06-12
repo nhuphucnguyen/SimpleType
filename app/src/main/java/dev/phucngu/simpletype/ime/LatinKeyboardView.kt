@@ -59,10 +59,23 @@ class LatinKeyboardView @JvmOverloads constructor(
             invalidate()
         }
 
-    private val rowHeight = dp(R.dimen.kb_row_height)
-    private val keyGap = dp(R.dimen.kb_key_gap)
+    // Sizing is user-configurable (see KeyboardMetrics); start from the defaults and update via
+    // applyMetrics(). Horizontal and vertical gaps are tracked separately.
+    private var rowHeight = dpf(KeyboardMetrics.DEFAULT.rowHeightDp)
+    private var gapHorizontal = dpf(KeyboardMetrics.DEFAULT.gapHorizontalDp)
+    private var gapVertical = dpf(KeyboardMetrics.DEFAULT.gapVerticalDp)
     private val keyRadius = dp(R.dimen.kb_key_radius)
     private val vPad = dp(R.dimen.kb_vertical_padding)
+
+    /** Apply user sizing and re-layout. Called by the IME when the keyboard is (re)shown. */
+    fun applyMetrics(metrics: KeyboardMetrics) {
+        rowHeight = dpf(metrics.rowHeightDp)
+        gapHorizontal = dpf(metrics.gapHorizontalDp)
+        gapVertical = dpf(metrics.gapVerticalDp)
+        requestLayout()
+        layoutKeys()
+        invalidate()
+    }
 
     private val iconSize = dp(R.dimen.kb_icon_size)
     private val iconCache = HashMap<Int, Drawable>()
@@ -185,8 +198,9 @@ class LatinKeyboardView @JvmOverloads constructor(
             else -> keyColor
         }
 
-        val inset = keyGap / 2f
-        val rr = RectF(r.left + inset, r.top + inset, r.right - inset, r.bottom - inset)
+        val insetH = gapHorizontal / 2f
+        val insetV = gapVertical / 2f
+        val rr = RectF(r.left + insetH, r.top + insetV, r.right - insetH, r.bottom - insetV)
         canvas.drawRoundRect(rr, keyRadius, keyRadius, keyPaint)
 
         val cx = rr.centerX()

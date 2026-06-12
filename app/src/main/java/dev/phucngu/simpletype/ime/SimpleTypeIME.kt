@@ -86,12 +86,26 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         micButton = root.findViewById<ImageButton>(R.id.toolbar_mic).apply {
             setOnClickListener { handleMic() }
         }
-        // Keyboard menu is a placeholder until the suggestion/clipboard tools land.
-        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener { }
+        // Toolbar menu opens the app's settings screen (keyboard sizing, voice models, …).
+        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener { openSettings() }
 
         applyBottomInset(root.findViewById(R.id.keyboard_root))
+        applyKeyboardMetrics()
         applyLayout()
         return root
+    }
+
+    /** Load the user's keyboard sizing preferences and push them to the view. */
+    private fun applyKeyboardMetrics() {
+        val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
+        keyboardView.applyMetrics(KeyboardMetrics.load(prefs))
+    }
+
+    private fun openSettings() {
+        startActivity(
+            Intent(this, dev.phucngu.simpletype.ui.SettingsActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
     }
 
     /**
@@ -125,6 +139,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
         language = VoiceLanguage.valueOf(langTag ?: VoiceLanguage.ENGLISH.name)
 
+        applyKeyboardMetrics()
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)

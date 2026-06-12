@@ -1,0 +1,33 @@
+package dev.phucngu.simpletype.ime
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/** Pure clamping/defaults for the user-adjustable keyboard sizing. */
+class KeyboardMetricsTest {
+
+    @Test fun defaults_match_current_dimens() {
+        assertEquals(52f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
+        assertEquals(4f, KeyboardMetrics.DEFAULT.gapHorizontalDp, 0f)
+        assertEquals(4f, KeyboardMetrics.DEFAULT.gapVerticalDp, 0f)
+    }
+
+    @Test fun of_coerces_into_allowed_ranges() {
+        val tooSmall = KeyboardMetrics.of(rowHeightDp = 10f, gapHorizontalDp = 0f, gapVerticalDp = -5f)
+        assertEquals(KeyboardMetrics.ROW_HEIGHT_MIN, tooSmall.rowHeightDp, 0f)
+        assertEquals(KeyboardMetrics.GAP_MIN, tooSmall.gapHorizontalDp, 0f)
+        assertEquals(KeyboardMetrics.GAP_MIN, tooSmall.gapVerticalDp, 0f)
+
+        val tooBig = KeyboardMetrics.of(rowHeightDp = 999f, gapHorizontalDp = 999f, gapVerticalDp = 999f)
+        assertEquals(KeyboardMetrics.ROW_HEIGHT_MAX, tooBig.rowHeightDp, 0f)
+        assertEquals(KeyboardMetrics.GAP_MAX, tooBig.gapHorizontalDp, 0f)
+        assertEquals(KeyboardMetrics.GAP_MAX, tooBig.gapVerticalDp, 0f)
+    }
+
+    @Test fun of_keeps_in_range_values() {
+        val m = KeyboardMetrics.of(rowHeightDp = 60f, gapHorizontalDp = 6f, gapVerticalDp = 8f)
+        assertEquals(60f, m.rowHeightDp, 0f)
+        assertEquals(6f, m.gapHorizontalDp, 0f)
+        assertEquals(8f, m.gapVerticalDp, 0f)
+    }
+}
