@@ -38,7 +38,7 @@ import dev.phucngu.simpletype.voice.VoskAsrEngine
  * Touch typing (M1) is fully functional here; the voice path is wired but reports
  * "model not installed" until an ASR engine is bundled (M2/M3).
  */
-class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
+open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private lateinit var keyboardView: LatinKeyboardView
     private var statusView: TextView? = null
@@ -201,11 +201,11 @@ class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             }
             return
         }
-        // One-shot shift turns Delete into delete-word-backwards (caps lock keeps single-char).
+        // Shift turns Delete into delete-word-backwards (caps lock keeps single-char). Keep shift
+        // armed so repeated taps keep deleting words; consuming it here (or letting
+        // updateAutoCapitalize reset it) would make only the first tap a word-delete.
         if (shifted && !capsLock) {
             deleteWordBeforeCursor(ic)
-            consumeShift()
-            updateAutoCapitalize(currentInputEditorInfo)
             return
         }
         ic.deleteSurroundingText(1, 0)
