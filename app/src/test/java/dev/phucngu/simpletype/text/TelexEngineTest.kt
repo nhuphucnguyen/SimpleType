@@ -38,6 +38,12 @@ class TelexEngineTest {
     @Test fun triple_a_reverts_circumflex() = assertEquals("aa", type("aaa"))
     @Test fun z_removes_tone() = assertEquals("a", type("asz"))
 
+    // A second w after a lone w → ư escapes to a literal w (so English words are typeable).
+    @Test fun double_w_emits_literal_w() = assertEquals("w", type("ww"))
+    @Test fun double_w_lets_you_type_web() = assertEquals("web", type("wweb"))
+    // A real u+w horn still reverts to "uw", not "w".
+    @Test fun uww_reverts_to_uw() = assertEquals("uw", type("uww"))
+
     // ---- Whole words ----
 
     @Test fun tieng_viet() {

@@ -32,6 +32,13 @@ class TelexEngine(private val modernStyle: Boolean = true) {
 
     private val buffer = StringBuilder()
 
+    /**
+     * Buffer index of a `ư` that was produced by a *lone* `w` shorthand (i.e. `w` with no
+     * preceding vowel to horn), or -1. Valid only for the immediately following keystroke;
+     * lets a second `w` escape `ư` → literal `w` so English words can be typed (ww → w).
+     */
+    private var loneHornIndex = -1
+
     /** Current Vietnamese display form of the word being composed. */
     val composing: String
         get() = buffer.toString()
@@ -41,6 +48,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
 
     fun reset() {
         buffer.setLength(0)
+        loneHornIndex = -1
     }
 
     /**
@@ -52,6 +60,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (!c.isLetter()) return false
         val lower = c.lowercaseChar()
 
+        // The lone-w escape is only armed for the keystroke right after a lone w → ư.
+        val prevLoneHorn = loneHornIndex
+        loneHornIndex = -1
+
         val consumedAsModifier = when (lower) {
             's' -> applyTone(TONE_SAC, c)
             'f' -> applyTone(TONE_HUYEN, c)
@@ -61,7 +73,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             'z' -> removeTone()
             'a', 'e', 'o' -> applyCircumflex(lower, c)
             'd' -> applyDForDd(c)
-            'w' -> { applyHorn(c); true }
+            'w' -> { applyHorn(c, prevLoneHorn); true }
             else -> false
         }
         if (!consumedAsModifier) buffer.append(c)
@@ -105,11 +117,19 @@ class TelexEngine(private val modernStyle: Boolean = true) {
 
     // ---- Horn / breve via w: aw→ă, ow→ơ, uw→ư, lone w→ư ----
 
-    private fun applyHorn(typed: Char) {
+    private fun applyHorn(typed: Char, prevLoneHorn: Int) {
         if (buffer.isNotEmpty()) {
             val idx = buffer.length - 1
             val (base, tone) = decompose(buffer[idx])
             val baseLower = base.lowercaseChar()
+
+            // Second w right after a lone w → ư: escape to a literal w (so English words
+            // with w are typeable). Only the standalone ư is replaced, not a real u+w horn.
+            if (idx == prevLoneHorn && baseLower == 'ư') {
+                buffer[idx] = if (base.isUpperCase()) 'W' else 'w'
+                return
+            }
+
             val horn = when (baseLower) {
                 'a' -> 'ă'; 'o' -> 'ơ'; 'u' -> 'ư'; else -> null
             }
@@ -136,8 +156,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
                 return
             }
         }
-        // Lone w with nothing to attach to → ư (common Telex shorthand)
+        // Lone w with nothing to attach to → ư (common Telex shorthand). Arm the escape so
+        // a following w turns this ư into a literal w (ww → w).
         buffer.append(if (typed.isUpperCase()) 'Ư' else 'ư')
+        loneHornIndex = buffer.length - 1
     }
 
     // ---- d / dd → đ ----
