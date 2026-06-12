@@ -1,13 +1,18 @@
 package dev.phucngu.simpletype.ime
 
+import android.app.Activity
 import android.graphics.RectF
+import android.os.Looper
 import android.view.MotionEvent
-import androidx.test.core.app.ApplicationProvider
+import java.time.Duration
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -19,8 +24,6 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class KeyboardMultiTouchTest {
 
-    private val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
-
     private class RecordingListener : LatinKeyboardView.Listener {
         val events = mutableListOf<String>()
         override fun onKey(key: Key) { events += "key:${key.code}" }
@@ -29,8 +32,14 @@ class KeyboardMultiTouchTest {
         override fun onShiftHold(active: Boolean) { events += "hold:$active" }
     }
 
+    /**
+     * Build a view attached to a real (Robolectric) Activity window so that postDelayed work
+     * (long-press, key repeat) lands on the main looper and can be advanced with the test clock.
+     */
     private fun newView(): LatinKeyboardView {
-        val v = LatinKeyboardView(ctx)
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val v = LatinKeyboardView(activity)
+        activity.setContentView(v)
         v.measure(
             android.view.View.MeasureSpec.makeMeasureSpec(1080, android.view.View.MeasureSpec.EXACTLY),
             android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED),
@@ -86,6 +95,35 @@ class KeyboardMultiTouchTest {
         assertEquals("Shift must not toggle when used as a modifier; got ${listener.events}",
             0, listener.events.count { it == "key:${KeyCode.SHIFT}" })
         assertTrue("expected hold:false on release, got ${listener.events}", listener.events.contains("hold:false"))
+    }
+
+    @Test
+    fun comma_long_press_opens_emoji_and_suppresses_comma() {
+        val v = newView()
+        val listener = RecordingListener()
+        v.listener = listener
+        val comma = centerOf(v, ','.code)
+
+        event(v, MotionEvent.ACTION_DOWN, intArrayOf(0), arrayOf(comma))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(500)) // hold past long-press
+        event(v, MotionEvent.ACTION_UP, intArrayOf(0), arrayOf(comma))
+
+        assertTrue("expected emoji, got ${listener.events}", listener.events.contains("key:${KeyCode.EMOJI}"))
+        assertFalse("comma must be suppressed after long-press, got ${listener.events}",
+            listener.events.contains("key:${','.code}"))
+    }
+
+    @Test
+    fun comma_short_tap_inserts_comma() {
+        val v = newView()
+        val listener = RecordingListener()
+        v.listener = listener
+        val comma = centerOf(v, ','.code)
+
+        event(v, MotionEvent.ACTION_DOWN, intArrayOf(0), arrayOf(comma))
+        event(v, MotionEvent.ACTION_UP, intArrayOf(0), arrayOf(comma))
+
+        assertEquals(listOf("key:${','.code}"), listener.events)
     }
 
     @Test

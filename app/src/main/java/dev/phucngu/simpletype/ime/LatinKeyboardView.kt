@@ -124,6 +124,15 @@ class LatinKeyboardView @JvmOverloads constructor(
         }
     }
 
+    // Long-press (e.g. comma → emoji): if the finger stays on a key with a longPressCode past the
+    // threshold, fire that secondary action and suppress the key's normal tap on release.
+    private var longPressFired = false
+    private val longPressRunnable = Runnable {
+        val code = pressed?.key?.longPressCode ?: return@Runnable
+        longPressFired = true
+        listener?.onKey(Key(code, ""))
+    }
+
     // ---- Measurement & layout ----
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -309,11 +318,14 @@ class LatinKeyboardView @JvmOverloads constructor(
                 }
                 val p = placementAt(x, event.getY(ai))
                 if (p != pressed) {
-                    // Slid onto a different key: cancel any repeat and re-highlight.
+                    // Slid onto a different key: cancel any repeat/long-press and re-highlight.
                     removeCallbacks(repeatRunnable)
+                    removeCallbacks(longPressRunnable)
                     setPressed(p)
                     if (p != null && p.key.repeatable) {
                         postDelayed(repeatRunnable, REPEAT_INITIAL_DELAY_MS)
+                    } else if (p != null && p.key.longPressCode != null) {
+                        postDelayed(longPressRunnable, LONG_PRESS_MS)
                     }
                 }
             }
@@ -323,13 +335,14 @@ class LatinKeyboardView @JvmOverloads constructor(
                     shiftPointerId -> releaseShift()
                     activePointerId -> {
                         removeCallbacks(repeatRunnable)
+                        removeCallbacks(longPressRunnable)
                         val p = pressed
                         setPressed(null)
                         activePointerId = INVALID_POINTER
                         downOnSpace = false
                         swipeOffset = 0f
-                        // A swipe already switched language, so don't also commit a space.
-                        if (p != null && !p.key.repeatable && !swipeFired) {
+                        // Skip the tap if a swipe switched language or a long-press already fired.
+                        if (p != null && !p.key.repeatable && !swipeFired && !longPressFired) {
                             listener?.onKey(p.key)
                         }
                     }
@@ -337,6 +350,7 @@ class LatinKeyboardView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_CANCEL -> {
                 removeCallbacks(repeatRunnable)
+                removeCallbacks(longPressRunnable)
                 setPressed(null)
                 activePointerId = INVALID_POINTER
                 downOnSpace = false
@@ -359,6 +373,7 @@ class LatinKeyboardView @JvmOverloads constructor(
         swipeStartX = x
         swipeFired = false
         swipeOffset = 0f
+        longPressFired = false
         // Pressing any key while Shift is physically held turns Shift into a modifier (no toggle).
         if (shiftPointerId != INVALID_POINTER && !shiftUsedAsModifier) {
             shiftUsedAsModifier = true
@@ -367,6 +382,8 @@ class LatinKeyboardView @JvmOverloads constructor(
         if (p.key.repeatable) {
             listener?.onKeyRepeat(p.key)
             postDelayed(repeatRunnable, REPEAT_INITIAL_DELAY_MS)
+        } else if (p.key.longPressCode != null) {
+            postDelayed(longPressRunnable, LONG_PRESS_MS)
         }
     }
 
@@ -403,6 +420,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     companion object {
         private const val REPEAT_INITIAL_DELAY_MS = 400L
         private const val REPEAT_INTERVAL_MS = 55L
+        private const val LONG_PRESS_MS = 300L
         private const val INVALID_POINTER = -1
     }
 }

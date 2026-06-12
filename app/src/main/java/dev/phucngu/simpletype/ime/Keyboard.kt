@@ -35,6 +35,8 @@ data class Key(
     val repeatable: Boolean = false,
     /** When set, the key draws this monochrome icon instead of [label]. */
     @param:DrawableRes val iconRes: Int? = null,
+    /** Action fired on long-press (e.g. comma → emoji), or null if the key has no long-press. */
+    val longPressCode: Int? = null,
 ) {
     val isPrintable: Boolean get() = code >= 32
 }
@@ -70,13 +72,13 @@ object KeyboardLayouts {
         )
     )
 
-    // Mic now lives in the top toolbar and the globe in the bottom strip, so the bottom
-    // row mirrors Gboard: ?123 · , · emoji · space · . · enter.
+    // Mic lives in the top toolbar and the globe in the bottom strip, so the bottom row mirrors
+    // Gboard: ?123 · , · space · . · enter. Symmetric (2.5 weight each side) so space is centered;
+    // comma is a direct key and long-press opens the emoji panel.
     private fun bottomRow(): KeyboardRow = row(
         Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(','.code, ",", style = KeyStyle.SPECIAL),
-        Key(KeyCode.EMOJI, "Emoji", style = KeyStyle.SPECIAL, iconRes = R.drawable.ic_kb_emoji),
-        Key(KeyCode.SPACE, "", weight = 4f),
+        Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI),
+        Key(KeyCode.SPACE, "", weight = 5f),
         Key('.'.code, ".", style = KeyStyle.SPECIAL),
         Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
             iconRes = R.drawable.ic_kb_enter),
@@ -114,9 +116,8 @@ object KeyboardLayouts {
 
     private fun symbolsBottomRow(): KeyboardRow = row(
         Key(KeyCode.ALPHA, "ABC", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(','.code, ",", style = KeyStyle.SPECIAL),
-        Key(KeyCode.EMOJI, "Emoji", style = KeyStyle.SPECIAL, iconRes = R.drawable.ic_kb_emoji),
-        Key(KeyCode.SPACE, "", weight = 4f),
+        Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI),
+        Key(KeyCode.SPACE, "", weight = 5f),
         Key('.'.code, ".", style = KeyStyle.SPECIAL),
         Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
             iconRes = R.drawable.ic_kb_enter),
