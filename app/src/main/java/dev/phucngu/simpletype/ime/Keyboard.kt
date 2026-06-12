@@ -84,42 +84,52 @@ object KeyboardLayouts {
             iconRes = R.drawable.ic_kb_enter),
     )
 
-    /** Symbols page 1: numbers and common punctuation. */
+    /** Symbols page 1: numbers and common punctuation (Gboard's ?123 page). */
     fun symbols(): Keyboard = Keyboard(
         listOf(
             lettersRow("1234567890"),
-            KeyboardRow("@#\$_&-+()/".map { Key(it.code, it.toString()) }),
+            KeyboardRow("@#đ_&-+()/".map { Key(it.code, it.toString()) }),
             row(
                 Key(KeyCode.SYMBOLS_ALT, "=\\<", weight = 1.5f, style = KeyStyle.SPECIAL),
                 *"*\"':;!?".map { Key(it.code, it.toString()) }.toTypedArray(),
                 Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
                     repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ),
-            symbolsBottomRow(),
+            symbolsBottomRow(altPage = false),
         )
     )
 
-    /** Symbols page 2: maths / brackets / less common marks. */
+    /** Symbols page 2: maths / currency / brackets (Gboard's =\< page). */
     fun symbolsAlt(): Keyboard = Keyboard(
         listOf(
-            KeyboardRow("~`|•√π÷×¶∆".map { Key(it.code, it.toString()) }),
-            KeyboardRow("£¢€¥^°={}".map { Key(it.code, it.toString()) }),
+            KeyboardRow("~`|•√π÷×§∆".map { Key(it.code, it.toString()) }),
+            KeyboardRow("£€\$¢^°={}\\".map { Key(it.code, it.toString()) }),
             row(
                 Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
-                *"\\©®™%[]".map { Key(it.code, it.toString()) }.toTypedArray(),
+                *"%©®™✓[]".map { Key(it.code, it.toString()) }.toTypedArray(),
                 Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
                     repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ),
-            symbolsBottomRow(),
+            symbolsBottomRow(altPage = true),
         )
     )
 
-    private fun symbolsBottomRow(): KeyboardRow = row(
-        Key(KeyCode.ALPHA, "ABC", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI),
-        Key(KeyCode.SPACE, "", weight = 5f),
-        Key('.'.code, ".", style = KeyStyle.SPECIAL),
-        Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
-            iconRes = R.drawable.ic_kb_enter),
-    )
+    /**
+     * Shared bottom row for the symbol pages. Page 1 flanks the space with `,` (emoji on long-press)
+     * and `.`; page 2 swaps those for `<` and `>`, mirroring Gboard. Symmetric so space stays centered.
+     */
+    private fun symbolsBottomRow(altPage: Boolean): KeyboardRow {
+        val left = if (altPage) Key('<'.code, "<", style = KeyStyle.SPECIAL)
+        else Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI)
+        val right = if (altPage) Key('>'.code, ">", style = KeyStyle.SPECIAL)
+        else Key('.'.code, ".", style = KeyStyle.SPECIAL)
+        return row(
+            Key(KeyCode.ALPHA, "ABC", weight = 1.5f, style = KeyStyle.SPECIAL),
+            left,
+            Key(KeyCode.SPACE, "", weight = 5f),
+            right,
+            Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
+                iconRes = R.drawable.ic_kb_enter),
+        )
+    }
 }

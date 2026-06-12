@@ -1,6 +1,7 @@
 package dev.phucngu.simpletype.ime
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Geometry checks for the static layouts. Pure data, no Android runtime needed. */
@@ -24,5 +25,25 @@ class KeyboardLayoutTest {
         val row = KeyboardLayouts.qwerty().rows.last()
         val comma = row.keys.first { it.code == ','.code }
         assertEquals(KeyCode.EMOJI, comma.longPressCode)
+    }
+
+    private fun KeyboardRow.has(c: Char) = keys.any { it.code == c.code }
+    private fun KeyboardRow.hasCode(code: Int) = keys.any { it.code == code }
+
+    @Test fun symbols_page1_switches_to_page2() =
+        assertTrue("page 1 must have the =\\< switch", KeyboardLayouts.symbols().rows[2].hasCode(KeyCode.SYMBOLS_ALT))
+
+    @Test fun symbols_page2_switches_back() =
+        assertTrue("page 2 must have the ?123 switch", KeyboardLayouts.symbolsAlt().rows[2].hasCode(KeyCode.SYMBOLS))
+
+    @Test fun symbols_arrangement_matches_gboard() {
+        val p1 = KeyboardLayouts.symbols().rows
+        assertTrue("page1 row2 should hold đ", p1[1].has('đ'))
+        val p2 = KeyboardLayouts.symbolsAlt().rows
+        assertTrue("page2 row2 should hold \$", p2[1].has('$'))
+        assertTrue("page2 row2 should hold backslash", p2[1].has('\\'))
+        assertTrue("page2 row3 should hold ✓", p2[2].has('✓'))
+        assertTrue("page2 bottom should hold <", p2[3].has('<'))
+        assertTrue("page2 bottom should hold >", p2[3].has('>'))
     }
 }
