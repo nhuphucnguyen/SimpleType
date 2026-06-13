@@ -56,15 +56,33 @@ class TelexEngine(private val modernStyle: Boolean = true) {
      */
     private var retypeEscapeIndex = -1
 
-    /** Current Vietnamese display form of the word being composed. */
+    /**
+     * The raw letters typed since the last [reset]/[load], used for auto-restore. When the
+     * composed [buffer] cannot be a Vietnamese syllable yet carries diacritics (a transform
+     * misfired on an English word, e.g. `benefit` → `bềni`), [composing] returns these literal
+     * keystrokes instead so the English word types through.
+     */
+    private val raw = StringBuilder()
+
+    /**
+     * Current display form of the word being composed: the Vietnamese form while it is still a
+     * plausible syllable, otherwise the raw keystrokes when diacritics were applied in error.
+     * A buffer that is invalid but already plain ASCII (the escape rules produced the right
+     * literal, e.g. `web`) is returned as-is.
+     */
     val composing: String
-        get() = buffer.toString()
+        get() {
+            val s = buffer.toString()
+            if (buffer.isEmpty() || isVietnameseSyllable(s)) return s
+            return if (s.any { it.code > 127 }) raw.toString() else s
+        }
 
     val isEmpty: Boolean
         get() = buffer.isEmpty()
 
     fun reset() {
         buffer.setLength(0)
+        raw.setLength(0)
         loneHornIndex = -1
         codaEchoIndex = -1
         retypeEscapeIndex = -1
@@ -74,6 +92,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     fun load(word: String) {
         reset()
         buffer.append(word)
+        raw.append(word)
     }
 
     /**
@@ -84,6 +103,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     fun input(c: Char): Boolean {
         if (!c.isLetter()) return false
         val lower = c.lowercaseChar()
+        raw.append(c)
 
         // These escapes are only armed for the single keystroke that follows.
         val prevLoneHorn = loneHornIndex
@@ -139,6 +159,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     fun backspace(): Boolean {
         if (buffer.isEmpty()) return false
         buffer.deleteCharAt(buffer.length - 1)
+        if (raw.isNotEmpty()) raw.deleteCharAt(raw.length - 1)
         return true
     }
 
@@ -187,6 +208,30 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     }
 
     private fun isConsonant(c: Char): Boolean = c.isLetter() && !isVowel(c)
+
+    /**
+     * True if [s] could be (a prefix of) a single Vietnamese syllable: a valid initial-consonant
+     * onset, followed by one contiguous vowel nucleus, followed by a consonant coda. This rejects
+     * English words such as `grên` (invalid "gr" onset) and `bềni` (two vowel groups), which is the
+     * signal [composing] uses to fall back to the raw keystrokes. Coda content is not checked.
+     */
+    private fun isVietnameseSyllable(s: String): Boolean {
+        var i = 0
+        while (i < s.length && isConsonant(s[i])) i++
+        val onset = s.substring(0, i).lowercase()
+        if (onset.isNotEmpty() && onset !in ONSETS && ONSETS.none { it.startsWith(onset) }) return false
+        var inCoda = false
+        while (i < s.length) {
+            val c = s[i]
+            when {
+                isVowel(c) -> if (inCoda) return false // a second vowel group → not one syllable
+                isConsonant(c) -> inCoda = true
+                else -> return false
+            }
+            i++
+        }
+        return true
+    }
 
     /** The plain (lowercase) vowel underlying a circumflex char: â→a, ê→e, ô→o, else null. */
     private fun plainOfCircumflex(c: Char): Char? = when (decompose(c).first.lowercaseChar()) {
@@ -415,6 +460,12 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         private const val TONE_HOI = 3   // r
         private const val TONE_NGA = 4   // x
         private const val TONE_NANG = 5  // j
+
+        /** Valid Vietnamese initial-consonant onsets (lowercase), used by [isVietnameseSyllable]. */
+        private val ONSETS: Set<String> = setOf(
+            "b", "c", "ch", "d", "đ", "g", "gh", "gi", "h", "k", "kh", "l", "m", "n", "ng",
+            "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x",
+        )
 
         /** base (toneless) → 6 toned forms, ordered: none, sắc, huyền, hỏi, ngã, nặng. */
         private val TONE_TABLE: Map<Char, String> = mapOf(

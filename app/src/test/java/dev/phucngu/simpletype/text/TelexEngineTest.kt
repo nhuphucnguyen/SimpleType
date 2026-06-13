@@ -72,6 +72,21 @@ class TelexEngineTest {
     @Test fun retype_escape_adds_literal_vowel() = assertEquals("rece", type("recee"))
     @Test fun receipt_types_through() = assertEquals("receipt", type("receeipt"))
 
+    // ---- Auto-restore: when transforms make a non-Vietnamese syllable, show the typed letters ----
+
+    @Test fun autorestore_benefit() = assertEquals("benefit", type("benefit"))
+    @Test fun autorestore_green() = assertEquals("green", type("green"))
+    // Valid syllables are still shown in Vietnamese, even when the keys look English (beep → bếp).
+    @Test fun autorestore_keeps_valid_vietnamese() {
+        assertEquals("tiếng", type("tieesng"))
+        assertEquals("bếp", type("beeps"))
+    }
+    // The existing English escapes still win (plain-ASCII buffers are kept, not restored to raw).
+    @Test fun autorestore_keeps_escape_literals() {
+        assertEquals("web", type("wweb"))
+        assertEquals("receipt", type("receeipt"))
+    }
+
     @Test fun duong_with_tone() = assertEquals("đường", type("dduwowngf"))
 
     @Test fun qu_glide_skips_u() = assertEquals("quá", type("quas"))
