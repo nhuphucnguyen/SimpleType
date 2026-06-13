@@ -158,6 +158,33 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         telex.reset()
     }
 
+    /**
+     * The cursor sits at the end of the Telex composing region after each keystroke. If a selection
+     * change reports it anywhere else — the user tapped to move it, made a selection, or the
+     * composing span was dropped — finish the composing word so further typing starts fresh at the
+     * new cursor instead of rewriting the old word in place.
+     */
+    override fun onUpdateSelection(
+        oldSelStart: Int,
+        oldSelEnd: Int,
+        newSelStart: Int,
+        newSelEnd: Int,
+        candidatesStart: Int,
+        candidatesEnd: Int,
+    ) {
+        super.onUpdateSelection(
+            oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
+        )
+        if (telex.isEmpty) return
+        val cursorAtComposingEnd =
+            newSelStart == newSelEnd && candidatesEnd >= 0 && newSelEnd == candidatesEnd
+        if (!cursorAtComposingEnd) {
+            currentInputConnection?.finishComposingText()
+            telex.reset()
+            updateAutoCapitalize(currentInputEditorInfo)
+        }
+    }
+
     override fun onDestroy() {
         voice.release()
         engines.values.forEach { it.release() }
