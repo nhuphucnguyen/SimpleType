@@ -128,6 +128,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         }
         return when (baseLower) {
             lower -> { // e.g. a + a → â, keeping case and tone
+                // Reject when the buffer already holds an earlier, separated vowel group: that
+                // makes two nuclei, which is not a valid Vietnamese syllable (English words like
+                // "receeipt"). The doubled vowel stays literal instead of becoming ê/â/ô.
+                if (hasSeparatedEarlierVowel(idx)) return false
                 setCharPreserveCase(idx, circ, base.isUpperCase(), tone)
                 true
             }
@@ -154,12 +158,33 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         for (i in v + 1 until buffer.length) if (!isConsonant(buffer[i])) return false
         val (base, tone) = decompose(buffer[v])
         if (base.lowercaseChar() != lower) return false // must be a plain a/e/o matching the key
+        // Only retype when the circumflexed vowel + coda is a real Vietnamese rime. Otherwise an
+        // English word like "rec" + "e" would wrongly become "rêc" (ê never closes with a "c"
+        // coda); reject so the doubled vowel stays literal ("receeipt").
+        val coda = buffer.substring(v + 1).lowercase()
+        if (coda !in (CLOSED_RIME_CODAS[circ] ?: emptySet())) return false
         setCharPreserveCase(v, circ, base.isUpperCase(), tone)
         codaEchoIndex = v + 1
         return true
     }
 
     private fun isConsonant(c: Char): Boolean = c.isLetter() && !isVowel(c)
+
+    /**
+     * True if a vowel sits earlier in the buffer separated from [idx] by at least one consonant,
+     * i.e. the buffer already holds a second vowel group. A Vietnamese syllable has a single
+     * contiguous vowel nucleus, so this signals an English-like word ("receeipt") where the
+     * doubled vowel must stay literal rather than circumflexing into ê/â/ô.
+     */
+    private fun hasSeparatedEarlierVowel(idx: Int): Boolean {
+        var i = idx - 1
+        while (i >= 0 && isVowel(buffer[i])) i--   // skip the contiguous vowel run ending at idx
+        while (i >= 0) {                           // any vowel further back, past a consonant?
+            if (isVowel(buffer[i])) return true
+            i--
+        }
+        return false
+    }
 
     // ---- Horn / breve via w: aw→ă, ow→ơ, uw→ư, lone w→ư ----
 
@@ -383,6 +408,17 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         private const val TONE_HOI = 3   // r
         private const val TONE_NGA = 4   // x
         private const val TONE_NANG = 5  // j
+
+        /**
+         * Valid consonant codas for a circumflex vowel in a closed Vietnamese rime. Used to
+         * gate the rime-retype shortcut (trong → trông) so English words (rec → rêc) are not
+         * circumflexed: ô/â close with c/m/n/ng/p/t, but ê closes with ch/m/n/nh/p/t (never c/ng).
+         */
+        private val CLOSED_RIME_CODAS: Map<Char, Set<String>> = mapOf(
+            'â' to setOf("c", "m", "n", "ng", "p", "t"),
+            'ê' to setOf("ch", "m", "n", "nh", "p", "t"),
+            'ô' to setOf("c", "m", "n", "ng", "p", "t"),
+        )
 
         /** base (toneless) → 6 toned forms, ordered: none, sắc, huyền, hỏi, ngã, nặng. */
         private val TONE_TABLE: Map<Char, String> = mapOf(
