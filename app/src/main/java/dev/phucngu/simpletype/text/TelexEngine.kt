@@ -322,8 +322,22 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         return when (prev.lowercaseChar()) {
             'd' -> { buffer[idx] = if (prev.isUpperCase()) 'Đ' else 'đ'; true }
             'đ' -> { buffer[idx] = if (prev.isUpperCase()) 'D' else 'd'; buffer.append(typed); true }
-            else -> false
+            else -> dbarOnsetAcrossCoda() // "dương" + d → "đương"
         }
+    }
+
+    /**
+     * Bar the `d` onset when a `d` is typed after the coda, so it need not be doubled up front
+     * ("dương" + d → "đương"). Fires only when the last char is a coda consonant — with no coda the
+     * trailing d stays a literal, leaving English words like "dad" intact. Returns true if it barred.
+     */
+    private fun dbarOnsetAcrossCoda(): Boolean {
+        if (!isConsonant(buffer.last())) return false // only once a coda has been typed
+        val first = buffer[0]
+        if (first.lowercaseChar() != 'd') return false // needs a plain d onset to bar
+        if (buffer.none { isVowel(it) }) return false  // must be a real syllable, not "d…" alone
+        buffer[0] = if (first.isUpperCase()) 'Đ' else 'đ'
+        return true
     }
 
     // ---- Tones ----

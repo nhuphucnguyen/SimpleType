@@ -66,6 +66,12 @@ class TelexEngineTest {
     @Test fun horn_after_coda_lang() = assertEquals("lăng", type("langw"))
     @Test fun horn_after_coda_qu_glide() = assertEquals("quơn", type("quonw"))
 
+    // A 'd' typed after the coda reaches back to a 'd' onset: "dương" + d → "đương".
+    @Test fun dbar_after_coda_duong() = assertEquals("đương", type("duongwd"))
+    @Test fun dbar_after_coda_dong() = assertEquals("đông", type("dongod"))
+    // ...but with no coda the trailing d is a literal, so English "dad" survives.
+    @Test fun dbar_after_coda_keeps_dad() = assertEquals("dad", type("dad"))
+
     // Re-typing a closed rime circumflexes the earlier vowel and absorbs the repeated coda:
     // "trong" + "ong" + tone → "trống" (the doubled o acts like oo→ô across the "ng").
     @Test fun retype_rime_circumflex_trong() = assertEquals("trống", type("trongongs"))
