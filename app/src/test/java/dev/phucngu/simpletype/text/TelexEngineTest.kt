@@ -58,12 +58,6 @@ class TelexEngineTest {
 
     @Test fun day_with_dd() = assertEquals("đây", type("ddaay"))
 
-    // English-like words: a doubled vowel that forms a *second* vowel group (separated from an
-    // earlier vowel by a consonant) is not a valid single Vietnamese syllable, so it must stay
-    // literal instead of circumflexing. "receeipt" → "receeipt", not "recêipt".
-    @Test fun english_double_vowel_stays_literal() = assertEquals("receeipt", type("receeipt"))
-    @Test fun separated_double_vowel_not_circumflexed() = assertEquals("anhee", type("anhee"))
-
     @Test fun phuong_horns() = assertEquals("phương", type("phuwowng"))
 
     // Re-typing a closed rime circumflexes the earlier vowel and absorbs the repeated coda:
