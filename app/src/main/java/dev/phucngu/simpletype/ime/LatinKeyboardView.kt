@@ -164,10 +164,12 @@ class LatinKeyboardView @JvmOverloads constructor(
         val usable = width.toFloat()
         var top = vPad
         for (rowObj in keyboard.rows) {
-            val totalWeight = rowObj.keys.sumOf { it.weight.toDouble() }.toFloat()
-            var left = 0f
+            // Side padding counts toward the row's weight so indented rows keep the same unit width.
+            val totalWeight = rowObj.keys.sumOf { it.weight.toDouble() }.toFloat() + rowObj.sideWeight * 2f
+            val unit = usable / totalWeight
+            var left = rowObj.sideWeight * unit
             for (key in rowObj.keys) {
-                val keyWidth = usable * (key.weight / totalWeight)
+                val keyWidth = unit * key.weight
                 placements.add(Placement(key, RectF(left, top, left + keyWidth, top + rowHeight)))
                 left += keyWidth
             }

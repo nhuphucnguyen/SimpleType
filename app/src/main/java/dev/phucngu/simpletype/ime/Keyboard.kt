@@ -41,7 +41,12 @@ data class Key(
     val isPrintable: Boolean get() = code >= 32
 }
 
-data class KeyboardRow(val keys: List<Key>)
+/**
+ * A row of keys. [sideWeight] is empty padding (in key-weight units) added to each end so a row
+ * with fewer keys can be indented to keep every key the same width as the full rows (e.g. the
+ * 9-key asdf row is indented by half a key each side to match the 10-key qwerty row).
+ */
+data class KeyboardRow(val keys: List<Key>, val sideWeight: Float = 0f)
 
 data class Keyboard(val rows: List<KeyboardRow>)
 
@@ -51,15 +56,15 @@ object KeyboardLayouts {
     private fun row(vararg keys: Key) = KeyboardRow(keys.toList())
     private fun letter(c: Char) = Key(c.code, c.toString())
 
-    private fun lettersRow(chars: String): KeyboardRow =
-        KeyboardRow(chars.map { letter(it) })
+    private fun lettersRow(chars: String, sideWeight: Float = 0f): KeyboardRow =
+        KeyboardRow(chars.map { letter(it) }, sideWeight)
 
     /** Standard QWERTY with shift, delete, symbol toggle, globe, mic, space and enter. */
     fun qwerty(): Keyboard = Keyboard(
         listOf(
             lettersRow("qwertyuiop"),
-            // Indent the middle row by giving the edges half-gap padding via weights.
-            lettersRow("asdfghjkl"),
+            // Indent the 9-key middle row by half a key each side so its keys match the 10-key rows.
+            lettersRow("asdfghjkl", sideWeight = 0.5f),
             row(
                 Key(KeyCode.SHIFT, "Shift", weight = 1.5f, style = KeyStyle.SPECIAL,
                     iconRes = R.drawable.ic_kb_shift),
