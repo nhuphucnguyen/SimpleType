@@ -175,13 +175,35 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
-        if (telex.isEmpty) return
+        val ic = currentInputConnection ?: return
         val cursorAtComposingEnd =
             newSelStart == newSelEnd && candidatesEnd >= 0 && newSelEnd == candidatesEnd
+
         if (!cursorAtComposingEnd) {
-            currentInputConnection?.finishComposingText()
-            telex.reset()
+            val wasComposing = !telex.isEmpty
+            if (wasComposing) {
+                ic.finishComposingText()
+                telex.reset()
+            }
+            // Pick up context if the cursor moved to the end of a word.
+            if (language == VoiceLanguage.VIETNAMESE && !passwordField && layout == Layout.ALPHA) {
+                pickupTelexContext(ic, newSelStart)
+            }
             updateAutoCapitalize(currentInputEditorInfo)
+        }
+    }
+
+    private fun pickupTelexContext(ic: InputConnection, cursor: Int) {
+        val before = ic.getTextBeforeCursor(WORD_DELETE_LOOKBEHIND, 0) ?: ""
+        if (before.isEmpty() || before.last().isWhitespace()) return
+
+        var i = before.length
+        while (i > 0 && !before[i - 1].isWhitespace()) i--
+        val word = before.substring(i)
+
+        if (word.all { it.isLetter() }) {
+            telex.load(word)
+            ic.setComposingRegion(cursor - word.length, cursor)
         }
     }
 

@@ -60,6 +60,12 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         codaEchoIndex = -1
     }
 
+    /** Load an existing word into the engine, e.g. when picking up context after a cursor move. */
+    fun load(word: String) {
+        reset()
+        buffer.append(word)
+    }
+
     /**
      * Feed one character. Returns true if the engine consumed/handled it (it always
      * does for word characters). Non-word characters should be committed by the caller
