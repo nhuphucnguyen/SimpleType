@@ -44,6 +44,10 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private var statusView: TextView? = null
     private var micButton: ImageButton? = null
 
+    // Root padded for the nav-bar inset; bottomPaddingPx is the user-adjustable lift above it.
+    private var keyboardRoot: View? = null
+    private var bottomPaddingPx = 0
+
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
 
@@ -95,10 +99,13 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         return root
     }
 
-    /** Load the user's keyboard sizing preferences and push them to the view. */
+    /** Load the user's keyboard sizing preferences and push them to the view and bottom padding. */
     private fun applyKeyboardMetrics() {
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
-        keyboardView.applyMetrics(KeyboardMetrics.load(prefs))
+        val metrics = KeyboardMetrics.load(prefs)
+        keyboardView.applyMetrics(metrics)
+        bottomPaddingPx = (metrics.bottomPaddingDp * resources.displayMetrics.density).toInt()
+        keyboardRoot?.let { ViewCompat.requestApplyInsets(it) }
     }
 
     private fun openSettings() {
@@ -110,14 +117,14 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     /**
      * Keep the bottom row clear of the navigation bar and rounded screen corners: pad the
-     * keyboard's bottom by the nav-bar inset plus a fixed gap (as Gboard does), so corner
-     * keys are never clipped by the display curve or overlapped by the gesture bar.
+     * keyboard's bottom by the nav-bar inset plus a user-adjustable gap, so corner keys are never
+     * clipped by the display curve or gesture bar, and the keys can be lifted into thumb reach.
      */
     private fun applyBottomInset(root: View) {
-        val base = resources.getDimensionPixelSize(R.dimen.kb_bottom_padding)
+        keyboardRoot = root
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
             val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            v.updatePadding(bottom = base + navBottom)
+            v.updatePadding(bottom = bottomPaddingPx + navBottom)
             insets
         }
         ViewCompat.requestApplyInsets(root)

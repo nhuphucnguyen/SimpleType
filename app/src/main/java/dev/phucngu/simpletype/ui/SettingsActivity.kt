@@ -58,9 +58,11 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var lblRow: TextView
     private lateinit var lblGapH: TextView
     private lateinit var lblGapV: TextView
+    private lateinit var lblBottom: TextView
     private lateinit var seekRow: SeekBar
     private lateinit var seekGapH: SeekBar
     private lateinit var seekGapV: SeekBar
+    private lateinit var seekBottom: SeekBar
 
     private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
 
@@ -70,13 +72,16 @@ class SettingsActivity : AppCompatActivity() {
         lblRow = findViewById(R.id.lbl_row_height)
         lblGapH = findViewById(R.id.lbl_gap_h)
         lblGapV = findViewById(R.id.lbl_gap_v)
+        lblBottom = findViewById(R.id.lbl_bottom_pad)
         seekRow = findViewById(R.id.seek_row_height)
         seekGapH = findViewById(R.id.seek_gap_h)
         seekGapV = findViewById(R.id.seek_gap_v)
+        seekBottom = findViewById(R.id.seek_bottom_pad)
 
         seekRow.max = (KeyboardMetrics.ROW_HEIGHT_MAX - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
         seekGapH.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
         seekGapV.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
+        seekBottom.max = (KeyboardMetrics.BOTTOM_PAD_MAX - KeyboardMetrics.BOTTOM_PAD_MIN).toInt()
 
         seekToMetrics(KeyboardMetrics.load(prefs()))
         applySizeFromSeekBars()
@@ -89,6 +94,7 @@ class SettingsActivity : AppCompatActivity() {
         seekRow.setOnSeekBarChangeListener(onChange)
         seekGapH.setOnSeekBarChangeListener(onChange)
         seekGapV.setOnSeekBarChangeListener(onChange)
+        seekBottom.setOnSeekBarChangeListener(onChange)
 
         findViewById<Button>(R.id.btn_size_reset).setOnClickListener {
             seekToMetrics(KeyboardMetrics.DEFAULT)
@@ -100,6 +106,7 @@ class SettingsActivity : AppCompatActivity() {
         seekRow.progress = (m.rowHeightDp - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
         seekGapH.progress = (m.gapHorizontalDp - KeyboardMetrics.GAP_MIN).toInt()
         seekGapV.progress = (m.gapVerticalDp - KeyboardMetrics.GAP_MIN).toInt()
+        seekBottom.progress = (m.bottomPaddingDp - KeyboardMetrics.BOTTOM_PAD_MIN).toInt()
     }
 
     private fun applySizeFromSeekBars() {
@@ -107,10 +114,12 @@ class SettingsActivity : AppCompatActivity() {
             KeyboardMetrics.ROW_HEIGHT_MIN + seekRow.progress,
             KeyboardMetrics.GAP_MIN + seekGapH.progress,
             KeyboardMetrics.GAP_MIN + seekGapV.progress,
+            KeyboardMetrics.BOTTOM_PAD_MIN + seekBottom.progress,
         )
         lblRow.text = getString(R.string.size_row_height, m.rowHeightDp.toInt())
         lblGapH.text = getString(R.string.size_gap_h, m.gapHorizontalDp.toInt())
         lblGapV.text = getString(R.string.size_gap_v, m.gapVerticalDp.toInt())
+        lblBottom.text = getString(R.string.size_bottom_pad, m.bottomPaddingDp.toInt())
         sizePreview.applyMetrics(m)
         KeyboardMetrics.save(prefs(), m)
     }

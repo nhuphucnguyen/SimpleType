@@ -10,18 +10,21 @@ class KeyboardMetricsTest {
         assertEquals(52f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
         assertEquals(4f, KeyboardMetrics.DEFAULT.gapHorizontalDp, 0f)
         assertEquals(4f, KeyboardMetrics.DEFAULT.gapVerticalDp, 0f)
+        assertEquals(8f, KeyboardMetrics.DEFAULT.bottomPaddingDp, 0f)
     }
 
     @Test fun of_coerces_into_allowed_ranges() {
-        val tooSmall = KeyboardMetrics.of(rowHeightDp = 10f, gapHorizontalDp = 0f, gapVerticalDp = -5f)
+        val tooSmall = KeyboardMetrics.of(rowHeightDp = 10f, gapHorizontalDp = 0f, gapVerticalDp = -5f, bottomPaddingDp = -9f)
         assertEquals(KeyboardMetrics.ROW_HEIGHT_MIN, tooSmall.rowHeightDp, 0f)
         assertEquals(KeyboardMetrics.GAP_MIN, tooSmall.gapHorizontalDp, 0f)
         assertEquals(KeyboardMetrics.GAP_MIN, tooSmall.gapVerticalDp, 0f)
+        assertEquals(KeyboardMetrics.BOTTOM_PAD_MIN, tooSmall.bottomPaddingDp, 0f)
 
-        val tooBig = KeyboardMetrics.of(rowHeightDp = 999f, gapHorizontalDp = 999f, gapVerticalDp = 999f)
+        val tooBig = KeyboardMetrics.of(rowHeightDp = 999f, gapHorizontalDp = 999f, gapVerticalDp = 999f, bottomPaddingDp = 999f)
         assertEquals(KeyboardMetrics.ROW_HEIGHT_MAX, tooBig.rowHeightDp, 0f)
         assertEquals(KeyboardMetrics.GAP_MAX, tooBig.gapHorizontalDp, 0f)
         assertEquals(KeyboardMetrics.GAP_MAX, tooBig.gapVerticalDp, 0f)
+        assertEquals(KeyboardMetrics.BOTTOM_PAD_MAX, tooBig.bottomPaddingDp, 0f)
     }
 
     @Test fun of_keeps_in_range_values() {
