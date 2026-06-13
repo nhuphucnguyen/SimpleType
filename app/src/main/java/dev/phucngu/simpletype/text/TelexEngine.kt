@@ -278,11 +278,39 @@ class TelexEngine(private val modernStyle: Boolean = true) {
                 buffer.append(typed)
                 return
             }
+
+            // Horn the nucleus even after the coda was typed: "duong" + w → "dương", "lang" + w
+            // → "lăng". Fires when the last char is a coda consonant; finds the nucleus vowel and
+            // applies the same a→ă / o→ơ / u→ư mapping, including the "uo" → "ươ" digraph.
+            if (hornNucleusAcrossCoda()) return
         }
         // Lone w with nothing to attach to → ư (common Telex shorthand). Arm the escape so
         // a following w turns this ư into a literal w (ww → w).
         buffer.append(if (typed.isUpperCase()) 'Ư' else 'ư')
         loneHornIndex = buffer.length - 1
+    }
+
+    /**
+     * Apply the horn/breve to the syllable's nucleus when the last typed char is a coda consonant,
+     * so the `w` need not sit right after the vowel ("duong" + w → "dương"). Returns true if it
+     * horned a vowel. Mirrors the inline `aw/ow/uw` mapping and the "uo" → "ươ" digraph rule.
+     */
+    private fun hornNucleusAcrossCoda(): Boolean {
+        if (!isConsonant(buffer.last())) return false // only when a coda has already been typed
+        val v = buffer.indices.lastOrNull { isVowel(buffer[it]) } ?: return false
+        if ((v + 1 until buffer.length).any { !isConsonant(buffer[it]) }) return false
+        val (base, tone) = decompose(buffer[v])
+        val horn = when (base.lowercaseChar()) { 'a' -> 'ă'; 'o' -> 'ơ'; 'u' -> 'ư'; else -> return false }
+        // "uo" + coda + w → "ươ": horn both vowels, unless the u is the "qu" glide ("quon" → "quơn").
+        if (base.lowercaseChar() == 'o' && v >= 1) {
+            val (prevBase, prevTone) = decompose(buffer[v - 1])
+            val afterQu = v >= 2 && buffer[v - 2].lowercaseChar() == 'q'
+            if (prevBase.lowercaseChar() == 'u' && !afterQu) {
+                setCharPreserveCase(v - 1, 'ư', prevBase.isUpperCase(), prevTone)
+            }
+        }
+        setCharPreserveCase(v, horn, base.isUpperCase(), tone)
+        return true
     }
 
     // ---- d / dd → đ ----

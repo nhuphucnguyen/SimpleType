@@ -60,6 +60,12 @@ class TelexEngineTest {
 
     @Test fun phuong_horns() = assertEquals("phương", type("phuwowng"))
 
+    // A horn key typed after the coda reaches back to the nucleus: "duong" + w → "dương".
+    @Test fun horn_after_coda_duong() = assertEquals("dương", type("duongw"))
+    @Test fun horn_after_coda_huong() = assertEquals("hương", type("huongw"))
+    @Test fun horn_after_coda_lang() = assertEquals("lăng", type("langw"))
+    @Test fun horn_after_coda_qu_glide() = assertEquals("quơn", type("quonw"))
+
     // Re-typing a closed rime circumflexes the earlier vowel and absorbs the repeated coda:
     // "trong" + "ong" + tone → "trống" (the doubled o acts like oo→ô across the "ng").
     @Test fun retype_rime_circumflex_trong() = assertEquals("trống", type("trongongs"))
