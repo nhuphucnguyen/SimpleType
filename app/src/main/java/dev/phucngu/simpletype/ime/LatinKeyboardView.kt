@@ -51,6 +51,13 @@ class LatinKeyboardView @JvmOverloads constructor(
     var capsLock: Boolean = false
         set(value) { field = value; invalidate() }
 
+    /**
+     * When true, keys carrying a [Key.numberHint] (the top QWERTY row) draw a small digit in their
+     * corner and a downward swipe on the key commits that digit instead of the letter.
+     */
+    var showNumberRow: Boolean = true
+        set(value) { field = value; invalidate() }
+
     var keyboard: Keyboard = KeyboardLayouts.qwerty()
         set(value) {
             field = value
@@ -100,6 +107,13 @@ class LatinKeyboardView @JvmOverloads constructor(
         color = color(R.color.kb_key_special_text)
         textSize = dp(R.dimen.kb_key_label_text_size)
     }
+    // Small muted digit drawn in the top corner of number-row keys (q→1 … p→0).
+    private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        color = color(R.color.kb_key_special_text)
+        textSize = dp(R.dimen.kb_key_text_size) * 0.5f
+        alpha = 170
+    }
     // Faint chevrons flanking the space-bar label, hinting the swipe-to-switch-language gesture.
     private val chevronPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -119,8 +133,14 @@ class LatinKeyboardView @JvmOverloads constructor(
     // switches language instead of committing a space.
     private var downOnSpace = false
     private var swipeStartX = 0f
+    private var swipeStartY = 0f
     private var swipeFired = false
     private var swipeOffset = 0f
+
+    // Swipe-down-for-number: a far-enough downward drag on a number-row key commits its digit and
+    // suppresses the letter that would otherwise be typed on release.
+    private var numberSwipeFired = false
+    private val numberSwipeThreshold = dpf(22f)
 
     // Multi-touch: Shift can be held with one finger while another finger taps keys. The Shift
     // pointer is tracked separately from the single "active" pointer that drives normal keys.
@@ -236,6 +256,15 @@ class LatinKeyboardView @JvmOverloads constructor(
                 canvas.drawText(displayLabel(key), cx, cy, textPaint)
             }
         }
+
+        // Number-row hint: a small digit tucked into the top-right corner, swipe-down to type it.
+        val hint = key.numberHint
+        if (showNumberRow && hint != null) {
+            val pad = dpf(5f)
+            val hx = rr.right - pad - hintPaint.textSize / 2f
+            val hy = rr.top + pad - hintPaint.fontMetrics.ascent
+            canvas.drawText(hint.toString(), hx, hy, hintPaint)
+        }
     }
 
     /** Vertically-centered text baseline within [rr] for the given paint. */
@@ -314,7 +343,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                     // A normal key: only one active pointer drives taps/repeat/space-swipe.
                     activePointerId == INVALID_POINTER -> {
                         activePointerId = id
-                        beginActiveKey(p, x)
+                        beginActiveKey(p, x, y)
                     }
                 }
             }
@@ -332,7 +361,21 @@ class LatinKeyboardView @JvmOverloads constructor(
                     invalidate()
                     return true
                 }
-                val p = placementAt(x, event.getY(ai))
+                val y = event.getY(ai)
+                // Swipe down on a number-row key commits its digit (once) and locks out the letter.
+                val hint = pressed?.key?.numberHint
+                if (showNumberRow && hint != null && !numberSwipeFired && !swipeFired) {
+                    val dy = y - swipeStartY
+                    if (dy >= numberSwipeThreshold && dy >= kotlin.math.abs(x - swipeStartX)) {
+                        numberSwipeFired = true
+                        removeCallbacks(repeatRunnable)
+                        removeCallbacks(longPressRunnable)
+                        listener?.onKey(Key(hint.code, hint.toString()))
+                        return true
+                    }
+                }
+                if (numberSwipeFired) return true
+                val p = placementAt(x, y)
                 if (p != pressed) {
                     // Slid onto a different key: cancel any repeat/long-press and re-highlight.
                     removeCallbacks(repeatRunnable)
@@ -357,8 +400,10 @@ class LatinKeyboardView @JvmOverloads constructor(
                         activePointerId = INVALID_POINTER
                         downOnSpace = false
                         swipeOffset = 0f
-                        // Skip the tap if a swipe switched language or a long-press already fired.
-                        if (p != null && !p.key.repeatable && !swipeFired && !longPressFired) {
+                        val numberFired = numberSwipeFired
+                        numberSwipeFired = false
+                        // Skip the tap if a swipe (language or number) or a long-press already fired.
+                        if (p != null && !p.key.repeatable && !swipeFired && !longPressFired && !numberFired) {
                             listener?.onKey(p.key)
                         }
                     }
@@ -371,6 +416,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                 activePointerId = INVALID_POINTER
                 downOnSpace = false
                 swipeOffset = 0f
+                numberSwipeFired = false
                 if (shiftPointerId != INVALID_POINTER) {
                     if (shiftUsedAsModifier) listener?.onShiftHold(false)
                     shiftPointerId = INVALID_POINTER
@@ -383,12 +429,14 @@ class LatinKeyboardView @JvmOverloads constructor(
     }
 
     /** Start tracking a normal key under the active pointer. Arms Shift-hold if Shift is down. */
-    private fun beginActiveKey(p: Placement, x: Float) {
+    private fun beginActiveKey(p: Placement, x: Float, y: Float) {
         setPressed(p)
         downOnSpace = p.key.code == KeyCode.SPACE
         swipeStartX = x
+        swipeStartY = y
         swipeFired = false
         swipeOffset = 0f
+        numberSwipeFired = false
         longPressFired = false
         // Pressing any key while Shift is physically held turns Shift into a modifier (no toggle).
         if (shiftPointerId != INVALID_POINTER && !shiftUsedAsModifier) {

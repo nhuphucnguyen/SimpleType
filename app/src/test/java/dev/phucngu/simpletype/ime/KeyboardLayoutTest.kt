@@ -36,6 +36,21 @@ class KeyboardLayoutTest {
     @Test fun symbols_page2_switches_back() =
         assertTrue("page 2 must have the ?123 switch", KeyboardLayouts.symbolsAlt().rows[2].hasCode(KeyCode.SYMBOLS))
 
+    @Test fun top_row_doubles_as_number_row() {
+        val top = KeyboardLayouts.qwerty().rows.first()
+        val hints = top.keys.map { it.numberHint }
+        assertEquals("qwertyuiop must carry number hints 1234567890",
+            "1234567890".toList(), hints)
+    }
+
+    @Test fun only_alpha_top_row_carries_number_hints() {
+        // Other rows (and the symbol layouts, which already are digits) get no swipe-down hint.
+        assertTrue("non-top rows must not carry number hints",
+            KeyboardLayouts.qwerty().rows.drop(1).all { row -> row.keys.all { it.numberHint == null } })
+        assertTrue("symbol pages must not carry number hints",
+            KeyboardLayouts.symbols().rows.all { row -> row.keys.all { it.numberHint == null } })
+    }
+
     @Test fun symbols_arrangement_matches_gboard() {
         val p1 = KeyboardLayouts.symbols().rows
         assertTrue("page1 row2 should hold đ", p1[1].has('đ'))

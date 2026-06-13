@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboardView
@@ -63,6 +64,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var seekGapH: SeekBar
     private lateinit var seekGapV: SeekBar
     private lateinit var seekBottom: SeekBar
+    private lateinit var switchNumberRow: SwitchCompat
 
     private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
 
@@ -77,6 +79,7 @@ class SettingsActivity : AppCompatActivity() {
         seekGapH = findViewById(R.id.seek_gap_h)
         seekGapV = findViewById(R.id.seek_gap_v)
         seekBottom = findViewById(R.id.seek_bottom_pad)
+        switchNumberRow = findViewById(R.id.switch_number_row)
 
         seekRow.max = (KeyboardMetrics.ROW_HEIGHT_MAX - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
         seekGapH.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
@@ -95,6 +98,7 @@ class SettingsActivity : AppCompatActivity() {
         seekGapH.setOnSeekBarChangeListener(onChange)
         seekGapV.setOnSeekBarChangeListener(onChange)
         seekBottom.setOnSeekBarChangeListener(onChange)
+        switchNumberRow.setOnCheckedChangeListener { _, _ -> applySizeFromSeekBars() }
 
         findViewById<Button>(R.id.btn_size_reset).setOnClickListener {
             seekToMetrics(KeyboardMetrics.DEFAULT)
@@ -107,6 +111,7 @@ class SettingsActivity : AppCompatActivity() {
         seekGapH.progress = (m.gapHorizontalDp - KeyboardMetrics.GAP_MIN).toInt()
         seekGapV.progress = (m.gapVerticalDp - KeyboardMetrics.GAP_MIN).toInt()
         seekBottom.progress = (m.bottomPaddingDp - KeyboardMetrics.BOTTOM_PAD_MIN).toInt()
+        switchNumberRow.isChecked = m.showNumberRow
     }
 
     private fun applySizeFromSeekBars() {
@@ -115,12 +120,14 @@ class SettingsActivity : AppCompatActivity() {
             KeyboardMetrics.GAP_MIN + seekGapH.progress,
             KeyboardMetrics.GAP_MIN + seekGapV.progress,
             KeyboardMetrics.BOTTOM_PAD_MIN + seekBottom.progress,
+            switchNumberRow.isChecked,
         )
         lblRow.text = getString(R.string.size_row_height, m.rowHeightDp.toInt())
         lblGapH.text = getString(R.string.size_gap_h, m.gapHorizontalDp.toInt())
         lblGapV.text = getString(R.string.size_gap_v, m.gapVerticalDp.toInt())
         lblBottom.text = getString(R.string.size_bottom_pad, m.bottomPaddingDp.toInt())
         sizePreview.applyMetrics(m)
+        sizePreview.showNumberRow = m.showNumberRow
         KeyboardMetrics.save(prefs(), m)
     }
 

@@ -37,6 +37,11 @@ data class Key(
     @param:DrawableRes val iconRes: Int? = null,
     /** Action fired on long-press (e.g. comma → emoji), or null if the key has no long-press. */
     val longPressCode: Int? = null,
+    /**
+     * Digit shown small in the key's top corner and committed on a downward swipe (the top
+     * QWERTY row doubles as a number row: q→1 … p→0). Null when the key has no number shortcut.
+     */
+    val numberHint: Char? = null,
 ) {
     val isPrintable: Boolean get() = code >= 32
 }
@@ -59,10 +64,14 @@ object KeyboardLayouts {
     private fun lettersRow(chars: String, sideWeight: Float = 0f): KeyboardRow =
         KeyboardRow(chars.map { letter(it) }, sideWeight)
 
+    /** Top letter row whose ten keys double as a number row (q→1 … p→0) via corner hint + swipe-down. */
+    private fun numberHintRow(chars: String, digits: String): KeyboardRow =
+        KeyboardRow(chars.mapIndexed { i, c -> letter(c).copy(numberHint = digits[i]) })
+
     /** Standard QWERTY with shift, delete, symbol toggle, globe, mic, space and enter. */
     fun qwerty(): Keyboard = Keyboard(
         listOf(
-            lettersRow("qwertyuiop"),
+            numberHintRow("qwertyuiop", "1234567890"),
             // Indent the 9-key middle row by half a key each side so its keys match the 10-key rows.
             lettersRow("asdfghjkl", sideWeight = 0.5f),
             row(

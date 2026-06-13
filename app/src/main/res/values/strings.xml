@@ -50,4 +50,6 @@
     <string name="size_gap_v">Vertical gap: %1$d dp</string>
     <string name="size_bottom_pad">Lift from bottom: %1$d dp</string>
     <string name="size_reset">Reset to default</string>
+    <string name="size_number_row">Number hints on top row</string>
+    <string name="size_number_row_desc">Show small digits on q–p and swipe down on a key to type its number.</string>
 </resources>
