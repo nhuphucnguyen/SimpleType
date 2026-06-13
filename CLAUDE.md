@@ -22,6 +22,9 @@ SimpleType is an Android Input Method Editor (IME) focused on on-device voice ty
 - **InputConnection:** Handle text insertion carefully. Use `setComposingText` for active edits (like Telex or partial ASR) and `commitText` for final results.
 - **Resources:** All user-facing strings must be in `res/values/strings.xml`.
 - **Error Handling:** Use `AsrListener` for communicating voice-related errors to the UI.
+- **Test Driven Development** For bug fix, or changes in the engine, always do TDD style. Write a test first to see if the current engine fails it, then fix it. You don't need TDD on big feature.
+- **Checkpoint along the way** When implementing big changes, commit at important checkpoints to make it easy to revert back if things go wrong, also to track progress.
+- **Build debug APK when feature/bugfix is done** Always build the debug APK for the developer to install it remotely
 
 ## Build & Test Commands
 - **Build APK:** `./gradlew assembleDebug`
@@ -29,6 +32,7 @@ SimpleType is an Android Input Method Editor (IME) focused on on-device voice ty
 - **Run Unit Tests:** `./gradlew test`
 - **Run Lint:** `./gradlew lint`
 - **Clean Project:** `./gradlew clean`
+-
 
 ## Key Classes
 - `SimpleTypeIME`: Entry point for the keyboard service.
