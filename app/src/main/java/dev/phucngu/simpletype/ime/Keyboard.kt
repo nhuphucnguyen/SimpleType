@@ -69,21 +69,24 @@ object KeyboardLayouts {
         KeyboardRow(chars.mapIndexed { i, c -> letter(c).copy(numberHint = digits[i]) })
 
     /** Standard QWERTY with shift, delete, symbol toggle, globe, mic, space and enter. */
-    fun qwerty(): Keyboard = Keyboard(
-        listOf(
-            numberHintRow("qwertyuiop", "1234567890"),
+    fun qwerty(showDedicatedNumberRow: Boolean = false): Keyboard = Keyboard(
+        mutableListOf<KeyboardRow>().apply {
+            if (showDedicatedNumberRow) {
+                add(lettersRow("1234567890"))
+            }
+            add(numberHintRow("qwertyuiop", "1234567890"))
             // Indent the 9-key middle row by half a key each side so its keys match the 10-key rows.
-            lettersRow("asdfghjkl", sideWeight = 0.5f),
-            row(
+            add(lettersRow("asdfghjkl", sideWeight = 0.5f))
+            add(row(
                 Key(KeyCode.SHIFT, "Shift", weight = 1.5f, style = KeyStyle.SPECIAL,
                     iconRes = R.drawable.ic_kb_shift),
                 letter('z'), letter('x'), letter('c'), letter('v'),
                 letter('b'), letter('n'), letter('m'),
                 Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
                     repeatable = true, iconRes = R.drawable.ic_kb_backspace),
-            ),
-            bottomRow(),
-        )
+            ))
+            add(bottomRow())
+        }
     )
 
     // Mic lives in the top toolbar and the globe in the bottom strip, so the bottom row mirrors

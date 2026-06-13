@@ -15,14 +15,28 @@ class KeyboardLayoutTest {
         assertEquals("space must be horizontally centered (equal weight each side)", left, right, 0.001)
     }
 
-    @Test fun alpha_bottom_row_space_is_centered() = spaceCentered(KeyboardLayouts.qwerty().rows.last())
+    @Test fun alpha_bottom_row_space_is_centered() = spaceCentered(KeyboardLayouts.qwerty(false).rows.last())
+
+    @Test fun qwerty_with_dedicated_number_row_adds_extra_row() {
+        val standard = KeyboardLayouts.qwerty(showDedicatedNumberRow = false)
+        val expanded = KeyboardLayouts.qwerty(showDedicatedNumberRow = true)
+
+        assertEquals("standard qwerty has 4 rows", 4, standard.rows.size)
+        assertEquals("expanded qwerty has 5 rows", 5, expanded.rows.size)
+
+        val firstRow = expanded.rows.first()
+        val labels = firstRow.keys.map { it.label }
+        assertEquals("first row must be numbers 1-0", "1234567890".map { it.toString() }, labels)
+        assertTrue("number row keys must not have number hints themselves",
+            firstRow.keys.all { it.numberHint == null })
+    }
 
     @Test fun symbols_bottom_row_space_is_centered() = spaceCentered(KeyboardLayouts.symbols().rows.last())
 
     @Test fun symbols_alt_bottom_row_space_is_centered() = spaceCentered(KeyboardLayouts.symbolsAlt().rows.last())
 
     @Test fun comma_long_press_opens_emoji() {
-        val row = KeyboardLayouts.qwerty().rows.last()
+        val row = KeyboardLayouts.qwerty(false).rows.last()
         val comma = row.keys.first { it.code == ','.code }
         assertEquals(KeyCode.EMOJI, comma.longPressCode)
     }
@@ -37,16 +51,25 @@ class KeyboardLayoutTest {
         assertTrue("page 2 must have the ?123 switch", KeyboardLayouts.symbolsAlt().rows[2].hasCode(KeyCode.SYMBOLS))
 
     @Test fun top_row_doubles_as_number_row() {
-        val top = KeyboardLayouts.qwerty().rows.first()
+        // When dedicated row is off, the letters row is the top one (first).
+        val top = KeyboardLayouts.qwerty(showDedicatedNumberRow = false).rows.first()
         val hints = top.keys.map { it.numberHint }
         assertEquals("qwertyuiop must carry number hints 1234567890",
             "1234567890".toList(), hints)
+
+        // When dedicated row is on, the letters row is the second row.
+        val lettersRow = KeyboardLayouts.qwerty(showDedicatedNumberRow = true).rows[1]
+        assertEquals("qwertyuiop still carries hints when row is expanded",
+            "1234567890".toList(), lettersRow.keys.map { it.numberHint })
     }
 
-    @Test fun only_alpha_top_row_carries_number_hints() {
+    @Test fun only_alpha_letters_row_carries_number_hints() {
         // Other rows (and the symbol layouts, which already are digits) get no swipe-down hint.
-        assertTrue("non-top rows must not carry number hints",
-            KeyboardLayouts.qwerty().rows.drop(1).all { row -> row.keys.all { it.numberHint == null } })
+        val layout = KeyboardLayouts.qwerty(showDedicatedNumberRow = true)
+        val nonLetterRows = listOf(layout.rows[0]) + layout.rows.drop(2)
+        assertTrue("non-letter rows must not carry number hints",
+            nonLetterRows.all { row -> row.keys.all { it.numberHint == null } })
+
         assertTrue("symbol pages must not carry number hints",
             KeyboardLayouts.symbols().rows.all { row -> row.keys.all { it.numberHint == null } })
     }

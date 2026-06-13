@@ -41,6 +41,7 @@ import dev.phucngu.simpletype.voice.VoskAsrEngine
 open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private lateinit var keyboardView: LatinKeyboardView
+    private var metrics = KeyboardMetrics.DEFAULT
     private var statusView: TextView? = null
     private var micButton: ImageButton? = null
 
@@ -102,7 +103,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     /** Load the user's keyboard sizing preferences and push them to the view and bottom padding. */
     private fun applyKeyboardMetrics() {
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
-        val metrics = KeyboardMetrics.load(prefs)
+        metrics = KeyboardMetrics.load(prefs)
         keyboardView.applyMetrics(metrics)
         keyboardView.showNumberRow = metrics.showNumberRow
         bottomPaddingPx = (metrics.bottomPaddingDp * resources.displayMetrics.density).toInt()
@@ -404,7 +405,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private fun applyLayout() {
         keyboardView.keyboard = when (layout) {
-            Layout.ALPHA -> KeyboardLayouts.qwerty()
+            Layout.ALPHA -> KeyboardLayouts.qwerty(metrics.showDedicatedNumberRow)
             Layout.SYMBOLS -> KeyboardLayouts.symbols()
             Layout.SYMBOLS_ALT -> KeyboardLayouts.symbolsAlt()
         }
