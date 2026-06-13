@@ -47,6 +47,15 @@ class TelexEngine(private val modernStyle: Boolean = true) {
      */
     private var codaEchoIndex = -1
 
+    /**
+     * Buffer index of a vowel that the previous keystroke circumflexed via the rime-retype
+     * shortcut (e.g. `rec` + `e` → `rêc`), or -1. Valid only for the immediately following
+     * keystroke: re-pressing that same vowel cancels the circumflex and appends a literal vowel
+     * (so `recee` → `rece` and English words type through). Like [codaEchoIndex] it makes the
+     * tentative retype reversible.
+     */
+    private var retypeEscapeIndex = -1
+
     /** Current Vietnamese display form of the word being composed. */
     val composing: String
         get() = buffer.toString()
@@ -58,6 +67,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         buffer.setLength(0)
         loneHornIndex = -1
         codaEchoIndex = -1
+        retypeEscapeIndex = -1
     }
 
     /** Load an existing word into the engine, e.g. when picking up context after a cursor move. */
@@ -80,6 +90,8 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         loneHornIndex = -1
         val prevCodaEcho = codaEchoIndex
         codaEchoIndex = -1
+        val prevRetypeEscape = retypeEscapeIndex
+        retypeEscapeIndex = -1
 
         // Re-typing the coda after a circumflex retype (trong+o→trông, then "ng") swallows the
         // duplicate consonants instead of appending them, so the rime is not doubled.
@@ -87,6 +99,20 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             val next = prevCodaEcho + 1
             codaEchoIndex = if (next < buffer.length && isConsonant(buffer[next])) next else -1
             return true
+        }
+
+        // Escape a tentative rime-retype: after "rec"+"e"→"rêc", pressing the same vowel again
+        // cancels the circumflex and appends a literal vowel ("rece"), so English words like
+        // "receeipt" type through instead of sticking as ê/â/ô.
+        if (prevRetypeEscape in buffer.indices) {
+            val (base, tone) = decompose(buffer[prevRetypeEscape])
+            val plain = plainOfCircumflex(base)
+            if (plain != null && plain == lower) {
+                setCharPreserveCase(prevRetypeEscape, plain, base.isUpperCase(), tone)
+                buffer.append(c)
+                repositionTone()
+                return true
+            }
         }
 
         val consumedAsModifier = when (lower) {
@@ -156,10 +182,16 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (base.lowercaseChar() != lower) return false // must be a plain a/e/o matching the key
         setCharPreserveCase(v, circ, base.isUpperCase(), tone)
         codaEchoIndex = v + 1
+        retypeEscapeIndex = v // re-pressing the vowel next undoes this retype (rêc + e → rece)
         return true
     }
 
     private fun isConsonant(c: Char): Boolean = c.isLetter() && !isVowel(c)
+
+    /** The plain (lowercase) vowel underlying a circumflex char: â→a, ê→e, ô→o, else null. */
+    private fun plainOfCircumflex(c: Char): Char? = when (decompose(c).first.lowercaseChar()) {
+        'â' -> 'a'; 'ê' -> 'e'; 'ô' -> 'o'; else -> null
+    }
 
     // ---- Horn / breve via w: aw→ă, ow→ơ, uw→ư, lone w→ư ----
 

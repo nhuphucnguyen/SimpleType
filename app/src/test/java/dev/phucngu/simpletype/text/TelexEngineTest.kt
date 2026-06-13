@@ -67,6 +67,11 @@ class TelexEngineTest {
     // Without re-typing the coda, the lone repeated vowel still circumflexes: "trong" + "o" + "s".
     @Test fun retype_vowel_only_circumflex() = assertEquals("trống", type("trongos"))
 
+    // Escaping a rime-retype: after "rec" + "e" → "rêc", pressing the same vowel again cancels
+    // the circumflex and adds a literal vowel, so English words type through ("receeipt").
+    @Test fun retype_escape_adds_literal_vowel() = assertEquals("rece", type("recee"))
+    @Test fun receipt_types_through() = assertEquals("receipt", type("receeipt"))
+
     @Test fun duong_with_tone() = assertEquals("đường", type("dduwowngf"))
 
     @Test fun qu_glide_skips_u() = assertEquals("quá", type("quas"))
