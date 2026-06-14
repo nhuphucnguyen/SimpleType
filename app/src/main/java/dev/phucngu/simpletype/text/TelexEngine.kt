@@ -354,7 +354,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         return when (prev.lowercaseChar()) {
             'd' -> { buffer[idx] = if (prev.isUpperCase()) 'Đ' else 'đ'; true }
             'đ' -> { buffer[idx] = if (prev.isUpperCase()) 'D' else 'd'; buffer.append(typed); true }
-            else -> dbarOnsetAcrossCoda() // "dương" + d → "đương"
+            else -> dbarOnsetAcrossCoda() || dbarOnsetOpenSyllable() // "dương"+d→"đương", "dâu"+d→"đâu"
         }
     }
 
@@ -370,6 +370,29 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (buffer.none { isVowel(it) }) return false  // must be a real syllable, not "d…" alone
         buffer[0] = if (first.isUpperCase()) 'Đ' else 'đ'
         return true
+    }
+
+    /**
+     * Bar the `d` onset of an *open* syllable (no coda) when it already carries a diacritic, so the
+     * `d` modifier can come last: "dâu" + d → "đâu", "dá" + d → "đá". The existing diacritic is what
+     * commits the word to Vietnamese; a plain ASCII open syllable like "dad" has none, so its
+     * trailing d stays a literal and English survives. Returns true if it barred the onset.
+     */
+    private fun dbarOnsetOpenSyllable(): Boolean {
+        if (buffer.isEmpty() || isConsonant(buffer.last())) return false // open syllable: ends in a vowel
+        val first = buffer[0]
+        if (first.lowercaseChar() != 'd') return false // needs a plain d onset to bar
+        // Require a circumflex/horn/breve or a tone somewhere — proof this is a Vietnamese syllable.
+        if (buffer.none { hasDiacritic(it) }) return false
+        buffer[0] = if (first.isUpperCase()) 'Đ' else 'đ'
+        return true
+    }
+
+    /** True if [c] is a vowel bearing a circumflex/horn/breve mark or a tone (i.e. not plain ASCII). */
+    private fun hasDiacritic(c: Char): Boolean {
+        if (!isVowel(c)) return false
+        val (base, tone) = decompose(c)
+        return tone != TONE_NONE || base.lowercaseChar() !in "aeiouy"
     }
 
     // ---- Tones ----

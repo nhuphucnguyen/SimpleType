@@ -71,6 +71,10 @@ class TelexEngineTest {
     @Test fun dbar_after_coda_dong() = assertEquals("đông", type("dongod"))
     // ...but with no coda the trailing d is a literal, so English "dad" survives.
     @Test fun dbar_after_coda_keeps_dad() = assertEquals("dad", type("dad"))
+    // An open syllable that already carries a diacritic is committed to Vietnamese, so a trailing
+    // d bars the onset there too: "dâu" + d → "đâu", "dá" + d → "đá". Plain "dad" still survives.
+    @Test fun dbar_open_syllable_dau() = assertEquals("đâu", type("dauad"))
+    @Test fun dbar_open_syllable_toned() = assertEquals("đá", type("dasd"))
 
     // Re-typing a closed rime circumflexes the earlier vowel and absorbs the repeated coda:
     // "trong" + "ong" + tone → "trống" (the doubled o acts like oo→ô across the "ng").
