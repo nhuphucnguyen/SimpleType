@@ -90,6 +90,9 @@ class TelexEngineTest {
     @Test fun autorestore_green() = assertEquals("green", type("green"))
     // 'w'→ư and 'r'=hỏi drag "world" down the VN path; the invalid "ld" coda must restore it.
     @Test fun autorestore_world() = assertEquals("world", type("world"))
+    // Escaping the lone ư with a second w (ww→w) must also collapse the raw buffer, so a later
+    // auto-restore shows "world", not the doubled "wworld".
+    @Test fun autorestore_world_after_w_escape() = assertEquals("world", type("wworld"))
     // Valid syllables are still shown in Vietnamese, even when the keys look English (beep → bếp).
     @Test fun autorestore_keeps_valid_vietnamese() {
         assertEquals("tiếng", type("tieesng"))

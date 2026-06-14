@@ -255,6 +255,9 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             // with w are typeable). Only the standalone ư is replaced, not a real u+w horn.
             if (idx == prevLoneHorn && baseLower == 'ư') {
                 buffer[idx] = if (base.isUpperCase()) 'W' else 'w'
+                // The two w keystrokes collapse into one literal w; mirror that in the raw buffer
+                // so a later auto-restore shows "world", not the doubled "wworld".
+                if (raw.isNotEmpty()) raw.deleteCharAt(raw.length - 1)
                 return
             }
 
