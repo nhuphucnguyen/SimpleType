@@ -88,6 +88,8 @@ class TelexEngineTest {
 
     @Test fun autorestore_benefit() = assertEquals("benefit", type("benefit"))
     @Test fun autorestore_green() = assertEquals("green", type("green"))
+    // 'w'→ư and 'r'=hỏi drag "world" down the VN path; the invalid "ld" coda must restore it.
+    @Test fun autorestore_world() = assertEquals("world", type("world"))
     // Valid syllables are still shown in Vietnamese, even when the keys look English (beep → bếp).
     @Test fun autorestore_keeps_valid_vietnamese() {
         assertEquals("tiếng", type("tieesng"))

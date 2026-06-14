@@ -215,25 +215,27 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     /**
      * True if [s] could be (a prefix of) a single Vietnamese syllable: a valid initial-consonant
      * onset, followed by one contiguous vowel nucleus, followed by a consonant coda. This rejects
-     * English words such as `grên` (invalid "gr" onset) and `bềni` (two vowel groups), which is the
-     * signal [composing] uses to fall back to the raw keystrokes. Coda content is not checked.
+     * English words such as `grên` (invalid "gr" onset), `bềni` (two vowel groups) and `ửold`
+     * (impossible "ld" coda), which is the signal [composing] uses to fall back to the raw
+     * keystrokes.
      */
     private fun isVietnameseSyllable(s: String): Boolean {
         var i = 0
         while (i < s.length && isConsonant(s[i])) i++
         val onset = s.substring(0, i).lowercase()
         if (onset.isNotEmpty() && onset !in ONSETS && ONSETS.none { it.startsWith(onset) }) return false
-        var inCoda = false
+        val coda = StringBuilder()
         while (i < s.length) {
             val c = s[i]
             when {
-                isVowel(c) -> if (inCoda) return false // a second vowel group → not one syllable
-                isConsonant(c) -> inCoda = true
+                isVowel(c) -> if (coda.isNotEmpty()) return false // a 2nd vowel group → not one syllable
+                isConsonant(c) -> coda.append(c)
                 else -> return false
             }
             i++
         }
-        return true
+        // Every real Vietnamese final cluster is in CODAS; an impossible one (ld, mb…) means English.
+        return coda.isEmpty() || coda.toString().lowercase() in CODAS
     }
 
     /** The plain (lowercase) vowel underlying a circumflex char: â→a, ê→e, ô→o, else null. */
