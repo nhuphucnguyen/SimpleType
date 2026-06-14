@@ -17,12 +17,18 @@ data class KeyboardMetrics(
     val showNumberRow: Boolean,
     /** Show a dedicated row of number keys (1-0) above the main QWERTY layout. */
     val showDedicatedNumberRow: Boolean,
+    /**
+     * Show a common-symbol hint in the corner of every letter key, swipe-down to type it. Mutually
+     * exclusive with [showNumberRow]: enabling this forces the number hints off (see [of]).
+     */
+    val showSymbolHints: Boolean,
 ) {
     companion object {
         /** Defaults mirror the original res/values/dimens.xml values. */
         val DEFAULT = KeyboardMetrics(
             rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
             bottomPaddingDp = 8f, showNumberRow = true, showDedicatedNumberRow = false,
+            showSymbolHints = false,
         )
 
         const val ROW_HEIGHT_MIN = 44f
@@ -40,13 +46,16 @@ data class KeyboardMetrics(
             bottomPaddingDp: Float = DEFAULT.bottomPaddingDp,
             showNumberRow: Boolean = DEFAULT.showNumberRow,
             showDedicatedNumberRow: Boolean = DEFAULT.showDedicatedNumberRow,
+            showSymbolHints: Boolean = DEFAULT.showSymbolHints,
         ) = KeyboardMetrics(
             rowHeightDp.coerceIn(ROW_HEIGHT_MIN, ROW_HEIGHT_MAX),
             gapHorizontalDp.coerceIn(GAP_MIN, GAP_MAX),
             gapVerticalDp.coerceIn(GAP_MIN, GAP_MAX),
             bottomPaddingDp.coerceIn(BOTTOM_PAD_MIN, BOTTOM_PAD_MAX),
-            showNumberRow,
-            showDedicatedNumberRow,
+            // Symbol hints take over the corner/swipe slot, so they force the number row off.
+            showNumberRow = showNumberRow && !showSymbolHints,
+            showDedicatedNumberRow = showDedicatedNumberRow,
+            showSymbolHints = showSymbolHints,
         )
 
         private const val KEY_ROW = "kb_row_height_dp"
@@ -55,6 +64,7 @@ data class KeyboardMetrics(
         private const val KEY_BOTTOM_PAD = "kb_bottom_pad_dp"
         private const val KEY_NUMBER_ROW = "kb_number_row"
         private const val KEY_DEDICATED_NUMBER_ROW = "kb_dedicated_number_row"
+        private const val KEY_SYMBOL_HINTS = "kb_symbol_hints"
 
         fun load(prefs: SharedPreferences): KeyboardMetrics = of(
             prefs.getFloat(KEY_ROW, DEFAULT.rowHeightDp),
@@ -63,6 +73,7 @@ data class KeyboardMetrics(
             prefs.getFloat(KEY_BOTTOM_PAD, DEFAULT.bottomPaddingDp),
             prefs.getBoolean(KEY_NUMBER_ROW, DEFAULT.showNumberRow),
             prefs.getBoolean(KEY_DEDICATED_NUMBER_ROW, DEFAULT.showDedicatedNumberRow),
+            prefs.getBoolean(KEY_SYMBOL_HINTS, DEFAULT.showSymbolHints),
         )
 
         fun save(prefs: SharedPreferences, metrics: KeyboardMetrics) {
@@ -73,6 +84,7 @@ data class KeyboardMetrics(
                 .putFloat(KEY_BOTTOM_PAD, metrics.bottomPaddingDp)
                 .putBoolean(KEY_NUMBER_ROW, metrics.showNumberRow)
                 .putBoolean(KEY_DEDICATED_NUMBER_ROW, metrics.showDedicatedNumberRow)
+                .putBoolean(KEY_SYMBOL_HINTS, metrics.showSymbolHints)
                 .apply()
         }
     }

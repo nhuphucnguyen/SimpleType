@@ -58,6 +58,14 @@ class LatinKeyboardView @JvmOverloads constructor(
     var showNumberRow: Boolean = true
         set(value) { field = value; invalidate() }
 
+    /**
+     * When true, keys carrying a [Key.symbolHint] draw that symbol in their corner and a downward
+     * swipe commits it. Mutually exclusive with [showNumberRow]; the number hint wins if both are
+     * somehow set (see [hintFor]).
+     */
+    var showSymbolHints: Boolean = false
+        set(value) { field = value; invalidate() }
+
     var keyboard: Keyboard = KeyboardLayouts.qwerty()
         set(value) {
             field = value
@@ -257,14 +265,24 @@ class LatinKeyboardView @JvmOverloads constructor(
             }
         }
 
-        // Number-row hint: a small digit tucked into the top-right corner, swipe-down to type it.
-        val hint = key.numberHint
-        if (showNumberRow && hint != null) {
+        // Corner hint (digit or symbol) tucked into the top-right corner, swipe-down to type it.
+        val hint = hintFor(key)
+        if (hint != null) {
             val pad = dpf(5f)
             val hx = rr.right - pad - hintPaint.textSize / 2f
             val hy = rr.top + pad - hintPaint.fontMetrics.ascent
             canvas.drawText(hint.toString(), hx, hy, hintPaint)
         }
+    }
+
+    /**
+     * The corner-hint character active for [key] given the current mode, or null. The number row
+     * takes precedence over symbol hints so the two can never both render or both be swiped.
+     */
+    private fun hintFor(key: Key): Char? = when {
+        showNumberRow -> key.numberHint
+        showSymbolHints -> key.symbolHint
+        else -> null
     }
 
     /** Vertically-centered text baseline within [rr] for the given paint. */
@@ -362,9 +380,9 @@ class LatinKeyboardView @JvmOverloads constructor(
                     return true
                 }
                 val y = event.getY(ai)
-                // Swipe down on a number-row key commits its digit (once) and locks out the letter.
-                val hint = pressed?.key?.numberHint
-                if (showNumberRow && hint != null && !numberSwipeFired && !swipeFired) {
+                // Swipe down on a key with a corner hint commits it (once) and locks out the letter.
+                val hint = pressed?.key?.let { hintFor(it) }
+                if (hint != null && !numberSwipeFired && !swipeFired) {
                     val dy = y - swipeStartY
                     if (dy >= numberSwipeThreshold && dy >= kotlin.math.abs(x - swipeStartX)) {
                         numberSwipeFired = true

@@ -42,6 +42,12 @@ data class Key(
      * QWERTY row doubles as a number row: q→1 … p→0). Null when the key has no number shortcut.
      */
     val numberHint: Char? = null,
+    /**
+     * Common symbol shown small in the key's top corner and committed on a downward swipe, the
+     * symbol-hint counterpart to [numberHint] (every letter key carries one). Drawn/swiped only
+     * when symbol hints are enabled, which is mutually exclusive with the number row.
+     */
+    val symbolHint: Char? = null,
 ) {
     val isPrintable: Boolean get() = code >= 32
 }
@@ -64,9 +70,22 @@ object KeyboardLayouts {
     private fun lettersRow(chars: String, sideWeight: Float = 0f): KeyboardRow =
         KeyboardRow(chars.map { letter(it) }, sideWeight)
 
-    /** Top letter row whose ten keys double as a number row (q→1 … p→0) via corner hint + swipe-down. */
-    private fun numberHintRow(chars: String, digits: String): KeyboardRow =
-        KeyboardRow(chars.mapIndexed { i, c -> letter(c).copy(numberHint = digits[i]) })
+    /**
+     * A letter row whose keys carry corner hints (committed on a downward swipe). [numbers] supplies
+     * the per-key number hint (top row only); [symbols] the common-symbol hint (all letter rows).
+     * Either may be null when that hint kind doesn't apply.
+     */
+    private fun hintRow(
+        chars: String,
+        numbers: String? = null,
+        symbols: String? = null,
+        sideWeight: Float = 0f,
+    ): KeyboardRow = KeyboardRow(
+        chars.mapIndexed { i, c ->
+            letter(c).copy(numberHint = numbers?.get(i), symbolHint = symbols?.get(i))
+        },
+        sideWeight,
+    )
 
     /** Standard QWERTY with shift, delete, symbol toggle, globe, mic, space and enter. */
     fun qwerty(showDedicatedNumberRow: Boolean = false): Keyboard = Keyboard(
@@ -74,14 +93,16 @@ object KeyboardLayouts {
             if (showDedicatedNumberRow) {
                 add(lettersRow("1234567890"))
             }
-            add(numberHintRow("qwertyuiop", "1234567890"))
+            add(hintRow("qwertyuiop", numbers = "1234567890", symbols = "%`|=[]<>{}"))
             // Indent the 9-key middle row by half a key each side so its keys match the 10-key rows.
-            add(lettersRow("asdfghjkl", sideWeight = 0.5f))
+            add(hintRow("asdfghjkl", symbols = "@#đ_&-+()", sideWeight = 0.5f))
+            val bottomLetters = "zxcvbnm".mapIndexed { i, c ->
+                letter(c).copy(symbolHint = "*\"':;!?"[i])
+            }
             add(row(
                 Key(KeyCode.SHIFT, "Shift", weight = 1.5f, style = KeyStyle.SPECIAL,
                     iconRes = R.drawable.ic_kb_shift),
-                letter('z'), letter('x'), letter('c'), letter('v'),
-                letter('b'), letter('n'), letter('m'),
+                *bottomLetters.toTypedArray(),
                 Key(KeyCode.DELETE, "Delete", weight = 1.5f, style = KeyStyle.SPECIAL,
                     repeatable = true, iconRes = R.drawable.ic_kb_backspace),
             ))

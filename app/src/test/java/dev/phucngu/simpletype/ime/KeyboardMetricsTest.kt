@@ -13,6 +13,25 @@ class KeyboardMetricsTest {
         assertEquals(8f, KeyboardMetrics.DEFAULT.bottomPaddingDp, 0f)
         assertEquals(true, KeyboardMetrics.DEFAULT.showNumberRow)
         assertEquals(false, KeyboardMetrics.DEFAULT.showDedicatedNumberRow)
+        assertEquals(false, KeyboardMetrics.DEFAULT.showSymbolHints)
+    }
+
+    @Test fun symbol_hints_force_the_number_row_off() {
+        val m = KeyboardMetrics.of(
+            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            showNumberRow = true, showSymbolHints = true,
+        )
+        assertEquals("symbol hints take the corner/swipe slot", true, m.showSymbolHints)
+        assertEquals("so the number hints must be forced off", false, m.showNumberRow)
+    }
+
+    @Test fun number_row_survives_when_symbol_hints_off() {
+        val m = KeyboardMetrics.of(
+            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            showNumberRow = true, showSymbolHints = false,
+        )
+        assertEquals(true, m.showNumberRow)
+        assertEquals(false, m.showSymbolHints)
     }
 
     @Test fun of_coerces_into_allowed_ranges() {

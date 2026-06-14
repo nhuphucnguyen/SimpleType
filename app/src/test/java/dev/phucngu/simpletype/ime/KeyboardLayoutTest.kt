@@ -74,6 +74,17 @@ class KeyboardLayoutTest {
             KeyboardLayouts.symbols().rows.all { row -> row.keys.all { it.numberHint == null } })
     }
 
+    @Test fun every_letter_key_carries_a_symbol_hint() {
+        val layout = KeyboardLayouts.qwerty(showDedicatedNumberRow = false)
+        assertEquals("top row symbol hints",
+            "%`|=[]<>{}".toList(), layout.rows[0].keys.map { it.symbolHint })
+        assertEquals("home row symbol hints",
+            "@#đ_&-+()".toList(), layout.rows[1].keys.map { it.symbolHint })
+        // Bottom row is Shift + zxcvbnm + Delete: only the seven letters carry symbol hints.
+        val bottomLetterHints = layout.rows[2].keys.filter { it.isPrintable }.map { it.symbolHint }
+        assertEquals("bottom row symbol hints", "*\"':;!?".toList(), bottomLetterHints)
+    }
+
     @Test fun symbols_arrangement_matches_gboard() {
         val p1 = KeyboardLayouts.symbols().rows
         assertTrue("page1 row2 should hold đ", p1[1].has('đ'))

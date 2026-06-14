@@ -52,6 +52,8 @@
     <string name="size_reset">Reset to default</string>
     <string name="size_number_row">Number hints on top row</string>
     <string name="size_number_row_desc">Show small digits on q–p and swipe down on a key to type its number.</string>
+    <string name="size_symbol_hints">Symbol hints on letter keys</string>
+    <string name="size_symbol_hints_desc">Show a common symbol on each letter key and swipe down to type it. Turns off the number hints.</string>
     <string name="size_dedicated_number_row">Dedicated number row</string>
     <string name="size_dedicated_number_row_desc">Add a permanent row of number keys above the QWERTY row.</string>
 </resources>
