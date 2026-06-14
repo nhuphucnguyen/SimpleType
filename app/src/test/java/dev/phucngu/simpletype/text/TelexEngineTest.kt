@@ -103,6 +103,9 @@ class TelexEngineTest {
 
     @Test fun autorestore_benefit() = assertEquals("benefit", type("benefit"))
     @Test fun autorestore_green() = assertEquals("green", type("green"))
+    // "hono"→hôn, cancel with another o→"hono", then r. The cancel must collapse the raw buffer
+    // too, so the later auto-restore shows "honor", not the doubled "honoor".
+    @Test fun autorestore_honor_after_retype_cancel() = assertEquals("honor", type("honoor"))
     // 'w'→ư and 'r'=hỏi drag "world" down the VN path; the invalid "ld" coda must restore it.
     @Test fun autorestore_world() = assertEquals("world", type("world"))
     // Escaping the lone ư with a second w (ww→w) must also collapse the raw buffer, so a later

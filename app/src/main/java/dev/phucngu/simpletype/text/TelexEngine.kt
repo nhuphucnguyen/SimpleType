@@ -130,6 +130,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             if (plain != null && plain == lower) {
                 setCharPreserveCase(prevRetypeEscape, plain, base.isUpperCase(), tone)
                 buffer.append(c)
+                // The retype circumflexed an existing vowel without growing the buffer, so its
+                // modifier keystroke is a duplicate in raw. Drop it on cancel, so a later
+                // auto-restore shows "honor", not the doubled "honoor".
+                if (raw.length >= 2) raw.deleteCharAt(raw.length - 1)
                 repositionTone()
                 return true
             }
