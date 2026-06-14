@@ -414,6 +414,9 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             // Same tone again → cancel and emit the literal key (Telex escape).
             buffer[target] = compose(base, TONE_NONE)
             buffer.append(typed)
+            // The first tone key marked a vowel without growing the buffer, so it is a duplicate in
+            // raw. Drop it so a later auto-restore shows "yester", not the doubled "yesster".
+            if (raw.length >= 2) raw.deleteCharAt(raw.length - 1)
             return true
         }
         buffer[target] = compose(base, tone)
