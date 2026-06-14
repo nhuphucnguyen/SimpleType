@@ -65,6 +65,11 @@ class TelexEngineTest {
     @Test fun horn_after_coda_huong() = assertEquals("hương", type("huongw"))
     @Test fun horn_after_coda_lang() = assertEquals("lăng", type("langw"))
     @Test fun horn_after_coda_qu_glide() = assertEquals("quơn", type("quonw"))
+    // w on a circumflex vowel swaps the mark to a breve/horn: "trân" + w → "trăn" (â→ă),
+    // across the coda and with the tone preserved ("trấn" + w → "trắn").
+    @Test fun horn_swaps_circumflex_to_breve() = assertEquals("trăn", type("traanw"))
+    @Test fun horn_swaps_circumflex_keeps_tone() = assertEquals("trắn", type("traansw"))
+    @Test fun horn_swaps_circumflex_adjacent() = assertEquals("tră", type("traaw"))
 
     // A 'd' typed after the coda reaches back to a 'd' onset: "dương" + d → "đương".
     @Test fun dbar_after_coda_duong() = assertEquals("đương", type("duongwd"))

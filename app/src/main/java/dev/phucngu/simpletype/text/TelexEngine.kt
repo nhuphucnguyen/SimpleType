@@ -269,6 +269,14 @@ class TelexEngine(private val modernStyle: Boolean = true) {
 
     // ---- Horn / breve via w: aw→ă, ow→ơ, uw→ư, lone w→ư ----
 
+    /**
+     * The horn/breve form for a vowel base, or null if it has none. A circumflex vowel (â/ô) maps
+     * to the same target as its plain base, so `w` swaps the mark: â→ă, ô→ơ (and a→ă, o→ơ, u→ư).
+     */
+    private fun hornForm(baseLower: Char): Char? = when (baseLower) {
+        'a', 'â' -> 'ă'; 'o', 'ô' -> 'ơ'; 'u' -> 'ư'; else -> null
+    }
+
     private fun applyHorn(typed: Char, prevLoneHorn: Int) {
         if (buffer.isNotEmpty()) {
             val idx = buffer.length - 1
@@ -285,9 +293,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
                 return
             }
 
-            val horn = when (baseLower) {
-                'a' -> 'ă'; 'o' -> 'ơ'; 'u' -> 'ư'; else -> null
-            }
+            val horn = hornForm(baseLower)
             if (horn != null) {
                 // "uo" + w → "ươ": a single w horns both vowels (hương, đường), unless
                 // the u is the "qu" glide ("quo" + w → "quơ", keeping u bare).
@@ -332,7 +338,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         val v = buffer.indices.lastOrNull { isVowel(buffer[it]) } ?: return false
         if ((v + 1 until buffer.length).any { !isConsonant(buffer[it]) }) return false
         val (base, tone) = decompose(buffer[v])
-        val horn = when (base.lowercaseChar()) { 'a' -> 'ă'; 'o' -> 'ơ'; 'u' -> 'ư'; else -> return false }
+        val horn = hornForm(base.lowercaseChar()) ?: return false
         // "uo" + coda + w → "ươ": horn both vowels, unless the u is the "qu" glide ("quon" → "quơn").
         if (base.lowercaseChar() == 'o' && v >= 1) {
             val (prevBase, prevTone) = decompose(buffer[v - 1])
