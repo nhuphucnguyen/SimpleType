@@ -105,7 +105,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         metrics = KeyboardMetrics.load(prefs)
         keyboardView.applyMetrics(metrics)
-        keyboardView.showNumberRow = metrics.showNumberRow
+        keyboardView.showNumberRow = metrics.numberHintsVisible
         keyboardView.showSymbolHints = metrics.showSymbolHints
         bottomPaddingPx = (metrics.bottomPaddingDp * resources.displayMetrics.density).toInt()
         keyboardRoot?.let { ViewCompat.requestApplyInsets(it) }

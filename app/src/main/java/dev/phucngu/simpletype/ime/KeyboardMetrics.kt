@@ -23,6 +23,13 @@ data class KeyboardMetrics(
      */
     val showSymbolHints: Boolean,
 ) {
+    /**
+     * Whether the corner number hints should actually be drawn. The [showNumberRow] preference is
+     * kept as the user set it, but a dedicated number row makes the hints redundant, so they are
+     * hidden while it is shown (and reappear when it is turned off).
+     */
+    val numberHintsVisible: Boolean get() = showNumberRow && !showDedicatedNumberRow
+
     companion object {
         /** Defaults mirror the original res/values/dimens.xml values. */
         val DEFAULT = KeyboardMetrics(

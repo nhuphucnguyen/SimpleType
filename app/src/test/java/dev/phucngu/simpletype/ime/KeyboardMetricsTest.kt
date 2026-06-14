@@ -25,6 +25,23 @@ class KeyboardMetricsTest {
         assertEquals("so the number hints must be forced off", false, m.showNumberRow)
     }
 
+    @Test fun number_hints_hidden_when_dedicated_row_shown() {
+        val withDedicated = KeyboardMetrics.of(
+            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            showNumberRow = true, showDedicatedNumberRow = true,
+        )
+        assertEquals("hint preference is preserved", true, withDedicated.showNumberRow)
+        assertEquals("but hints don't render alongside the dedicated row",
+            false, withDedicated.numberHintsVisible)
+
+        val withoutDedicated = KeyboardMetrics.of(
+            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            showNumberRow = true, showDedicatedNumberRow = false,
+        )
+        assertEquals("hints render when the dedicated row is off",
+            true, withoutDedicated.numberHintsVisible)
+    }
+
     @Test fun number_row_survives_when_symbol_hints_off() {
         val m = KeyboardMetrics.of(
             rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,

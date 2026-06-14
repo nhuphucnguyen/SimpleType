@@ -147,7 +147,7 @@ class SettingsActivity : AppCompatActivity() {
         lblGapV.text = getString(R.string.size_gap_v, m.gapVerticalDp.toInt())
         lblBottom.text = getString(R.string.size_bottom_pad, m.bottomPaddingDp.toInt())
         sizePreview.applyMetrics(m)
-        sizePreview.showNumberRow = m.showNumberRow
+        sizePreview.showNumberRow = m.numberHintsVisible
         sizePreview.showSymbolHints = m.showSymbolHints
         sizePreview.keyboard = KeyboardLayouts.qwerty(m.showDedicatedNumberRow)
         KeyboardMetrics.save(prefs(), m)
