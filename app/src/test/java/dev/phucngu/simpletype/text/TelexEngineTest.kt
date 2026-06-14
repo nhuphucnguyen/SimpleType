@@ -112,6 +112,10 @@ class TelexEngineTest {
     // "her"→hẻ (r=hỏi), a 2nd r escapes the tone→"her"; the escape must collapse raw too, so
     // finishing "...mes" auto-restores to "hermes", not the doubled "herrmes".
     @Test fun autorestore_hermes_after_tone_escape() = assertEquals("hermes", type("herrmes"))
+    // "error" has a literal "rr" and r=hỏi. Typing e,r(ẻ),r(escape→er),r(→err),o,r: the final r is a
+    // real coda, not an escape of the now-stale tone on 'e'. It must not cancel that tone and collapse
+    // the raw buffer (that drops an r → "eror"); auto-restore should show "error".
+    @Test fun autorestore_error_after_stale_tone() = assertEquals("error", type("errror"))
     // "aa"→â, a 3rd a reverts→"aa"; the revert must collapse raw, so "...rd" restores to "aard".
     @Test fun autorestore_aard_after_circumflex_revert() = assertEquals("aard", type("aaard"))
     // "raw": ă then a 2nd w reverts→"raw"; the revert must collapse raw, so "...er" gives "rawer".

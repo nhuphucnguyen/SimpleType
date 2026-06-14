@@ -103,4 +103,11 @@ class HermesTelexIntegrationTest {
 
     @Test fun herrmes_commits_hermes_editor_without_composing_region() =
         assertEquals("hermes", typeWord("herrmes", reportComposingRegion = false))
+
+    // "error" (typed e,r,r,r,o,r): the final r is a real coda past the toned 'e', not a stale escape.
+    @Test fun error_commits_error_well_behaved_editor() =
+        assertEquals("error", typeWord("errror", reportComposingRegion = true))
+
+    @Test fun error_commits_error_editor_without_composing_region() =
+        assertEquals("error", typeWord("errror", reportComposingRegion = false))
 }

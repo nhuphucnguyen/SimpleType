@@ -413,12 +413,25 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         val target = findToneTarget() ?: return false
         val (base, currentTone) = decompose(buffer[target])
         if (currentTone == tone) {
-            // Same tone again → cancel and emit the literal key (Telex escape).
-            buffer[target] = compose(base, TONE_NONE)
-            buffer.append(typed)
-            // The first tone key marked a vowel without growing the buffer, so it is a duplicate in
-            // raw. Drop it so a later auto-restore shows "yester", not the doubled "yesster".
-            if (raw.length >= 2) raw.deleteCharAt(raw.length - 1)
+            // Same tone key again. Treat it as the Telex escape (cancel the tone, emit a literal key,
+            // "ass"→"as" / "yesster"→"yester") only while the toned vowel is still the active rime. The
+            // tone is "stale" — and this key is really a coda consonant the user is typing — once a
+            // separate vowel group sits beyond it, i.e. a vowel appears past a coda consonant (the
+            // English "error": ...ẻ + r + o, then the final r). A contiguous nucleus vowel (the e of
+            // "ýe") doesn't count, so "yesster" still escapes. The test is pure buffer content, so it
+            // survives the IME reloading the word after a cursor move.
+            var i = target + 1
+            while (i < buffer.length && isVowel(buffer[i])) i++ // skip the rest of this vowel nucleus
+            val staleToneBehindCoda = (i until buffer.length).any { isVowel(buffer[it]) }
+            if (!staleToneBehindCoda) {
+                buffer[target] = compose(base, TONE_NONE)
+                buffer.append(typed)
+                // The tone key marked a vowel without growing the buffer, so the escape's literal is a
+                // duplicate in raw; drop it so a later auto-restore shows "yester", not "yesster".
+                if (raw.length >= 2) raw.deleteCharAt(raw.length - 1)
+                return true
+            }
+            // Stale tone behind a later vowel → consume as a literal coda; raw already recorded it.
             return true
         }
         buffer[target] = compose(base, tone)
