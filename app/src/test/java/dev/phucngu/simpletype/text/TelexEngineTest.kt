@@ -109,6 +109,9 @@ class TelexEngineTest {
     // "yes"→ýe, a 2nd s escapes the tone→"yes"; the escape must collapse raw too, so finishing
     // "...ter" auto-restores to "yester", not the doubled "yesster".
     @Test fun autorestore_yester_after_tone_escape() = assertEquals("yester", type("yesster"))
+    // "her"→hẻ (r=hỏi), a 2nd r escapes the tone→"her"; the escape must collapse raw too, so
+    // finishing "...mes" auto-restores to "hermes", not the doubled "herrmes".
+    @Test fun autorestore_hermes_after_tone_escape() = assertEquals("hermes", type("herrmes"))
     // "aa"→â, a 3rd a reverts→"aa"; the revert must collapse raw, so "...rd" restores to "aard".
     @Test fun autorestore_aard_after_circumflex_revert() = assertEquals("aard", type("aaard"))
     // "raw": ă then a 2nd w reverts→"raw"; the revert must collapse raw, so "...er" gives "rawer".
