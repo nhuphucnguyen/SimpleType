@@ -98,6 +98,8 @@ class TelexEngineTest {
         assertEquals("web", type("wweb"))
         assertEquals("receipt", type("receeipt"))
     }
+    // A coda 'e' that re-types the nucleus 'e' (mb between them) must not echo a circumflex back.
+    @Test fun member_stays_literal() = assertEquals("member", type("member"))
 
     @Test fun duong_with_tone() = assertEquals("đường", type("dduwowngf"))
 

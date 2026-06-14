@@ -201,6 +201,9 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         for (i in v + 1 until buffer.length) if (!isConsonant(buffer[i])) return false
         val (base, tone) = decompose(buffer[v])
         if (base.lowercaseChar() != lower) return false // must be a plain a/e/o matching the key
+        // Only re-type across a real Vietnamese final cluster (trong+o→trông). An impossible coda
+        // means this is an English word, not a rime retype — leave it literal (member, not mểmb).
+        if (buffer.substring(v + 1).lowercase() !in CODAS) return false
         setCharPreserveCase(v, circ, base.isUpperCase(), tone)
         codaEchoIndex = v + 1
         retypeEscapeIndex = v // re-pressing the vowel next undoes this retype (rêc + e → rece)
@@ -508,6 +511,9 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             "b", "c", "ch", "d", "đ", "g", "gh", "gi", "h", "k", "kh", "l", "m", "n", "ng",
             "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x",
         )
+
+        /** The only possible Vietnamese final consonant clusters (codas), used to gate rime-retype. */
+        private val CODAS: Set<String> = setOf("c", "ch", "m", "n", "ng", "nh", "p", "t")
 
         /** base (toneless) → 6 toned forms, ordered: none, sắc, huyền, hỏi, ngã, nặng. */
         private val TONE_TABLE: Map<Char, String> = mapOf(
