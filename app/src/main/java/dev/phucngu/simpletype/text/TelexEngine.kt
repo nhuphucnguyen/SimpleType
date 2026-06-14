@@ -142,7 +142,8 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             'x' -> applyTone(TONE_NGA, c)
             'j' -> applyTone(TONE_NANG, c)
             'z' -> removeTone()
-            'a', 'e', 'o' -> applyCircumflex(lower, c) || applyCircumflexRetype(lower)
+            'a', 'e', 'o' ->
+                applyCircumflex(lower, c) || applyCircumflexRetype(lower) || applyCircumflexNucleus(lower)
             'd' -> applyDForDd(c)
             'w' -> { applyHorn(c, prevLoneHorn); true }
             else -> false
@@ -207,6 +208,29 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         setCharPreserveCase(v, circ, base.isUpperCase(), tone)
         codaEchoIndex = v + 1
         retypeEscapeIndex = v // re-pressing the vowel next undoes this retype (rêc + e → rece)
+        return true
+    }
+
+    /**
+     * Circumflex an earlier vowel of the nucleus when the user re-types it across the rest of the
+     * vowel cluster, e.g. `dau` + `a` → `dâu` (the `a` marks the nucleus `a`, the `u` stays). Only
+     * fires when the buffer ends in a run of vowels containing a plain a/e/o matching [lower] that
+     * is not the last char (that adjacent case is [applyCircumflex]). Arms [retypeEscapeIndex] so
+     * re-pressing the vowel undoes it. Returns true if it consumed the key.
+     */
+    private fun applyCircumflexNucleus(lower: Char): Boolean {
+        val circ = when (lower) { 'a' -> 'â'; 'e' -> 'ê'; 'o' -> 'ô'; else -> return false }
+        if (buffer.isEmpty() || !isVowel(buffer.last())) return false // need a vowel ending the run
+        var target = -1
+        var i = buffer.length - 1
+        while (i >= 0 && isVowel(buffer[i])) {
+            if (decompose(buffer[i]).first.lowercaseChar() == lower) target = i
+            i--
+        }
+        if (target < 0 || target == buffer.length - 1) return false
+        val (base, tone) = decompose(buffer[target])
+        setCharPreserveCase(target, circ, base.isUpperCase(), tone)
+        retypeEscapeIndex = target // re-pressing the vowel next undoes this (dâu + a → daua)
         return true
     }
 

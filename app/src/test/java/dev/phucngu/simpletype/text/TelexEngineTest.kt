@@ -84,6 +84,12 @@ class TelexEngineTest {
     @Test fun retype_escape_adds_literal_vowel() = assertEquals("rece", type("recee"))
     @Test fun receipt_types_through() = assertEquals("receipt", type("receeipt"))
 
+    // Circumflex an earlier vowel across the rest of the nucleus: "dau" + "a" → "dâu".
+    @Test fun circumflex_across_nucleus_dau() = assertEquals("dâu", type("daua"))
+    @Test fun circumflex_across_nucleus_cau() = assertEquals("câu", type("caua"))
+    // Re-pressing the vowel undoes it (so the literal types through): "daua" + "a" → "daua".
+    @Test fun circumflex_across_nucleus_escapes() = assertEquals("daua", type("dauaa"))
+
     // ---- Auto-restore: when transforms make a non-Vietnamese syllable, show the typed letters ----
 
     @Test fun autorestore_benefit() = assertEquals("benefit", type("benefit"))
