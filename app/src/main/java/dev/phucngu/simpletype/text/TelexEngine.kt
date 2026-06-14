@@ -186,6 +186,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             circ -> { // â + a → revert to "aa"
                 setCharPreserveCase(idx, lower, base.isUpperCase(), tone)
                 buffer.append(typed)
+                if (raw.length >= 2) raw.deleteCharAt(raw.length - 1) // the circumflex key was a raw dup
                 true
             }
             else -> false
@@ -318,6 +319,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             if (plain != null) {
                 setCharPreserveCase(idx, plain, base.isUpperCase(), tone)
                 buffer.append(typed)
+                if (raw.length >= 2) raw.deleteCharAt(raw.length - 1) // the horn key was a raw dup
                 return
             }
 

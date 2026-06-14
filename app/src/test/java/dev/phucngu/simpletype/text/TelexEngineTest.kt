@@ -109,6 +109,10 @@ class TelexEngineTest {
     // "yes"→ýe, a 2nd s escapes the tone→"yes"; the escape must collapse raw too, so finishing
     // "...ter" auto-restores to "yester", not the doubled "yesster".
     @Test fun autorestore_yester_after_tone_escape() = assertEquals("yester", type("yesster"))
+    // "aa"→â, a 3rd a reverts→"aa"; the revert must collapse raw, so "...rd" restores to "aard".
+    @Test fun autorestore_aard_after_circumflex_revert() = assertEquals("aard", type("aaard"))
+    // "raw": ă then a 2nd w reverts→"raw"; the revert must collapse raw, so "...er" gives "rawer".
+    @Test fun autorestore_rawer_after_horn_revert() = assertEquals("rawer", type("rawwer"))
     // 'w'→ư and 'r'=hỏi drag "world" down the VN path; the invalid "ld" coda must restore it.
     @Test fun autorestore_world() = assertEquals("world", type("world"))
     // Escaping the lone ư with a second w (ww→w) must also collapse the raw buffer, so a later
