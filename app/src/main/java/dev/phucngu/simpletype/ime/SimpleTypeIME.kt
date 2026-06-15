@@ -279,10 +279,10 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             return
         }
         if (!telex.isEmpty) {
-            // Shift+Delete is word-delete: drop the whole word being composed, not one char.
+            // Held Shift = word-delete: drop the whole word being composed, not one char.
             // Otherwise this branch swallows the keystroke before the word-delete path below,
             // so word-delete would "only work after a space" (once the buffer is committed).
-            if (shifted && !capsLock) {
+            if (shiftHeld) {
                 telex.reset()
                 ic.setComposingText("", 1)
                 ic.finishComposingText()
@@ -297,10 +297,11 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             }
             return
         }
-        // Shift turns Delete into delete-word-backwards (caps lock keeps single-char). Keep shift
-        // armed so repeated taps keep deleting words; consuming it here (or letting
-        // updateAutoCapitalize reset it) would make only the first tap a word-delete.
-        if (shifted && !capsLock) {
+        // Only a *held* Shift turns Delete into delete-word-backwards. A one-shot Shift (armed for
+        // a capital the user then abandoned) or auto-capitalize must not word-delete — they leave
+        // `shifted` set without the modifier being held. `shiftHeld` persists across the whole hold,
+        // so repeated taps keep deleting words.
+        if (shiftHeld) {
             deleteWordBeforeCursor(ic)
             return
         }

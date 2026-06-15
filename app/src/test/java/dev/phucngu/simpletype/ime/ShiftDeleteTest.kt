@@ -87,16 +87,31 @@ class ShiftDeleteTest {
     }
 
     @Test
-    fun shift_then_delete_thrice_removes_three_words() {
+    fun held_shift_then_delete_thrice_removes_three_words() {
         val ic = FakeIc(View(ctx), "the quick brown fox")
         val ime = TestIme(LatinKeyboardView(ctx), ic, null)
 
-        ime.onKey(shift())   // arm shift once
-        ime.onKey(del())     // delete "fox"
-        ime.onKey(del())     // delete "brown"
-        ime.onKey(del())     // delete "quick"
+        ime.onShiftHold(true) // hold Shift as a modifier
+        ime.onKey(del())      // delete "fox"
+        ime.onKey(del())      // delete "brown"
+        ime.onKey(del())      // delete "quick"
 
         assertEquals("the ", ic.text.toString())
+    }
+
+    /**
+     * A one-shot Shift (tapped because the user was about to type a capital, then changed their
+     * mind) must NOT word-delete: Delete removes a single character. Only a held Shift word-deletes.
+     */
+    @Test
+    fun one_shot_shift_then_delete_removes_single_char() {
+        val ic = FakeIc(View(ctx), "the quick")
+        val ime = TestIme(LatinKeyboardView(ctx), ic, null)
+
+        ime.onKey(shift()) // one-shot caps arm, not a held modifier
+        ime.onKey(del())
+
+        assertEquals("the quic", ic.text.toString())
     }
 
     /**
@@ -106,13 +121,13 @@ class ShiftDeleteTest {
      * word-delete "only worked after a space".
      */
     @Test
-    fun shift_then_delete_removes_word_still_being_composed() {
+    fun held_shift_then_delete_removes_word_still_being_composed() {
         val ic = FakeIc(View(ctx), "the ")
         val ime = TestIme(LatinKeyboardView(ctx), ic, null)
         ime.setVietnamese()
 
         "hello".forEach { ime.onKey(typeLetter(it)) } // composing region = "hello"
-        ime.onKey(shift())
+        ime.onShiftHold(true)
         ime.onKey(del())
 
         assertEquals("the ", ic.visible())
