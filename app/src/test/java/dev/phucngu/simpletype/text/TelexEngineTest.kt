@@ -58,6 +58,21 @@ class TelexEngineTest {
 
     @Test fun day_with_dd() = assertEquals("đây", type("ddaay"))
 
+    // ---- Backspacing a whole word clears residual state ----
+
+    // "as" makes buffer "á" but raw "as" (the tone key grows raw, not the display). One backspace
+    // empties the display, so the IME finishes composing — but raw "a" must not survive to taint
+    // the next word. Typing "br" (raw-fallback word, invalid onset) should yield "br", not "abr".
+    @Test fun backspace_to_empty_clears_residual_raw() {
+        val e = TelexEngine()
+        "as".forEach { e.input(it) }
+        assertEquals("á", e.composing)
+        e.backspace()
+        assertTrue(e.isEmpty)
+        "br".forEach { e.input(it) }
+        assertEquals("br", e.composing)
+    }
+
     @Test fun phuong_horns() = assertEquals("phương", type("phuwowng"))
 
     // A horn key typed after the coda reaches back to the nucleus: "duong" + w → "dương".

@@ -171,6 +171,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (buffer.isEmpty()) return false
         buffer.deleteCharAt(buffer.length - 1)
         if (raw.isNotEmpty()) raw.deleteCharAt(raw.length - 1)
+        // Deleting the whole word clears the display, but raw can lag behind it (a tone/modifier key
+        // grows raw without growing buffer, e.g. "as"→"á" leaves raw "as"). Drop that residue plus
+        // any armed escape state so it can't taint the next word the user types.
+        if (buffer.isEmpty()) reset()
         return true
     }
 
