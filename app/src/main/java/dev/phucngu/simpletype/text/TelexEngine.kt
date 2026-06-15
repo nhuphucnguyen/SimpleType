@@ -66,15 +66,21 @@ class TelexEngine(private val modernStyle: Boolean = true) {
 
     /**
      * Current display form of the word being composed: the Vietnamese form while it is still a
-     * plausible syllable, otherwise the raw keystrokes when diacritics were applied in error.
-     * A buffer that is invalid but already plain ASCII (the escape rules produced the right
-     * literal, e.g. `web`) is returned as-is.
+     * plausible syllable, otherwise the raw keystrokes — so a transform that misfired on an English
+     * word types through.
+     *
+     * The raw fallback is used even when the buffer is already plain ASCII, because a tone key
+     * marks/cancels a vowel without growing the buffer (`forza`: `r`→fỏ then `z`→fo), so the shrunken
+     * ASCII buffer ("fo") lags the keystrokes ("forz"). But only trust raw while it is itself plain
+     * ASCII: after the IME reloads a committed Vietnamese syllable on a cursor move, raw can hold that
+     * display form (e.g. "hẻ" while the user is mid-"her"); there the freshly escaped ASCII buffer is
+     * the better literal. In the normal (no-reload) path the escape/collapse rules keep raw faithful.
      */
     val composing: String
         get() {
             val s = buffer.toString()
             if (buffer.isEmpty() || isVietnameseSyllable(s)) return s
-            return if (s.any { it.code > 127 }) raw.toString() else s
+            return if (raw.all { it.code < 128 }) raw.toString() else s
         }
 
     val isEmpty: Boolean

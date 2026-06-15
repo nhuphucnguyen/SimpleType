@@ -116,6 +116,9 @@ class TelexEngineTest {
     // real coda, not an escape of the now-stale tone on 'e'. It must not cancel that tone and collapse
     // the raw buffer (that drops an r → "eror"); auto-restore should show "error".
     @Test fun autorestore_error_after_stale_tone() = assertEquals("error", type("errror"))
+    // "forza": r puts a hỏi tone on o (fỏ, shown "for"), z removes it (fo). The buffer is now plain
+    // ASCII and invalid, so auto-restore must still fall back to the raw keystrokes — "forza", not "fo".
+    @Test fun autorestore_forza_after_tone_removed() = assertEquals("forza", type("forza"))
     // "aa"→â, a 3rd a reverts→"aa"; the revert must collapse raw, so "...rd" restores to "aard".
     @Test fun autorestore_aard_after_circumflex_revert() = assertEquals("aard", type("aaard"))
     // "raw": ă then a 2nd w reverts→"raw"; the revert must collapse raw, so "...er" gives "rawer".

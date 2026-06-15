@@ -110,4 +110,11 @@ class HermesTelexIntegrationTest {
 
     @Test fun error_commits_error_editor_without_composing_region() =
         assertEquals("error", typeWord("errror", reportComposingRegion = false))
+
+    // "forza" (f,o,r,z,a): r tones the o, z removes it; the word must still type through.
+    @Test fun forza_commits_forza_well_behaved_editor() =
+        assertEquals("forza", typeWord("forza", reportComposingRegion = true))
+
+    @Test fun forza_commits_forza_editor_without_composing_region() =
+        assertEquals("forza", typeWord("forza", reportComposingRegion = false))
 }
