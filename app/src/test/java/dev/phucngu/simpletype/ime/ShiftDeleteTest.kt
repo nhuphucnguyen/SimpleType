@@ -22,12 +22,35 @@ class ShiftDeleteTest {
 
     private val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
 
-    /** Minimal InputConnection backed by a buffer, cursor assumed at the end (no selection). */
+    /**
+     * Minimal InputConnection backed by a buffer, cursor assumed at the end (no selection).
+     * Models a composing region so Telex (Vietnamese) word-in-progress paths can be exercised:
+     * [text] holds committed text, [composing] the active composing span, and [visible] their
+     * concatenation as the editor would render and report it.
+     */
     private class FakeIc(view: View, initial: String) : BaseInputConnection(view, false) {
         val text = StringBuilder(initial)
+        private var composing = ""
+        fun visible(): String = text.toString() + composing
         override fun getSelectedText(flags: Int): CharSequence? = null
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence =
-            text.substring(maxOf(0, text.length - n))
+        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence {
+            val full = visible()
+            return full.substring(maxOf(0, full.length - n))
+        }
+        override fun setComposingText(t: CharSequence, newCursorPosition: Int): Boolean {
+            composing = t.toString()
+            return true
+        }
+        override fun commitText(t: CharSequence, newCursorPosition: Int): Boolean {
+            composing = ""
+            text.append(t)
+            return true
+        }
+        override fun finishComposingText(): Boolean {
+            text.append(composing)
+            composing = ""
+            return true
+        }
         override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
             val d = minOf(beforeLength, text.length)
             text.delete(text.length - d, text.length)
@@ -53,6 +76,15 @@ class ShiftDeleteTest {
 
     private fun shift() = Key(KeyCode.SHIFT, "Shift")
     private fun del() = Key(KeyCode.DELETE, "Delete")
+    private fun typeLetter(c: Char) = Key(c.code, c.toString())
+
+    /** Flip the IME into Vietnamese so letters route through the Telex composing region. */
+    private fun TestIme.setVietnamese() {
+        SimpleTypeIME::class.java.getDeclaredField("language").apply {
+            isAccessible = true
+            set(this@setVietnamese, dev.phucngu.simpletype.voice.VoiceLanguage.VIETNAMESE)
+        }
+    }
 
     @Test
     fun shift_then_delete_thrice_removes_three_words() {
@@ -65,5 +97,24 @@ class ShiftDeleteTest {
         ime.onKey(del())     // delete "quick"
 
         assertEquals("the ", ic.text.toString())
+    }
+
+    /**
+     * Regression: in Vietnamese mode the word at the cursor sits in the Telex composing region
+     * (no trailing space committed yet). Shift+Delete must drop the whole word, not backspace a
+     * single character. Previously the composing branch ran first and only deleted one char, so
+     * word-delete "only worked after a space".
+     */
+    @Test
+    fun shift_then_delete_removes_word_still_being_composed() {
+        val ic = FakeIc(View(ctx), "the ")
+        val ime = TestIme(LatinKeyboardView(ctx), ic, null)
+        ime.setVietnamese()
+
+        "hello".forEach { ime.onKey(typeLetter(it)) } // composing region = "hello"
+        ime.onKey(shift())
+        ime.onKey(del())
+
+        assertEquals("the ", ic.visible())
     }
 }

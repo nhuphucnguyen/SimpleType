@@ -279,6 +279,15 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             return
         }
         if (!telex.isEmpty) {
+            // Shift+Delete is word-delete: drop the whole word being composed, not one char.
+            // Otherwise this branch swallows the keystroke before the word-delete path below,
+            // so word-delete would "only work after a space" (once the buffer is committed).
+            if (shifted && !capsLock) {
+                telex.reset()
+                ic.setComposingText("", 1)
+                ic.finishComposingText()
+                return
+            }
             telex.backspace()
             if (telex.isEmpty) {
                 ic.setComposingText("", 1)
