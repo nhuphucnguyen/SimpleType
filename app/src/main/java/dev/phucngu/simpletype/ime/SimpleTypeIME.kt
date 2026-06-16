@@ -44,6 +44,9 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private var metrics = KeyboardMetrics.DEFAULT
     private var statusView: TextView? = null
     private var micButton: ImageButton? = null
+    private var setupButton: ImageButton? = null
+    private var clipboardButton: ImageButton? = null
+    private var optionsExpanded = false
 
     // Root padded for the nav-bar inset; bottomPaddingPx is the user-adjustable lift above it.
     private var keyboardRoot: View? = null
@@ -91,8 +94,17 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         micButton = root.findViewById<ImageButton>(R.id.toolbar_mic).apply {
             setOnClickListener { handleMic() }
         }
-        // Toolbar menu opens the app's settings screen (keyboard sizing, voice models, …).
-        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener { openSettings() }
+
+        setupButton = root.findViewById(R.id.toolbar_setup)
+        setupButton?.setOnClickListener { openSettings() }
+
+        clipboardButton = root.findViewById(R.id.toolbar_clipboard)
+        clipboardButton?.setOnClickListener { handlePaste() }
+
+        // Toolbar menu toggles the expanded options (Setup, Clipboard).
+        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener {
+            toggleOptions()
+        }
 
         applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyKeyboardMetrics()
@@ -141,6 +153,8 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         capsLock = false
         passwordField = isPasswordField(info)
         hideStatus()
+        optionsExpanded = false
+        updateOptionsState()
         if (voice.isListening) voice.stop()
         setMicListening(false)
 
@@ -555,6 +569,28 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     private fun hideStatus() {
         statusView?.visibility = View.GONE
+    }
+
+    private fun toggleOptions() {
+        optionsExpanded = !optionsExpanded
+        updateOptionsState()
+    }
+
+    private fun updateOptionsState() {
+        val visibility = if (optionsExpanded) View.VISIBLE else View.GONE
+        setupButton?.visibility = visibility
+        clipboardButton?.visibility = visibility
+    }
+
+    private fun handlePaste() {
+        val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = clipboard.primaryClip
+        if (clip != null && clip.itemCount > 0) {
+            val text = clip.getItemAt(0).text
+            if (!text.isNullOrEmpty()) {
+                currentInputConnection?.commitText(text, 1)
+            }
+        }
     }
 
     private companion object {
