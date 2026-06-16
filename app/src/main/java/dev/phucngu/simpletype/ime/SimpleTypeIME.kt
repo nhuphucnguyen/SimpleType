@@ -630,7 +630,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private fun showClipboard() {
         optionsExpanded = false
         updateOptionsState()
-        keyboardView.visibility = View.GONE
+        keyboardView.visibility = View.INVISIBLE
         clipboardContainer?.visibility = View.VISIBLE
         clipboardAdapter.submitList(clipboardHistory.getItems())
     }
