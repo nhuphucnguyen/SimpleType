@@ -20,21 +20,23 @@
 
     <ImageButton
         android:id="@+id/item_pin"
-        android:layout_width="36dp"
+        android:layout_width="28dp"
         android:layout_height="36dp"
+        android:padding="5dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_kb_pin"
-        android:scaleType="centerInside"
+        android:scaleType="fitCenter"
         app:tint="@color/kb_chrome_icon"
         android:contentDescription="@string/clipboard_pin" />
 
     <ImageButton
         android:id="@+id/item_delete"
-        android:layout_width="36dp"
+        android:layout_width="28dp"
         android:layout_height="36dp"
+        android:padding="5dp"
         android:background="?android:attr/selectableItemBackgroundBorderless"
         android:src="@drawable/ic_kb_delete"
-        android:scaleType="centerInside"
+        android:scaleType="fitCenter"
         app:tint="@color/kb_chrome_icon"
         android:contentDescription="@string/clipboard_delete" />
 

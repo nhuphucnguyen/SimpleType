@@ -630,6 +630,16 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private fun showClipboard() {
         optionsExpanded = false
         updateOptionsState()
+        // Pin the overlay to the keyboard's current height. Otherwise the FrameLayout's
+        // wrap_content measures the weighted RecyclerView at the full available height,
+        // stretching the keyboard taller as clipboard entries pile up. With a fixed box the
+        // list scrolls inside it instead.
+        clipboardContainer?.let { container ->
+            val h = keyboardView.height
+            if (h > 0 && container.layoutParams.height != h) {
+                container.layoutParams = container.layoutParams.apply { height = h }
+            }
+        }
         keyboardView.visibility = View.INVISIBLE
         clipboardContainer?.visibility = View.VISIBLE
         clipboardAdapter.submitList(clipboardHistory.getItems())
