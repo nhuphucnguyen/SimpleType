@@ -14,6 +14,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
@@ -47,6 +49,10 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private var setupButton: ImageButton? = null
     private var clipboardButton: ImageButton? = null
     private var optionsExpanded = false
+
+    private lateinit var clipboardHistory: ClipboardHistoryManager
+    private lateinit var clipboardAdapter: ClipboardAdapter
+    private var clipboardContainer: View? = null
 
     // Root padded for the nav-bar inset; bottomPaddingPx is the user-adjustable lift above it.
     private var keyboardRoot: View? = null
@@ -84,6 +90,21 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     // ---- Lifecycle ----
 
+    override fun onCreate() {
+        super.onCreate()
+        clipboardHistory = ClipboardHistoryManager(this)
+        val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.addPrimaryClipChangedListener {
+            val clip = cm.primaryClip
+            if (clip != null && clip.itemCount > 0) {
+                val text = clip.getItemAt(0).text
+                if (!text.isNullOrEmpty()) {
+                    clipboardHistory.addItem(text.toString())
+                }
+            }
+        }
+    }
+
     override fun onCreateInputView(): View {
         val root = layoutInflater.inflate(R.layout.keyboard_view, null)
         keyboardView = root.findViewById(R.id.keyboard)
@@ -99,7 +120,30 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         setupButton?.setOnClickListener { openSettings() }
 
         clipboardButton = root.findViewById(R.id.toolbar_clipboard)
-        clipboardButton?.setOnClickListener { handlePaste() }
+        clipboardButton?.setOnClickListener { showClipboard() }
+
+        clipboardContainer = root.findViewById(R.id.clipboard_container)
+        root.findViewById<View>(R.id.clipboard_close).setOnClickListener {
+            hideClipboard()
+        }
+
+        val recycler = root.findViewById<RecyclerView>(R.id.clipboard_recycler)
+        clipboardAdapter = ClipboardAdapter(
+            onSelect = { text ->
+                currentInputConnection?.commitText(text, 1)
+                hideClipboard()
+            },
+            onPin = { id ->
+                clipboardHistory.togglePin(id)
+                clipboardAdapter.submitList(clipboardHistory.getItems())
+            },
+            onDelete = { id ->
+                clipboardHistory.deleteItem(id)
+                clipboardAdapter.submitList(clipboardHistory.getItems())
+            }
+        )
+        recycler.layoutManager = LinearLayoutManager(this)
+        recycler.adapter = clipboardAdapter
 
         // Toolbar menu toggles the expanded options (Setup, Clipboard).
         root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener {
@@ -155,6 +199,18 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         hideStatus()
         optionsExpanded = false
         updateOptionsState()
+        hideClipboard()
+
+        // Sync latest clipboard item
+        val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        cm.primaryClip?.let { clip ->
+            if (clip.itemCount > 0) {
+                clip.getItemAt(0).text?.let {
+                    if (it.isNotEmpty()) clipboardHistory.addItem(it.toString())
+                }
+            }
+        }
+
         if (voice.isListening) voice.stop()
         setMicListening(false)
 
@@ -571,6 +627,19 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         statusView?.visibility = View.GONE
     }
 
+    private fun showClipboard() {
+        optionsExpanded = false
+        updateOptionsState()
+        keyboardView.visibility = View.GONE
+        clipboardContainer?.visibility = View.VISIBLE
+        clipboardAdapter.submitList(clipboardHistory.getItems())
+    }
+
+    private fun hideClipboard() {
+        clipboardContainer?.visibility = View.GONE
+        keyboardView.visibility = View.VISIBLE
+    }
+
     private fun toggleOptions() {
         optionsExpanded = !optionsExpanded
         updateOptionsState()
@@ -580,17 +649,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         val visibility = if (optionsExpanded) View.VISIBLE else View.GONE
         setupButton?.visibility = visibility
         clipboardButton?.visibility = visibility
-    }
-
-    private fun handlePaste() {
-        val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        val clip = clipboard.primaryClip
-        if (clip != null && clip.itemCount > 0) {
-            val text = clip.getItemAt(0).text
-            if (!text.isNullOrEmpty()) {
-                currentInputConnection?.commitText(text, 1)
-            }
-        }
     }
 
     private companion object {

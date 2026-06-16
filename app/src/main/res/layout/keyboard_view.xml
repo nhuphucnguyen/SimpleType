@@ -89,8 +89,56 @@
             tools:ignore="UnusedAttribute" />
     </RelativeLayout>
 
-    <dev.phucngu.simpletype.ime.LatinKeyboardView
-        android:id="@+id/keyboard"
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content">
+
+        <dev.phucngu.simpletype.ime.LatinKeyboardView
+            android:id="@+id/keyboard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <LinearLayout
+            android:id="@+id/clipboard_container"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:background="@color/kb_background">
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:paddingStart="12dp"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_centerVertical="true"
+                    android:text="@string/clipboard_title"
+                    android:textColor="@color/kb_status_text"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/clipboard_close"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_alignParentEnd="true"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:src="@drawable/ic_kb_backspace"
+                    android:rotation="180"
+                    android:scaleType="centerInside"
+                    android:tint="@color/kb_chrome_icon"
+                    android:contentDescription="@string/clipboard_close" />
+            </RelativeLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/clipboard_recycler"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:overScrollMode="never" />
+
+        </LinearLayout>
+    </FrameLayout>
 </LinearLayout>
