@@ -24,6 +24,10 @@
     <string name="key_space">Space</string>
     <string name="key_symbols">Symbols</string>
     <string name="key_clipboard">Clipboard</string>
+    <string name="clipboard_title">Clipboard</string>
+    <string name="clipboard_close">Close clipboard</string>
+    <string name="clipboard_pin">Pin item</string>
+    <string name="clipboard_delete">Delete item</string>
 
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
