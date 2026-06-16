@@ -23,6 +23,7 @@
     <string name="key_enter">Enter</string>
     <string name="key_space">Space</string>
     <string name="key_symbols">Symbols</string>
+    <string name="key_clipboard">Clipboard</string>
 
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
