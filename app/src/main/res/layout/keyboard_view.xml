@@ -34,7 +34,8 @@
                 android:layout_height="@dimen/kb_toolbar_height"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_kb_menu"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
+                android:padding="7dp"
                 android:tint="@color/kb_chrome_icon"
                 android:contentDescription="@string/toolbar_menu" />
 
@@ -44,7 +45,8 @@
                 android:layout_height="@dimen/kb_toolbar_height"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_kb_settings"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
+                android:padding="7dp"
                 android:tint="@color/kb_chrome_icon"
                 android:visibility="gone"
                 android:contentDescription="@string/settings_title" />
@@ -55,7 +57,8 @@
                 android:layout_height="@dimen/kb_toolbar_height"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_kb_clipboard"
-                android:scaleType="centerInside"
+                android:scaleType="fitCenter"
+                android:padding="7dp"
                 android:tint="@color/kb_chrome_icon"
                 android:visibility="gone"
                 android:contentDescription="@string/key_clipboard" />

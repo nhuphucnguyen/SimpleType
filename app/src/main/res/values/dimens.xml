@@ -8,9 +8,9 @@
     <dimen name="kb_icon_size">23dp</dimen>
     <dimen name="kb_status_height">34dp</dimen>
     <!-- Top suggestion/toolbar bar (menu · suggestions · mic) above the keys. -->
-    <dimen name="kb_toolbar_height">46dp</dimen>
+    <dimen name="kb_toolbar_height">34dp</dimen>
     <dimen name="kb_toolbar_icon">24dp</dimen>
-    <dimen name="kb_toolbar_mic_size">38dp</dimen>
+    <dimen name="kb_toolbar_mic_size">30dp</dimen>
     <!-- Bottom strip (collapse chevron · gesture handle · globe) below the keys. -->
     <dimen name="kb_strip_height">38dp</dimen>
     <dimen name="kb_strip_icon">22dp</dimen>

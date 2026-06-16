@@ -88,7 +88,9 @@ class ClipboardHistoryManager(context: Context) {
 
     fun getItems(): List<ClipboardItem> {
         cleanUp()
-        return items.toList()
+        // Pinned items always on top; within each group keep the existing
+        // newest-first order (sortedByDescending is stable).
+        return items.sortedByDescending { it.isPinned }
     }
 
     private fun cleanUp() {
