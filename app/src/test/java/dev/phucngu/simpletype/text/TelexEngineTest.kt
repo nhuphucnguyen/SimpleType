@@ -80,6 +80,12 @@ class TelexEngineTest {
     @Test fun horn_after_coda_huong() = assertEquals("hương", type("huongw"))
     @Test fun horn_after_coda_lang() = assertEquals("lăng", type("langw"))
     @Test fun horn_after_coda_qu_glide() = assertEquals("quơn", type("quonw"))
+    // "ua" + w horns the u, not the a: "uă" is not a valid syllable, so "mua" + w → "mưa".
+    @Test fun horn_ua_horns_u_not_a() = assertEquals("mưa", type("muaw"))
+    @Test fun horn_ua_bare() = assertEquals("ưa", type("uaw"))
+    @Test fun horn_ua_keeps_tone() = assertEquals("lửa", type("luarw"))
+    // The "qu" glide is exempt: its u stays bare so "qua" + w → "quă" (toward quăn).
+    @Test fun horn_qua_breves_a() = assertEquals("quă", type("quaw"))
     // w on a circumflex vowel swaps the mark to a breve/horn: "trân" + w → "trăn" (â→ă),
     // across the coda and with the tone preserved ("trấn" + w → "trắn").
     @Test fun horn_swaps_circumflex_to_breve() = assertEquals("trăn", type("traanw"))
