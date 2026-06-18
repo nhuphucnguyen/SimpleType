@@ -68,6 +68,10 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private var capsLock = false
     private var shiftHeld = false
     private var passwordField = false
+    // Terminal emulators (e.g. Termux, inputType TYPE_NULL) handle composing text inconsistently,
+    // which makes Vietnamese Telex unreliable there. In those editors we disable Telex and commit
+    // letters directly, like English (which works fine).
+    private var directCommit = false
 
     private val voice: VoiceInputController by lazy {
         VoiceInputController(this, voiceListener)
@@ -196,6 +200,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         layout = Layout.ALPHA
         capsLock = false
         passwordField = isPasswordField(info)
+        directCommit = info.inputType == InputType.TYPE_NULL
         hideStatus()
         optionsExpanded = false
         updateOptionsState()
@@ -259,7 +264,8 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
                 telex.reset()
             }
             // Pick up context if the cursor moved to the end of a word.
-            if (language == VoiceLanguage.VIETNAMESE && !passwordField && layout == Layout.ALPHA) {
+            if (language == VoiceLanguage.VIETNAMESE && !passwordField && layout == Layout.ALPHA &&
+                !directCommit) {
                 pickupTelexContext(ic, newSelStart)
             }
             updateAutoCapitalize(currentInputEditorInfo)
@@ -329,7 +335,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
 
         val useTelex = language == VoiceLanguage.VIETNAMESE && layout == Layout.ALPHA &&
-            !passwordField && c.isLetter()
+            !passwordField && !directCommit && c.isLetter()
 
         if (useTelex) {
             telex.input(c)
