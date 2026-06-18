@@ -308,6 +308,17 @@ class TelexEngine(private val modernStyle: Boolean = true) {
                 return
             }
 
+            // "ua" + w → "ưa": horn the u, not the a, because "uă" is not a valid syllable
+            // (mưa, chưa, lựa). The "qu" glide is exempt — its u stays bare so "qua" + w → "quă".
+            if (baseLower == 'a' && idx >= 1) {
+                val (prevBase, prevTone) = decompose(buffer[idx - 1])
+                val afterQu = idx >= 2 && buffer[idx - 2].lowercaseChar() == 'q'
+                if (prevBase.lowercaseChar() == 'u' && !afterQu) {
+                    setCharPreserveCase(idx - 1, 'ư', prevBase.isUpperCase(), prevTone)
+                    return
+                }
+            }
+
             val horn = hornForm(baseLower)
             if (horn != null) {
                 // "uo" + w → "ươ": a single w horns both vowels (hương, đường), unless
