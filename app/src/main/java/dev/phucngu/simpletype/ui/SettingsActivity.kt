@@ -133,36 +133,52 @@ class SettingsActivity : AppCompatActivity() {
 
     /**
      * Haptics are a standalone preference (not a sizing metric): an on/off switch plus a strength
-     * slider. The slider is disabled while the switch is off, and dragging it plays a live preview
-     * at that intensity so the user can feel what they're choosing.
+     * slider with [HAPTIC_LEVELS] discrete steps (Subtle..Max). The slider is disabled while the
+     * switch is off, and changing it plays a live preview so the user can feel each level.
+     *
+     * Storage stays as a 0..100 percent ([LatinKeyboardView.PREF_HAPTIC_STRENGTH]) so the IME code
+     * is unchanged; levels are just evenly-spaced percents, and any old free-slider value snaps to
+     * the nearest level on load.
      */
     private fun setupHapticControls() {
         val enabled = prefs().getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-        val strength = prefs().getInt(
+        val savedPercent = prefs().getInt(
             LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT
         )
         switchHaptic.isChecked = enabled
-        seekHapticStrength.max = 100
-        seekHapticStrength.progress = strength
+        seekHapticStrength.max = HAPTIC_LEVELS - 1
+        seekHapticStrength.progress = percentToLevel(savedPercent)
         seekHapticStrength.isEnabled = enabled
-        lblHapticStrength.text = getString(R.string.size_haptic_strength, strength)
+        showHapticLevel(seekHapticStrength.progress)
 
         switchHaptic.setOnCheckedChangeListener { _, checked ->
             prefs().edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
             seekHapticStrength.isEnabled = checked
-            if (checked) haptics.tap(seekHapticStrength.progress / 100f)
+            if (checked) haptics.tap(levelToPercent(seekHapticStrength.progress) / 100f)
         }
         seekHapticStrength.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
-                lblHapticStrength.text = getString(R.string.size_haptic_strength, progress)
-                prefs().edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, progress).apply()
+            override fun onProgressChanged(s: SeekBar?, level: Int, fromUser: Boolean) {
+                showHapticLevel(level)
+                prefs().edit()
+                    .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, levelToPercent(level)).apply()
+                // Each discrete step is a deliberate choice, so preview it as the user lands on it.
+                if (fromUser && switchHaptic.isChecked) haptics.tap(levelToPercent(level) / 100f)
             }
             override fun onStartTrackingTouch(s: SeekBar?) {}
-            // Preview the chosen intensity once the user lets go.
-            override fun onStopTrackingTouch(s: SeekBar?) {
-                if (switchHaptic.isChecked) haptics.tap((s?.progress ?: 0) / 100f)
-            }
+            override fun onStopTrackingTouch(s: SeekBar?) {}
         })
+    }
+
+    /** Level index (0-based) -> intensity percent, evenly spread so the top level is 100%. */
+    private fun levelToPercent(level: Int): Int = (level + 1) * 100 / HAPTIC_LEVELS
+
+    /** Nearest level index for a stored percent (snaps legacy free-slider values onto a step). */
+    private fun percentToLevel(percent: Int): Int =
+        (Math.round(percent * HAPTIC_LEVELS / 100f) - 1).coerceIn(0, HAPTIC_LEVELS - 1)
+
+    private fun showHapticLevel(level: Int) {
+        val name = resources.getStringArray(R.array.haptic_levels)[level]
+        lblHapticStrength.text = getString(R.string.size_haptic_strength, name)
     }
 
     private fun seekToMetrics(m: KeyboardMetrics) {
@@ -239,5 +255,10 @@ class SettingsActivity : AppCompatActivity() {
     private fun isImeEnabled(): Boolean {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         return imm.enabledInputMethodList.any { it.packageName == packageName }
+    }
+
+    companion object {
+        /** Number of discrete vibration-strength steps; must match the haptic_levels string array. */
+        private const val HAPTIC_LEVELS = 5
     }
 }
