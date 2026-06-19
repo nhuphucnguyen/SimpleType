@@ -23,6 +23,8 @@
     <string name="clipboard_close">Close clipboard</string>
     <string name="clipboard_pin">Pin item</string>
     <string name="clipboard_delete">Delete item</string>
+    <string name="clipboard_section_pinned">Pinned</string>
+    <string name="clipboard_section_recent">Recent</string>
 
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
