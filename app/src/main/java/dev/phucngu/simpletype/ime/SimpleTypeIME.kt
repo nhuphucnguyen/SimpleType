@@ -1,5 +1,6 @@
 package dev.phucngu.simpletype.ime
 
+import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
@@ -8,14 +9,29 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
-import android.widget.ImageButton
-import android.widget.TextView
-import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.colorResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.ViewModelStore
+import androidx.lifecycle.ViewModelStoreOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.lifecycle.setViewTreeViewModelStoreOwner
+import androidx.savedstate.SavedStateRegistry
+import androidx.savedstate.SavedStateRegistryController
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
@@ -28,35 +44,36 @@ import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
 
-/**
- * The SimpleType input method.
- *
- * Renders a custom [LatinKeyboardView] and translates key events into [InputConnection]
- * edits: direct commits in English, and underlined composing text driven by [TelexEngine]
- * in Vietnamese. Adapts to the target field via [EditorInfo] (enter-key action, sentence
- * auto-capitalisation, password handling) and hosts the on-device voice pipeline
- * ([VoiceInputController]) behind the mic key.
- *
- * Touch typing (M1) is fully functional here; the voice path is wired but reports
- * "model not installed" until an ASR engine is bundled (M2/M3).
- */
-open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
+open class SimpleTypeIME : InputMethodService(),
+    LatinKeyboardListener,
+    LifecycleOwner,
+    ViewModelStoreOwner,
+    SavedStateRegistryOwner {
 
-    private lateinit var keyboardView: LatinKeyboardView
+    private val lifecycleRegistry by lazy { LifecycleRegistry(this) }
+    override val lifecycle: Lifecycle get() = lifecycleRegistry
+
+    private val store by lazy { ViewModelStore() }
+    override val viewModelStore: ViewModelStore get() = store
+
+    private val savedStateRegistryController by lazy { SavedStateRegistryController.create(this) }
+    override val savedStateRegistry: SavedStateRegistry get() = savedStateRegistryController.savedStateRegistry
+
     private var metrics = KeyboardMetrics.DEFAULT
-    private var statusView: TextView? = null
-    private var micButton: ImageButton? = null
-    private var setupButton: ImageButton? = null
-    private var clipboardButton: ImageButton? = null
-    private var optionsExpanded = false
+
+    // Compose states representing the keyboard UI state
+    private var composeKeyboard by mutableStateOf(KeyboardLayouts.qwerty())
+    private var composeMetrics by mutableStateOf(KeyboardMetrics.DEFAULT)
+    private var composeSpaceLabel by mutableStateOf("")
+    private var composeShifted by mutableStateOf(false)
+    private var composeCapsLock by mutableStateOf(false)
+    private var composeVoiceStatus by mutableStateOf<String?>(null)
+    private var composeMicActive by mutableStateOf(false)
+    private var composeOptionsExpanded by mutableStateOf(false)
+    private var composeClipboardItems by mutableStateOf<List<ClipboardItem>>(emptyList())
+    private var composeClipboardVisible by mutableStateOf(false)
 
     private lateinit var clipboardHistory: ClipboardHistoryManager
-    private lateinit var clipboardAdapter: ClipboardAdapter
-    private var clipboardContainer: View? = null
-
-    // Root padded for the nav-bar inset; bottomPaddingPx is the user-adjustable lift above it.
-    private var keyboardRoot: View? = null
-    private var bottomPaddingPx = 0
 
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
@@ -68,9 +85,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private var capsLock = false
     private var shiftHeld = false
     private var passwordField = false
-    // Terminal emulators (e.g. Termux, inputType TYPE_NULL) handle composing text inconsistently,
-    // which makes Vietnamese Telex unreliable there. In those editors we disable Telex and commit
-    // letters directly, like English (which works fine).
     private var directCommit = false
 
     private val voice: VoiceInputController by lazy {
@@ -79,14 +93,11 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     private val modelManager by lazy { ModelManager(this) }
     private val engines = mutableMapOf<VoiceLanguage, AsrEngine>()
 
-    /** Cached on-device ASR engine for [lang]; the model is loaded lazily on first use. */
     private fun engineFor(lang: VoiceLanguage): AsrEngine = engines.getOrPut(lang) {
         val tag = if (lang == VoiceLanguage.ENGLISH) "vosk-en" else "vosk-vi"
         VoskAsrEngine(modelManager.modelDir(lang).path, tag)
     }
 
-    // Voice-command pipeline: finalized utterances are matched to a command (or text) and
-    // executed against the field, with every edit kept undoable.
     private val commandMatcher = CommandMatcher()
     private val commandHandler by lazy {
         VoiceCommandHandler(InputConnectionTextEditor { currentInputConnection })
@@ -95,6 +106,8 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     // ---- Lifecycle ----
 
     override fun onCreate() {
+        savedStateRegistryController.performRestore(null)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         super.onCreate()
         clipboardHistory = ClipboardHistoryManager(this)
         val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
@@ -110,69 +123,71 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     override fun onCreateInputView(): View {
-        val root = layoutInflater.inflate(R.layout.keyboard_view, null)
-        keyboardView = root.findViewById(R.id.keyboard)
-        statusView = root.findViewById(R.id.voice_status)
-        keyboardView.listener = this
-
-        // Toolbar (top) hosts the mic; the bottom strip hosts language switching and collapse.
-        micButton = root.findViewById<ImageButton>(R.id.toolbar_mic).apply {
-            setOnClickListener { handleMic() }
+        // Set ViewTree owners on the window's decor view so that Compose can find them during Recomposer resolution.
+        getWindow()?.window?.decorView?.let { decorView ->
+            decorView.setViewTreeLifecycleOwner(this)
+            decorView.setViewTreeViewModelStoreOwner(this)
+            decorView.setViewTreeSavedStateRegistryOwner(this)
         }
 
-        setupButton = root.findViewById(R.id.toolbar_setup)
-        setupButton?.setOnClickListener { openSettings() }
-
-        clipboardButton = root.findViewById(R.id.toolbar_clipboard)
-        clipboardButton?.setOnClickListener { showClipboard() }
-
-        clipboardContainer = root.findViewById(R.id.clipboard_container)
-        root.findViewById<View>(R.id.clipboard_close).setOnClickListener {
-            hideClipboard()
+        val composeView = ComposeView(this).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            setViewTreeLifecycleOwner(this@SimpleTypeIME)
+            setViewTreeViewModelStoreOwner(this@SimpleTypeIME)
+            setViewTreeSavedStateRegistryOwner(this@SimpleTypeIME)
         }
 
-        val recycler = root.findViewById<RecyclerView>(R.id.clipboard_recycler)
-        clipboardAdapter = ClipboardAdapter(
-            onSelect = { text ->
-                currentInputConnection?.commitText(text, 1)
-                hideClipboard()
-            },
-            onPin = { id ->
-                clipboardHistory.togglePin(id)
-                clipboardAdapter.submitList(clipboardHistory.getItems())
-            },
-            onDelete = { id ->
-                clipboardHistory.deleteItem(id)
-                clipboardAdapter.submitList(clipboardHistory.getItems())
+        composeView.setContent {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(colorResource(R.color.kb_background))
+            ) {
+                KeyboardScreen(
+                    keyboard = composeKeyboard,
+                    metrics = composeMetrics,
+                    spaceLabel = composeSpaceLabel,
+                    shifted = composeShifted,
+                    capsLock = composeCapsLock,
+                    voiceStatus = composeVoiceStatus,
+                    micActive = composeMicActive,
+                    optionsExpanded = composeOptionsExpanded,
+                    clipboardItems = composeClipboardItems,
+                    clipboardVisible = composeClipboardVisible,
+                    listener = this@SimpleTypeIME,
+                    onMicClick = { handleMic() },
+                    onSetupClick = { openSettings() },
+                    onClipboardClick = { showClipboard() },
+                    onMenuClick = { toggleOptions() },
+                    onClipboardClose = { hideClipboard() },
+                    onClipboardSelect = { text ->
+                        currentInputConnection?.commitText(text, 1)
+                        hideClipboard()
+                    },
+                    onClipboardPin = { id ->
+                        clipboardHistory.togglePin(id)
+                        composeClipboardItems = clipboardHistory.getItems()
+                    },
+                    onClipboardDelete = { id ->
+                        clipboardHistory.deleteItem(id)
+                        composeClipboardItems = clipboardHistory.getItems()
+                    }
+                )
             }
-        )
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = clipboardAdapter
-
-        // Toolbar menu toggles the expanded options (Setup, Clipboard).
-        root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener {
-            toggleOptions()
         }
 
-        applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyKeyboardMetrics()
         applyLayout()
-        return root
+        return composeView
     }
 
-    /** Load the user's keyboard sizing preferences and push them to the view and bottom padding. */
     private fun applyKeyboardMetrics() {
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         metrics = KeyboardMetrics.load(prefs)
-        keyboardView.applyMetrics(metrics)
-        keyboardView.showNumberRow = metrics.numberHintsVisible
-        keyboardView.showSymbolHints = metrics.showSymbolHints
-        keyboardView.hapticEnabled = prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-        keyboardView.hapticStrength = prefs.getInt(
-            LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT
-        ) / 100f
-        bottomPaddingPx = (metrics.bottomPaddingDp * resources.displayMetrics.density).toInt()
-        keyboardRoot?.let { ViewCompat.requestApplyInsets(it) }
+        composeMetrics = metrics
     }
 
     private fun openSettings() {
@@ -182,23 +197,10 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         )
     }
 
-    /**
-     * Keep the bottom row clear of the navigation bar and rounded screen corners: pad the
-     * keyboard's bottom by the nav-bar inset plus a user-adjustable gap, so corner keys are never
-     * clipped by the display curve or gesture bar, and the keys can be lifted into thumb reach.
-     */
-    private fun applyBottomInset(root: View) {
-        keyboardRoot = root
-        ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
-            val navBottom = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
-            v.updatePadding(bottom = bottomPaddingPx + navBottom)
-            insets
-        }
-        ViewCompat.requestApplyInsets(root)
-    }
-
     override fun onStartInputView(info: EditorInfo, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         telex.reset()
         commandHandler.clearHistory()
         layout = Layout.ALPHA
@@ -206,8 +208,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         passwordField = isPasswordField(info)
         directCommit = info.inputType == InputType.TYPE_NULL
         hideStatus()
-        optionsExpanded = false
-        updateOptionsState()
+        composeOptionsExpanded = false
         hideClipboard()
 
         // Sync latest clipboard item
@@ -223,7 +224,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         if (voice.isListening) voice.stop()
         setMicListening(false)
 
-        // Persist language choice across fields and restarts.
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
         language = VoiceLanguage.valueOf(langTag ?: VoiceLanguage.ENGLISH.name)
@@ -236,16 +236,12 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         if (voice.isListening) voice.stop()
         telex.reset()
     }
 
-    /**
-     * The cursor sits at the end of the Telex composing region after each keystroke. If a selection
-     * change reports it anywhere else — the user tapped to move it, made a selection, or the
-     * composing span was dropped — finish the composing word so further typing starts fresh at the
-     * new cursor instead of rewriting the old word in place.
-     */
     override fun onUpdateSelection(
         oldSelStart: Int,
         oldSelEnd: Int,
@@ -267,7 +263,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
                 ic.finishComposingText()
                 telex.reset()
             }
-            // Pick up context if the cursor moved to the end of a word.
             if (language == VoiceLanguage.VIETNAMESE && !passwordField && layout == Layout.ALPHA &&
                 !directCommit) {
                 pickupTelexContext(ic, newSelStart)
@@ -291,6 +286,8 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     override fun onDestroy() {
+        lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        store.clear()
         voice.release()
         engines.values.forEach { it.release() }
         engines.clear()
@@ -319,14 +316,8 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         if (key.code == KeyCode.DELETE) handleDelete(ic)
     }
 
-    /** Swiping across the space bar toggles EN ⇄ VI (only two languages, so direction is moot). */
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
-    /**
-     * Shift held as a modifier (one finger holds Shift, another taps keys). Keep shift active for
-     * the whole hold so repeated Delete taps delete words and letters come out capitalised; restore
-     * when released. Caps lock takes precedence and is left untouched.
-     */
     override fun onShiftHold(active: Boolean) {
         shiftHeld = active
         if (capsLock) return
@@ -352,16 +343,12 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     private fun handleDelete(ic: InputConnection) {
-        // If a selection exists, let the platform delete it.
         val selected = ic.getSelectedText(0)
         if (!selected.isNullOrEmpty()) {
             ic.commitText("", 1)
             return
         }
         if (!telex.isEmpty) {
-            // Held Shift = word-delete: drop the whole word being composed, not one char.
-            // Otherwise this branch swallows the keystroke before the word-delete path below,
-            // so word-delete would "only work after a space" (once the buffer is committed).
             if (shiftHeld) {
                 telex.reset()
                 ic.setComposingText("", 1)
@@ -377,10 +364,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
             }
             return
         }
-        // Only a *held* Shift turns Delete into delete-word-backwards. A one-shot Shift (armed for
-        // a capital the user then abandoned) or auto-capitalize must not word-delete — they leave
-        // `shifted` set without the modifier being held. `shiftHeld` persists across the whole hold,
-        // so repeated taps keep deleting words.
         if (shiftHeld) {
             deleteWordBeforeCursor(ic)
             return
@@ -389,7 +372,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         updateAutoCapitalize(currentInputEditorInfo)
     }
 
-    /** Delete any trailing whitespace plus the word before the cursor; falls back to one char. */
     private fun deleteWordBeforeCursor(ic: InputConnection) {
         val before = ic.getTextBeforeCursor(WORD_DELETE_LOOKBEHIND, 0) ?: ""
         if (before.isEmpty()) return
@@ -406,7 +388,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         updateAutoCapitalize(currentInputEditorInfo)
     }
 
-    // Placeholder until a full emoji panel exists: commit a single smiley so the key is live.
     private fun handleEmoji(ic: InputConnection) {
         finishComposing(ic)
         ic.commitText("🙂", 1)
@@ -440,7 +421,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         syncShiftToView()
     }
 
-    /** One-shot shift is cleared after a character is typed; caps lock and a held Shift persist. */
     private fun consumeShift() {
         if (shifted && !capsLock && !shiftHeld) {
             shifted = false
@@ -468,14 +448,12 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     private fun syncShiftToView() {
-        keyboardView.shifted = shifted
-        keyboardView.capsLock = capsLock
+        composeShifted = shifted
+        composeCapsLock = capsLock
     }
 
-    /** Tint the toolbar mic red while the recogniser is listening, chrome colour otherwise. */
     private fun setMicListening(active: Boolean) {
-        val tint = if (active) R.color.kb_mic_active else R.color.kb_chrome_icon
-        micButton?.setColorFilter(ContextCompat.getColor(this, tint))
+        composeMicActive = active
     }
 
     // ---- Layout & language ----
@@ -495,16 +473,16 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     private fun applyLayout() {
-        keyboardView.keyboard = when (layout) {
+        val targetKeyboard = when (layout) {
             Layout.ALPHA -> KeyboardLayouts.qwerty(metrics.showDedicatedNumberRow)
             Layout.SYMBOLS -> KeyboardLayouts.symbols()
             Layout.SYMBOLS_ALT -> KeyboardLayouts.symbolsAlt()
         }
-        keyboardView.spaceLabel = languageLabel()
+        composeKeyboard = targetKeyboard
+        composeSpaceLabel = languageLabel()
         syncShiftToView()
     }
 
-    /** Primary language switch: swipe the space bar. Toggles EN ⇄ VI and persists across fields. */
     private fun toggleLanguage() {
         currentInputConnection?.let { finishComposing(it) }
         if (voice.isListening) {
@@ -518,24 +496,20 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         } else {
             VoiceLanguage.ENGLISH
         }
-        keyboardView.spaceLabel = languageLabel()
+        composeSpaceLabel = languageLabel()
 
         getSharedPreferences("simpletype_prefs", MODE_PRIVATE).edit()
             .putString("language", language.name)
             .apply()
     }
 
-    /**
-     * Honour an explicit system input-method-subtype change too (e.g. if the user enables the
-     * Vietnamese subtype and switches via the system globe), keeping our state in sync.
-     */
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
         super.onCurrentInputMethodSubtypeChanged(newSubtype)
         currentInputConnection?.let { finishComposing(it) }
         val tag = newSubtype?.languageTag?.takeIf { it.isNotEmpty() }
             ?: @Suppress("DEPRECATION") newSubtype?.locale ?: ""
         language = if (tag.startsWith("vi")) VoiceLanguage.VIETNAMESE else VoiceLanguage.ENGLISH
-        keyboardView.spaceLabel = languageLabel()
+        composeSpaceLabel = languageLabel()
     }
 
     private fun languageLabel(): String = when (language) {
@@ -582,8 +556,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         override fun onFinal(text: String, confidence: Float) {
             val ic = currentInputConnection ?: return
             ic.finishComposingText()
-            // A whole utterance matches a command only if it is one in full (spec §3.3);
-            // otherwise it is committed as text. Either way the handler keeps it undoable.
             val action = commandMatcher.match(text, confidence)
             if (commandHandler.handle(action, text) == VoiceCommandHandler.Result.STOP_LISTENING) {
                 voice.stop()
@@ -627,52 +599,30 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
     }
 
     private fun showStatus(text: String) {
-        statusView?.apply {
-            this.text = text
-            visibility = View.VISIBLE
-        }
+        composeVoiceStatus = text
     }
 
     private fun hideStatus() {
-        statusView?.visibility = View.GONE
+        composeVoiceStatus = null
     }
 
     private fun showClipboard() {
-        optionsExpanded = false
-        updateOptionsState()
-        // Pin the overlay to the keyboard's current height. Otherwise the FrameLayout's
-        // wrap_content measures the weighted RecyclerView at the full available height,
-        // stretching the keyboard taller as clipboard entries pile up. With a fixed box the
-        // list scrolls inside it instead.
-        clipboardContainer?.let { container ->
-            val h = keyboardView.height
-            if (h > 0 && container.layoutParams.height != h) {
-                container.layoutParams = container.layoutParams.apply { height = h }
-            }
-        }
-        keyboardView.visibility = View.INVISIBLE
-        clipboardContainer?.visibility = View.VISIBLE
-        clipboardAdapter.submitList(clipboardHistory.getItems())
+        composeOptionsExpanded = false
+        composeClipboardVisible = true
+        composeClipboardItems = clipboardHistory.getItems()
     }
 
     private fun hideClipboard() {
-        clipboardContainer?.visibility = View.GONE
-        keyboardView.visibility = View.VISIBLE
+        composeClipboardVisible = false
     }
 
     private fun toggleOptions() {
-        optionsExpanded = !optionsExpanded
-        updateOptionsState()
-    }
-
-    private fun updateOptionsState() {
-        val visibility = if (optionsExpanded) View.VISIBLE else View.GONE
-        setupButton?.visibility = visibility
-        clipboardButton?.visibility = visibility
+        android.util.Log.d("SimpleTypeIME", "toggleOptions called: before=$composeOptionsExpanded")
+        composeOptionsExpanded = !composeOptionsExpanded
+        android.util.Log.d("SimpleTypeIME", "toggleOptions called: after=$composeOptionsExpanded")
     }
 
     private companion object {
-        /** How far back to scan for the start of the word when shift-deleting. */
         const val WORD_DELETE_LOOKBEHIND = 64
     }
 }
