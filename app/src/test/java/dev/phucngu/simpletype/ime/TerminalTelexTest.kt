@@ -58,11 +58,9 @@ class TerminalTelexTest {
     }
 
     private class TestIme(
-        kv: LatinKeyboardView,
         private val ic: InputConnection,
     ) : SimpleTypeIME() {
         init {
-            set("keyboardView", kv)
             set("language", VoiceLanguage.VIETNAMESE)
             set("directCommit", true)
         }
@@ -85,7 +83,7 @@ class TerminalTelexTest {
     /** Type a word letter-by-letter; returns what is visible (no trailing space committed). */
     private fun typeWord(word: String): String {
         val ic = TerminalIc(View(ctx))
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
         var old = 0
         for (c in word) {
             ime.press(ic, Key(c.code, c.toString()), old)
@@ -103,7 +101,7 @@ class TerminalTelexTest {
 
     @Test fun backspace_deletes_one_char() {
         val ic = TerminalIc(View(ctx))
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
         var old = 0
         for (c in "abc") {
             ime.press(ic, Key(c.code, c.toString()), old)
