@@ -1,231 +1,393 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/m3_bg"
+    android:clipToPadding="false"
     android:fillViewport="true"
-    android:padding="24dp">
+    android:paddingStart="16dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="40dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/settings_title"
-            android:textSize="24sp"
-            android:textStyle="bold"
-            android:paddingBottom="8dp" />
-
-        <TextView
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/settings_intro"
-            android:textSize="15sp"
-            android:paddingBottom="24dp" />
+            android:paddingStart="6dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="18dp">
 
-        <TextView
-            android:id="@+id/status"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/settings_eyebrow"
+                    android:textColor="@color/m3_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/app_name"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="30sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:background="@drawable/bg_settings_logo"
+                android:gravity="center"
+                android:text="S"
+                android:textColor="@color/m3_on_primary_container"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </RelativeLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="15sp"
-            android:textStyle="bold"
-            android:paddingBottom="16dp" />
+            android:background="@drawable/bg_settings_card"
+            android:orientation="vertical"
+            android:padding="18dp">
 
-        <TextView
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_settings_status"
+                android:paddingStart="16dp"
+                android:paddingTop="14dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="14dp"
+                android:textColor="@color/m3_on_primary_container"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_enable"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="5dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="48dp"
+                    android:text="@string/action_enable"
+                    android:textAllCaps="false"
+                    android:textColor="@color/m3_on_secondary_container"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/m3_secondary_container"
+                    app:cornerRadius="24dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_select"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minHeight="48dp"
+                    android:text="@string/action_select"
+                    android:textAllCaps="false"
+                    android:textColor="@color/m3_on_secondary_container"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@color/m3_secondary_container"
+                    app:cornerRadius="24dp" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:text="@string/settings_models_offline"
+                android:textColor="@color/m3_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_model_en"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="44dp"
+                android:text="@string/action_download_en"
+                android:textAllCaps="false"
+                android:textColor="@color/m3_on_secondary_container"
+                app:backgroundTint="@color/m3_secondary_container"
+                app:cornerRadius="12dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_model_vi"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minHeight="44dp"
+                android:text="@string/action_download_vi"
+                android:textAllCaps="false"
+                android:textColor="@color/m3_on_secondary_container"
+                app:backgroundTint="@color/m3_secondary_container"
+                app:cornerRadius="12dp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/step_enable"
-            android:textSize="15sp"
-            android:paddingBottom="4dp" />
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_settings_card"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="20dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="18dp">
 
-        <Button
-            android:id="@+id/btn_enable"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/action_enable"
-            android:layout_marginBottom="20dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/size_title"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="17sp"
+                android:textStyle="bold" />
 
-        <TextView
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:text="@string/size_intro"
+                android:textColor="@color/m3_on_surface_variant"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/lbl_row_height"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seek_row_height"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:progressTint="@color/m3_primary"
+                android:progressBackgroundTint="@color/m3_surface_container_highest"
+                android:thumbTint="@color/m3_primary" />
+
+            <TextView
+                android:id="@+id/lbl_gap_h"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seek_gap_h"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:progressTint="@color/m3_primary"
+                android:progressBackgroundTint="@color/m3_surface_container_highest"
+                android:thumbTint="@color/m3_primary" />
+
+            <TextView
+                android:id="@+id/lbl_gap_v"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seek_gap_v"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:progressTint="@color/m3_primary"
+                android:progressBackgroundTint="@color/m3_surface_container_highest"
+                android:thumbTint="@color/m3_primary" />
+
+            <TextView
+                android:id="@+id/lbl_bottom_pad"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seek_bottom_pad"
+                android:layout_width="match_parent"
+                android:layout_height="40dp"
+                android:progressTint="@color/m3_primary"
+                android:progressBackgroundTint="@color/m3_surface_container_highest"
+                android:thumbTint="@color/m3_primary" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/step_select"
-            android:textSize="15sp"
-            android:paddingBottom="4dp" />
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_settings_card"
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <Button
-            android:id="@+id/btn_select"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/action_select"
-            android:layout_marginBottom="28dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/settings_live_preview"
+                android:textColor="@color/m3_primary"
+                android:textSize="13sp"
+                android:textStyle="bold" />
 
-        <TextView
+            <dev.phucngu.simpletype.ime.LatinKeyboardView
+                android:id="@+id/size_preview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/voice_models_title"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:paddingBottom="2dp" />
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_settings_card"
+            android:orientation="vertical"
+            android:paddingStart="18dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="18dp"
+            android:paddingBottom="14dp">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/voice_models_intro"
-            android:textSize="14sp"
-            android:paddingBottom="8dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="14dp"
+                android:paddingBottom="4dp"
+                android:text="@string/settings_typing_options"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="17sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_model_en"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/action_download_en" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_number_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minHeight="48dp"
+                android:text="@string/size_number_row"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_model_vi"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/action_download_vi"
-            android:layout_marginBottom="28dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/size_number_row_desc"
+                android:textColor="@color/m3_on_surface_variant"
+                android:textSize="13sp" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_title"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            android:paddingBottom="2dp" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_symbol_hints"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:minHeight="48dp"
+                android:text="@string/size_symbol_hints"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_intro"
-            android:textSize="14sp"
-            android:paddingBottom="8dp" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/size_symbol_hints_desc"
+                android:textColor="@color/m3_on_surface_variant"
+                android:textSize="13sp" />
 
-        <TextView
-            android:id="@+id/lbl_row_height"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp" />
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/switch_dedicated_number_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:minHeight="48dp"
+                android:text="@string/size_dedicated_number_row"
+                android:textColor="@color/m3_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
 
-        <SeekBar
-            android:id="@+id/seek_row_height"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/size_dedicated_number_row_desc"
+                android:textColor="@color/m3_on_surface_variant"
+                android:textSize="13sp" />
+        </LinearLayout>
 
-        <TextView
-            android:id="@+id/lbl_gap_h"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:paddingTop="8dp" />
-
-        <SeekBar
-            android:id="@+id/seek_gap_h"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/lbl_gap_v"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:paddingTop="8dp" />
-
-        <SeekBar
-            android:id="@+id/seek_gap_v"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <TextView
-            android:id="@+id/lbl_bottom_pad"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:paddingTop="8dp" />
-
-        <SeekBar
-            android:id="@+id/seek_bottom_pad"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <dev.phucngu.simpletype.ime.LatinKeyboardView
-            android:id="@+id/size_preview"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switch_number_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_number_row"
-            android:textSize="15sp"
-            android:paddingTop="8dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_number_row_desc"
-            android:textSize="13sp"
-            android:alpha="0.7"
-            android:paddingBottom="4dp" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switch_symbol_hints"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_symbol_hints"
-            android:textSize="15sp"
-            android:paddingTop="8dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_symbol_hints_desc"
-            android:textSize="13sp"
-            android:alpha="0.7"
-            android:paddingBottom="4dp" />
-
-        <androidx.appcompat.widget.SwitchCompat
-            android:id="@+id/switch_dedicated_number_row"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_dedicated_number_row"
-            android:textSize="15sp"
-            android:paddingTop="8dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/size_dedicated_number_row_desc"
-            android:textSize="13sp"
-            android:alpha="0.7"
-            android:paddingBottom="4dp" />
-
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_size_reset"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minHeight="50dp"
             android:text="@string/size_reset"
-            android:layout_marginBottom="28dp" />
+            android:textAllCaps="false"
+            android:textColor="@color/m3_on_secondary_container"
+            android:textStyle="bold"
+            app:backgroundTint="@color/m3_secondary_container"
+            app:cornerRadius="25dp" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginTop="18dp"
             android:text="@string/action_try"
-            android:textSize="15sp"
-            android:paddingBottom="4dp" />
+            android:textColor="@color/m3_primary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
 
         <EditText
             android:id="@+id/try_field"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_try_field"
             android:hint="@string/try_hint"
-            android:inputType="textCapSentences"
             android:importantForAutofill="no"
-            android:minHeight="48dp" />
+            android:inputType="textCapSentences"
+            android:minHeight="56dp"
+            android:padding="16dp"
+            android:textColor="@color/m3_on_surface"
+            android:textColorHint="@color/m3_on_surface_variant"
+            android:textSize="15sp" />
     </LinearLayout>
 </ScrollView>

@@ -31,10 +31,10 @@ data class KeyboardMetrics(
     val numberHintsVisible: Boolean get() = showNumberRow && !showDedicatedNumberRow
 
     companion object {
-        /** Defaults mirror the original res/values/dimens.xml values. */
+        /** Defaults follow the M3 Expressive redesign's clean keyboard preview. */
         val DEFAULT = KeyboardMetrics(
-            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
-            bottomPaddingDp = 8f, showNumberRow = true, showDedicatedNumberRow = false,
+            rowHeightDp = 52f, gapHorizontalDp = 6f, gapVerticalDp = 6f,
+            bottomPaddingDp = 12f, showNumberRow = false, showDedicatedNumberRow = false,
             showSymbolHints = false,
         )
 

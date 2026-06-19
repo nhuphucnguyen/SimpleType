@@ -4,9 +4,13 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="8dp"
+    android:layout_marginBottom="8dp"
+    android:paddingStart="14dp"
+    android:paddingTop="14dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="14dp"
     android:gravity="center_vertical"
-    android:background="?android:attr/selectableItemBackground">
+    android:background="@drawable/bg_clipboard_item">
 
     <TextView
         android:id="@+id/item_text"
@@ -16,14 +20,16 @@
         android:maxLines="2"
         android:ellipsize="end"
         android:textColor="@color/kb_key_text"
-        android:textSize="14sp" />
+        android:textSize="15sp"
+        android:lineSpacingMultiplier="1.08" />
 
     <ImageButton
         android:id="@+id/item_pin"
-        android:layout_width="28dp"
-        android:layout_height="36dp"
-        android:padding="5dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="12dp"
+        android:padding="10dp"
+        android:background="@drawable/bg_kb_circle"
         android:src="@drawable/ic_kb_pin"
         android:scaleType="fitCenter"
         app:tint="@color/kb_chrome_icon"
@@ -31,10 +37,11 @@
 
     <ImageButton
         android:id="@+id/item_delete"
-        android:layout_width="28dp"
-        android:layout_height="36dp"
-        android:padding="5dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
+        android:layout_marginStart="8dp"
+        android:padding="10dp"
+        android:background="@drawable/bg_kb_circle"
         android:src="@drawable/ic_kb_delete"
         android:scaleType="fitCenter"
         app:tint="@color/kb_chrome_icon"

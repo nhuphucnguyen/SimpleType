@@ -1,5 +1,5 @@
-<!-- White (light) / dark circle behind the toolbar mic key, matching Gboard. -->
+<!-- Circular M3 toolbar button. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="@color/kb_key" />
+    <solid android:color="@color/m3_surface_container_high" />
 </shape>

@@ -149,6 +149,12 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener {
             toggleOptions()
         }
+        root.findViewById<ImageButton>(R.id.keyboard_hide).setOnClickListener {
+            requestHideSelf(0)
+        }
+        root.findViewById<ImageButton>(R.id.keyboard_language).setOnClickListener {
+            toggleLanguage()
+        }
 
         applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyKeyboardMetrics()
@@ -462,9 +468,9 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         keyboardView.capsLock = capsLock
     }
 
-    /** Tint the toolbar mic red while the recogniser is listening, chrome colour otherwise. */
+    /** Tint the toolbar mic red while listening, otherwise use the action-button foreground. */
     private fun setMicListening(active: Boolean) {
-        val tint = if (active) R.color.kb_mic_active else R.color.kb_chrome_icon
+        val tint = if (active) R.color.kb_mic_active else R.color.kb_action_text
         micButton?.setColorFilter(ContextCompat.getColor(this, tint))
     }
 

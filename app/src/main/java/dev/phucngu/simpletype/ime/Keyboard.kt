@@ -118,7 +118,7 @@ object KeyboardLayouts {
         Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI),
         Key(KeyCode.SPACE, "", weight = 5f),
         Key('.'.code, ".", style = KeyStyle.SPECIAL),
-        Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
+        Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.ACCENT,
             iconRes = R.drawable.ic_kb_enter),
     )
 
@@ -166,7 +166,7 @@ object KeyboardLayouts {
             left,
             Key(KeyCode.SPACE, "", weight = 5f),
             right,
-            Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
+            Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.ACCENT,
                 iconRes = R.drawable.ic_kb_enter),
         )
     }

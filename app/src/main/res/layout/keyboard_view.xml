@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Root view returned by SimpleTypeIME.onCreateInputView: a top toolbar (menu · suggestions ·
-     mic) above the keys. The bottom hide-keyboard and language/globe controls are provided by
-     the system navigation bar, so we don't draw our own (which would duplicate them). -->
+<!-- Root view returned by SimpleTypeIME.onCreateInputView: M3 Expressive toolbar, keys,
+     clipboard sheet, and bottom chrome strip. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/keyboard_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="@color/kb_background"
+    android:background="@drawable/bg_kb_root"
+    android:clipToOutline="true"
     android:clipToPadding="false"
     android:paddingBottom="@dimen/kb_bottom_padding">
 
@@ -16,8 +16,10 @@
     <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="@dimen/kb_toolbar_height"
-        android:paddingStart="6dp"
-        android:paddingEnd="10dp">
+        android:paddingStart="16dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="2dp">
 
         <LinearLayout
             android:id="@+id/toolbar_options_container"
@@ -30,32 +32,37 @@
 
             <ImageButton
                 android:id="@+id/toolbar_menu"
-                android:layout_width="@dimen/kb_toolbar_height"
-                android:layout_height="@dimen/kb_toolbar_height"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:layout_width="@dimen/kb_toolbar_button_size"
+                android:layout_height="@dimen/kb_toolbar_button_size"
+                android:background="@drawable/bg_kb_circle"
                 android:src="@drawable/ic_kb_menu"
                 android:scaleType="centerInside"
+                android:padding="10dp"
                 android:tint="@color/kb_chrome_icon"
                 android:contentDescription="@string/toolbar_menu" />
 
             <ImageButton
                 android:id="@+id/toolbar_setup"
-                android:layout_width="@dimen/kb_toolbar_height"
-                android:layout_height="@dimen/kb_toolbar_height"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:layout_width="@dimen/kb_toolbar_button_size"
+                android:layout_height="@dimen/kb_toolbar_button_size"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_kb_circle"
                 android:src="@drawable/ic_kb_settings"
                 android:scaleType="centerInside"
+                android:padding="10dp"
                 android:tint="@color/kb_chrome_icon"
                 android:visibility="gone"
                 android:contentDescription="@string/settings_title" />
 
             <ImageButton
                 android:id="@+id/toolbar_clipboard"
-                android:layout_width="@dimen/kb_toolbar_height"
-                android:layout_height="@dimen/kb_toolbar_height"
-                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:layout_width="@dimen/kb_toolbar_button_size"
+                android:layout_height="@dimen/kb_toolbar_button_size"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_kb_circle"
                 android:src="@drawable/ic_kb_clipboard"
                 android:scaleType="centerInside"
+                android:padding="10dp"
                 android:tint="@color/kb_chrome_icon"
                 android:visibility="gone"
                 android:contentDescription="@string/key_clipboard" />
@@ -68,11 +75,11 @@
             android:layout_height="@dimen/kb_toolbar_mic_size"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
-            android:background="@drawable/bg_kb_circle"
+            android:background="@drawable/bg_kb_mic"
             android:src="@drawable/ic_kb_mic"
             android:scaleType="centerInside"
-            android:padding="7dp"
-            android:tint="@color/kb_chrome_icon"
+            android:padding="13dp"
+            android:tint="@color/kb_action_text"
             android:contentDescription="@string/toolbar_mic" />
 
         <!-- Suggestion chips will live here later; also hosts the voice status text. -->
@@ -85,6 +92,7 @@
             android:gravity="center"
             android:textColor="@color/kb_status_text"
             android:textSize="13sp"
+            android:textStyle="bold"
             android:text=""
             tools:ignore="UnusedAttribute" />
     </RelativeLayout>
@@ -108,16 +116,17 @@
 
             <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_height="40dp"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp">
+                android:layout_height="58dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_centerVertical="true"
                     android:text="@string/clipboard_title"
-                    android:textColor="@color/kb_status_text"
+                    android:textColor="@color/kb_key_text"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <ImageButton
@@ -125,10 +134,11 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:layout_alignParentEnd="true"
-                    android:background="?android:attr/selectableItemBackgroundBorderless"
-                    android:src="@drawable/ic_kb_backspace"
-                    android:rotation="180"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/bg_kb_circle"
+                    android:src="@drawable/ic_kb_close"
                     android:scaleType="centerInside"
+                    android:padding="11dp"
                     android:tint="@color/kb_chrome_icon"
                     android:contentDescription="@string/clipboard_close" />
             </RelativeLayout>
@@ -138,8 +148,43 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:overScrollMode="never" />
+                android:clipToPadding="false"
+                android:overScrollMode="never"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="8dp" />
 
         </LinearLayout>
     </FrameLayout>
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/kb_strip_height"
+        android:paddingStart="28dp"
+        android:paddingEnd="28dp">
+
+        <ImageButton
+            android:id="@+id/keyboard_hide"
+            android:layout_width="@dimen/kb_strip_height"
+            android:layout_height="@dimen/kb_strip_height"
+            android:layout_alignParentStart="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_kb_hide"
+            android:scaleType="centerInside"
+            android:padding="9dp"
+            android:tint="@color/kb_key_hint"
+            android:contentDescription="@string/keyboard_hide" />
+
+        <ImageButton
+            android:id="@+id/keyboard_language"
+            android:layout_width="@dimen/kb_strip_height"
+            android:layout_height="@dimen/kb_strip_height"
+            android:layout_alignParentEnd="true"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_kb_globe"
+            android:scaleType="centerInside"
+            android:padding="9dp"
+            android:tint="@color/kb_key_hint"
+            android:contentDescription="@string/keyboard_language" />
+    </RelativeLayout>
 </LinearLayout>

@@ -15,38 +15,78 @@ class ClipboardAdapter(
     private val onDelete: (String) -> Unit
 ) : RecyclerView.Adapter<ClipboardAdapter.ViewHolder>() {
 
-    private var items: List<ClipboardItem> = emptyList()
+    sealed class Row {
+        data class Header(val titleRes: Int) : Row()
+        data class Item(val value: ClipboardItem) : Row()
+    }
+
+    private var rows: List<Row> = emptyList()
 
     fun submitList(newItems: List<ClipboardItem>) {
-        items = newItems
+        val pinned = newItems.filter { it.isPinned }
+        val recent = newItems.filterNot { it.isPinned }
+        rows = buildList {
+            if (pinned.isNotEmpty()) {
+                add(Row.Header(R.string.clipboard_pinned))
+                pinned.forEach { add(Row.Item(it)) }
+            }
+            if (recent.isNotEmpty()) {
+                add(Row.Header(R.string.clipboard_recent))
+                recent.forEach { add(Row.Item(it)) }
+            }
+        }
         notifyDataSetChanged()
     }
 
+    override fun getItemViewType(position: Int): Int = when (rows[position]) {
+        is Row.Header -> VIEW_TYPE_HEADER
+        is Row.Item -> VIEW_TYPE_ITEM
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_clipboard, parent, false)
-        return ViewHolder(view)
+        val layout = if (viewType == VIEW_TYPE_HEADER) {
+            R.layout.item_clipboard_header
+        } else {
+            R.layout.item_clipboard
+        }
+        return ViewHolder(LayoutInflater.from(parent.context).inflate(layout, parent, false))
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(items[position])
+        holder.bind(rows[position])
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = rows.size
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        private val text: TextView = view.findViewById(R.id.item_text)
-        private val pinBtn: ImageButton = view.findViewById(R.id.item_pin)
-        private val deleteBtn: ImageButton = view.findViewById(R.id.item_delete)
+        private val text: TextView? = view.findViewById(R.id.item_text)
+        private val pinBtn: ImageButton? = view.findViewById(R.id.item_pin)
+        private val deleteBtn: ImageButton? = view.findViewById(R.id.item_delete)
 
-        fun bind(item: ClipboardItem) {
-            text.text = item.text
-            text.setOnClickListener { onSelect(item.text) }
-            
-            val pinColor = if (item.isPinned) R.color.kb_accent else R.color.kb_chrome_icon
-            pinBtn.setColorFilter(ContextCompat.getColor(itemView.context, pinColor))
-            pinBtn.setOnClickListener { onPin(item.id) }
-            
-            deleteBtn.setOnClickListener { onDelete(item.id) }
+        fun bind(row: Row) {
+            when (row) {
+                is Row.Header -> bindHeader(row.titleRes)
+                is Row.Item -> bindItem(row.value)
+            }
         }
+
+        private fun bindHeader(titleRes: Int) {
+            text?.setText(titleRes)
+        }
+
+        private fun bindItem(item: ClipboardItem) {
+            text?.text = item.text
+            itemView.setOnClickListener { onSelect(item.text) }
+            val pinColor = if (item.isPinned) R.color.kb_accent else R.color.kb_chrome_icon
+            pinBtn?.setColorFilter(ContextCompat.getColor(itemView.context, pinColor))
+            pinBtn?.setOnClickListener { onPin(item.id) }
+
+            deleteBtn?.setOnClickListener { onDelete(item.id) }
+        }
+    }
+
+    private companion object {
+        const val VIEW_TYPE_HEADER = 0
+        const val VIEW_TYPE_ITEM = 1
     }
 }

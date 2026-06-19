@@ -2,7 +2,6 @@ package dev.phucngu.simpletype.ime
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -103,6 +102,9 @@ class LatinKeyboardView @JvmOverloads constructor(
     private val keyPressedColor = color(R.color.kb_key_pressed)
     private val keySpecialColor = color(R.color.kb_key_special)
     private val accentColor = color(R.color.kb_accent)
+    private val accentTextColor = color(R.color.kb_accent_text)
+    private val actionColor = color(R.color.kb_action)
+    private val actionTextColor = color(R.color.kb_action_text)
 
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -118,7 +120,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     // Small muted digit drawn in the top corner of number-row keys (q→1 … p→0).
     private val hintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
-        color = color(R.color.kb_key_special_text)
+        color = color(R.color.kb_key_hint)
         textSize = dp(R.dimen.kb_key_text_size) * 0.5f
         alpha = 170
     }
@@ -224,6 +226,7 @@ class LatinKeyboardView @JvmOverloads constructor(
         keyPaint.color = when {
             isPressed -> keyPressedColor
             active -> accentColor
+            key.style == KeyStyle.ACCENT -> actionColor
             key.style == KeyStyle.SPECIAL -> keySpecialColor
             else -> keyColor
         }
@@ -245,19 +248,28 @@ class LatinKeyboardView @JvmOverloads constructor(
                 drawSpaceArrows(canvas, rr, shiftedCx)
             }
             iconResFor(key) != null -> {
-                val tint = if (active) Color.WHITE else color(R.color.kb_key_special_text)
+                val tint = when {
+                    active -> accentTextColor
+                    key.style == KeyStyle.ACCENT -> actionTextColor
+                    else -> color(R.color.kb_key_special_text)
+                }
                 drawIcon(canvas, iconResFor(key)!!, rr, tint)
             }
             !key.isPrintable -> {
                 // Control keys with word labels (?123, ABC, =\<) use the smaller label paint.
-                labelPaint.color = if (active) Color.WHITE else color(R.color.kb_key_special_text)
+                labelPaint.color = when {
+                    active -> accentTextColor
+                    key.style == KeyStyle.ACCENT -> actionTextColor
+                    else -> color(R.color.kb_key_special_text)
+                }
                 canvas.drawText(key.label, cx, baselineFor(labelPaint, rr), labelPaint)
             }
             else -> {
                 // Printable glyphs always draw at full size; special keys (comma, period)
                 // just take the muted special-text colour.
                 textPaint.color = when {
-                    active -> Color.WHITE
+                    active -> accentTextColor
+                    key.style == KeyStyle.ACCENT -> actionTextColor
                     special -> color(R.color.kb_key_special_text)
                     else -> color(R.color.kb_key_text)
                 }
