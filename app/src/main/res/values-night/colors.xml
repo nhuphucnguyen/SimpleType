@@ -1,15 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Dark keyboard palette, applied automatically in system dark mode so the keyboard
-     matches dark host apps instead of glaring white. Mirrors the keys in values/colors.xml. -->
+<!-- Dark keyboard palette (Material 3 Expressive), applied automatically in system dark mode.
+     Mirrors the token names in values/colors.xml. -->
 <resources>
-    <color name="kb_background">#FF202124</color>
-    <color name="kb_key">#FF3C4043</color>
-    <color name="kb_key_pressed">#FF5F6368</color>
-    <color name="kb_key_special">#FF2A2C2E</color>
-    <color name="kb_key_text">#FFE8EAED</color>
-    <color name="kb_key_special_text">#FFC4C7CC</color>
-    <color name="kb_accent">#FF7C4DFF</color>
+    <color name="kb_background">#FF1D1B20</color>
+    <color name="kb_key">#FF36343B</color>
+    <color name="kb_key_pressed">#FF4A4458</color>
+    <color name="kb_key_special">#FF2B2930</color>
+    <color name="kb_key_text">#FFE6E0E9</color>
+    <color name="kb_key_special_text">#FFCAC4D0</color>
+    <color name="kb_key_hint">#FF938F99</color>
+    <color name="kb_accent">#FFD0BCFF</color>
+    <color name="kb_accent_text">#FF381E72</color>
+    <color name="kb_key_enter">#FF4F378B</color>
+    <color name="kb_key_enter_text">#FFEADDFF</color>
+    <color name="kb_surface">#FF211F26</color>
+    <color name="kb_surface_low">#FF1D1B20</color>
+    <color name="kb_primary_container">#FF4F378B</color>
+    <color name="kb_on_primary_container">#FFEADDFF</color>
+    <color name="kb_outline">#FF938F99</color>
     <color name="kb_mic_active">#FFEF5350</color>
-    <color name="kb_status_text">#FF9AA0A6</color>
-    <color name="kb_chrome_icon">#FFC4C7CC</color>
+    <color name="kb_status_text">#FFCAC4D0</color>
+    <color name="kb_chrome_icon">#FFCAC4D0</color>
 </resources>
