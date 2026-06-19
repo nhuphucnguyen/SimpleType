@@ -8,30 +8,36 @@ import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.HapticPlayer
+import dev.phucngu.simpletype.ime.Key
 import dev.phucngu.simpletype.ime.KeyboardLayouts
 import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboard
 import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
-import dev.phucngu.simpletype.ime.Key
+import dev.phucngu.simpletype.ui.theme.SimpleTypeTheme
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import kotlin.concurrent.thread
@@ -42,6 +48,7 @@ class SettingsActivity : ComponentActivity() {
     private val haptics by lazy { HapticPlayer(this) }
 
     private val imeEnabledStatus = mutableStateOf("")
+    private val imeEnabled = mutableStateOf(false)
     private val enModelText = mutableStateOf("")
     private val enModelEnabled = mutableStateOf(true)
     private val viModelText = mutableStateOf("")
@@ -50,13 +57,14 @@ class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme {
+            SimpleTypeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
                     SettingsScreen(
                         imeEnabledStatus = imeEnabledStatus.value,
+                        imeEnabled = imeEnabled.value,
                         enModelText = enModelText.value,
                         enModelEnabled = enModelEnabled.value,
                         viModelText = viModelText.value,
@@ -85,6 +93,7 @@ class SettingsActivity : ComponentActivity() {
     private fun updateImeStatus() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
+        imeEnabled.value = isEnabled
         imeEnabledStatus.value = getString(
             if (isEnabled) R.string.status_enabled else R.string.status_not_enabled
         )
@@ -152,10 +161,158 @@ class SettingsActivity : ComponentActivity() {
     }
 }
 
+// ----- Reusable M3 Expressive building blocks ----------------------------------------------
+
+/** A tonal-surface card with the expressive 28dp corner. */
+@Composable
+private fun SettingsCard(
+    modifier: Modifier = Modifier,
+    spacing: Dp = 16.dp,
+    padding: PaddingValues = PaddingValues(18.dp),
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .padding(padding),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+        content = content,
+    )
+}
+
+/** Small primary-container value badge shown next to a slider label. */
+@Composable
+private fun ValueChip(text: String) {
+    Text(
+        text = text,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer)
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+    )
+}
+
+@Composable
+private fun PillButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    FilledTonalButton(
+        onClick = onClick,
+        shape = CircleShape,
+        modifier = modifier,
+    ) {
+        Text(text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun M3Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        thumbContent = if (checked) {
+            {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                )
+            }
+        } else null
+    )
+}
+
+@Composable
+private fun LabeledSlider(
+    label: String,
+    valueLabel: String,
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int = 0,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+            ValueChip(valueLabel)
+        }
+        Slider(value = value, onValueChange = onValueChange, valueRange = valueRange, steps = steps)
+    }
+}
+
+@Composable
+private fun ToggleRow(
+    title: String,
+    desc: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                desc,
+                fontSize = 12.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        M3Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@Composable
+private fun VoiceModelChip(
+    label: String,
+    statusText: String,
+    installed: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val onContainer = MaterialTheme.colorScheme.onSecondaryContainer
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.secondaryContainer)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (installed) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_check),
+                    contentDescription = null,
+                    tint = onContainer,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = onContainer)
+        }
+        if (!installed) {
+            Text(statusText, fontSize = 11.5.sp, color = onContainer.copy(alpha = 0.8f))
+        }
+    }
+}
+
+// ----- Settings screen ----------------------------------------------------------------------
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     imeEnabledStatus: String,
+    imeEnabled: Boolean,
     enModelText: String,
     enModelEnabled: Boolean,
     viModelText: String,
@@ -175,453 +332,366 @@ fun SettingsScreen(
             (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
         )
     }
-
     val hapticLevels = stringArrayResource(R.array.haptic_levels)
+    val installedText = stringResource(R.string.model_installed)
+
+    fun applyMetrics(
+        rowHeightDp: Float = currentMetrics.rowHeightDp,
+        gapHorizontalDp: Float = currentMetrics.gapHorizontalDp,
+        gapVerticalDp: Float = currentMetrics.gapVerticalDp,
+        bottomPaddingDp: Float = currentMetrics.bottomPaddingDp,
+        showNumberRow: Boolean = currentMetrics.showNumberRow,
+        showDedicatedNumberRow: Boolean = currentMetrics.showDedicatedNumberRow,
+        showSymbolHints: Boolean = currentMetrics.showSymbolHints,
+    ) {
+        val m = KeyboardMetrics.of(
+            rowHeightDp, gapHorizontalDp, gapVerticalDp, bottomPaddingDp,
+            showNumberRow, showDedicatedNumberRow, showSymbolHints
+        )
+        currentMetrics = m
+        KeyboardMetrics.save(prefs, m)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(24.dp)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = stringResource(R.string.settings_title),
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-
-        Text(
-            text = stringResource(R.string.settings_intro),
-            fontSize = 15.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 24.dp)
-        )
-
-        // Setup Steps Card
-        Card(
+        // Header
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 24.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                .padding(start = 6.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column {
                 Text(
-                    text = imeEnabledStatus,
-                    fontSize = 16.sp,
+                    stringResource(R.string.settings_eyebrow),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    stringResource(R.string.settings_brand),
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(bottom = 16.dp)
+                    modifier = Modifier.padding(top = 2.dp)
                 )
-
+            }
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
                 Text(
-                    text = stringResource(R.string.step_enable),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    "S",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                Button(
-                    onClick = onEnableClick,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                ) {
-                    Text(stringResource(R.string.action_enable))
-                }
-
-                Text(
-                    text = stringResource(R.string.step_select),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                Button(onClick = onSelectClick) {
-                    Text(stringResource(R.string.action_select))
-                }
             }
         }
 
-        // Voice Models Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.voice_models_title),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Text(
-                    text = stringResource(R.string.voice_models_intro),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                Button(
-                    onClick = { onDownloadClick(VoiceLanguage.ENGLISH) },
-                    enabled = enModelEnabled,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                ) {
-                    Text(enModelText)
-                }
-
-                Button(
-                    onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) },
-                    enabled = viModelEnabled,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(viModelText)
-                }
-            }
-        }
-
-        // Sizing & Preferences Card
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 24.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = stringResource(R.string.size_title),
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Text(
-                    text = stringResource(R.string.size_intro),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Row Height
-                Text(
-                    text = stringResource(R.string.size_row_height, currentMetrics.rowHeightDp.toInt()),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Slider(
-                    value = currentMetrics.rowHeightDp,
-                    onValueChange = {
-                        val newMetrics = KeyboardMetrics.of(
-                            rowHeightDp = it,
-                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                            gapVerticalDp = currentMetrics.gapVerticalDp,
-                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                            showNumberRow = currentMetrics.showNumberRow,
-                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                            showSymbolHints = currentMetrics.showSymbolHints
-                        )
-                        currentMetrics = newMetrics
-                        KeyboardMetrics.save(prefs, newMetrics)
-                    },
-                    valueRange = KeyboardMetrics.ROW_HEIGHT_MIN..KeyboardMetrics.ROW_HEIGHT_MAX,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                // Horizontal Gap
-                Text(
-                    text = stringResource(R.string.size_gap_h, currentMetrics.gapHorizontalDp.toInt()),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Slider(
-                    value = currentMetrics.gapHorizontalDp,
-                    onValueChange = {
-                        val newMetrics = KeyboardMetrics.of(
-                            rowHeightDp = currentMetrics.rowHeightDp,
-                            gapHorizontalDp = it,
-                            gapVerticalDp = currentMetrics.gapVerticalDp,
-                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                            showNumberRow = currentMetrics.showNumberRow,
-                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                            showSymbolHints = currentMetrics.showSymbolHints
-                        )
-                        currentMetrics = newMetrics
-                        KeyboardMetrics.save(prefs, newMetrics)
-                    },
-                    valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                // Vertical Gap
-                Text(
-                    text = stringResource(R.string.size_gap_v, currentMetrics.gapVerticalDp.toInt()),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Slider(
-                    value = currentMetrics.gapVerticalDp,
-                    onValueChange = {
-                        val newMetrics = KeyboardMetrics.of(
-                            rowHeightDp = currentMetrics.rowHeightDp,
-                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                            gapVerticalDp = it,
-                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                            showNumberRow = currentMetrics.showNumberRow,
-                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                            showSymbolHints = currentMetrics.showSymbolHints
-                        )
-                        currentMetrics = newMetrics
-                        KeyboardMetrics.save(prefs, newMetrics)
-                    },
-                    valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
-
-                // Bottom Pad
-                Text(
-                    text = stringResource(R.string.size_bottom_pad, currentMetrics.bottomPaddingDp.toInt()),
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                Slider(
-                    value = currentMetrics.bottomPaddingDp,
-                    onValueChange = {
-                        val newMetrics = KeyboardMetrics.of(
-                            rowHeightDp = currentMetrics.rowHeightDp,
-                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                            gapVerticalDp = currentMetrics.gapVerticalDp,
-                            bottomPaddingDp = it,
-                            showNumberRow = currentMetrics.showNumberRow,
-                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                            showSymbolHints = currentMetrics.showSymbolHints
-                        )
-                        currentMetrics = newMetrics
-                        KeyboardMetrics.save(prefs, newMetrics)
-                    },
-                    valueRange = KeyboardMetrics.BOTTOM_PAD_MIN..KeyboardMetrics.BOTTOM_PAD_MAX,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Live Preview
-                Text(
-                    text = stringResource(R.string.size_live_preview),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
+        // Status + setup card
+        SettingsCard {
+            // Active banner
+            val bannerBg = if (imeEnabled) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surfaceContainerHigh
+            val bannerFg = if (imeEnabled) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(bannerBg)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .background(colorResource(R.color.kb_background), RoundedCornerShape(8.dp))
-                        .padding(8.dp)
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                    contentAlignment = Alignment.Center
                 ) {
-                    LatinKeyboard(
-                        keyboard = KeyboardLayouts.qwerty(currentMetrics.showDedicatedNumberRow),
-                        metrics = currentMetrics,
-                        spaceLabel = stringResource(R.string.subtype_en),
-                        shifted = false,
-                        capsLock = false,
-                        listener = object : LatinKeyboardListener {
-                            override fun onKey(key: Key) {}
-                            override fun onKeyRepeat(key: Key) {}
-                            override fun onSpaceSwipe(direction: Int) {}
-                            override fun onShiftHold(active: Boolean) {}
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                    Icon(
+                        painter = painterResource(R.drawable.ic_check),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
-
-                // Switches
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.size_number_row), fontSize = 15.sp)
-                        Text(
-                            stringResource(R.string.size_number_row_desc),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = currentMetrics.showNumberRow,
-                        onCheckedChange = { checked ->
-                            val newMetrics = KeyboardMetrics.of(
-                                rowHeightDp = currentMetrics.rowHeightDp,
-                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                                gapVerticalDp = currentMetrics.gapVerticalDp,
-                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                                showNumberRow = checked,
-                                showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                                showSymbolHints = if (checked) false else currentMetrics.showSymbolHints
-                            )
-                            currentMetrics = newMetrics
-                            KeyboardMetrics.save(prefs, newMetrics)
-                        }
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.size_symbol_hints), fontSize = 15.sp)
-                        Text(
-                            stringResource(R.string.size_symbol_hints_desc),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = currentMetrics.showSymbolHints,
-                        onCheckedChange = { checked ->
-                            val newMetrics = KeyboardMetrics.of(
-                                rowHeightDp = currentMetrics.rowHeightDp,
-                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                                gapVerticalDp = currentMetrics.gapVerticalDp,
-                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                                showNumberRow = if (checked) false else currentMetrics.showNumberRow,
-                                showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
-                                showSymbolHints = checked
-                            )
-                            currentMetrics = newMetrics
-                            KeyboardMetrics.save(prefs, newMetrics)
-                        }
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.size_dedicated_number_row), fontSize = 15.sp)
-                        Text(
-                            stringResource(R.string.size_dedicated_number_row_desc),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = currentMetrics.showDedicatedNumberRow,
-                        onCheckedChange = { checked ->
-                            val newMetrics = KeyboardMetrics.of(
-                                rowHeightDp = currentMetrics.rowHeightDp,
-                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
-                                gapVerticalDp = currentMetrics.gapVerticalDp,
-                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
-                                showNumberRow = currentMetrics.showNumberRow,
-                                showDedicatedNumberRow = checked,
-                                showSymbolHints = currentMetrics.showSymbolHints
-                            )
-                            currentMetrics = newMetrics
-                            KeyboardMetrics.save(prefs, newMetrics)
-                        }
-                    )
-                }
-
-                // Haptics Section
-                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.size_haptic), fontSize = 15.sp)
-                        Text(
-                            stringResource(R.string.size_haptic_desc),
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = hapticEnabled,
-                        onCheckedChange = { checked ->
-                            hapticEnabled = checked
-                            prefs.edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
-                            if (checked) {
-                                val percent = (hapticLevel + 1) * 100 / 5
-                                haptics.tap(percent / 100f)
-                            }
-                        }
-                    )
-                }
-
-                if (hapticEnabled) {
-                    val strengthName = hapticLevels.getOrNull(hapticLevel) ?: "Medium"
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(imeEnabledStatus, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = bannerFg)
                     Text(
-                        text = stringResource(R.string.size_haptic_strength, strengthName),
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                        stringResource(
+                            if (imeEnabled) R.string.settings_status_active_sub
+                            else R.string.settings_status_inactive_sub
+                        ),
+                        fontSize = 13.sp,
+                        color = bannerFg.copy(alpha = 0.85f),
+                        modifier = Modifier.padding(top = 1.dp)
                     )
-                    Slider(
-                        value = hapticLevel.toFloat(),
-                        onValueChange = {
-                            val newLevel = it.toInt()
-                            hapticLevel = newLevel
-                            val percent = (newLevel + 1) * 100 / 5
-                            prefs.edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, percent).apply()
-                            haptics.tap(percent / 100f)
-                        },
-                        valueRange = 0f..4f,
-                        steps = 3,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(stringResource(R.string.haptic_level_min), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(stringResource(R.string.haptic_level_mid), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(stringResource(R.string.haptic_level_max), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                 }
+            }
 
-                Button(
-                    onClick = {
-                        val newMetrics = KeyboardMetrics.DEFAULT
-                        currentMetrics = newMetrics
-                        KeyboardMetrics.save(prefs, newMetrics)
-                        // Reset haptics
-                        hapticEnabled = true
-                        hapticLevel = 2 // Medium
-                        prefs.edit()
-                            .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-                            .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, 60)
-                            .apply()
-                    },
-                    modifier = Modifier.padding(top = 16.dp)
-                ) {
-                    Text(stringResource(R.string.size_reset))
+            // Action pills
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PillButton(
+                    text = stringResource(R.string.settings_input_settings),
+                    onClick = onEnableClick,
+                    modifier = Modifier.weight(1f)
+                )
+                PillButton(
+                    text = stringResource(R.string.action_select),
+                    onClick = onSelectClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // Voice models
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    stringResource(R.string.voice_models_offline),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                    VoiceModelChip(
+                        label = stringResource(R.string.subtype_en),
+                        statusText = enModelText,
+                        installed = enModelText == installedText,
+                        enabled = enModelEnabled,
+                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) }
+                    )
+                    VoiceModelChip(
+                        label = stringResource(R.string.subtype_vi),
+                        statusText = viModelText,
+                        installed = viModelText == installedText,
+                        enabled = viModelEnabled,
+                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) }
+                    )
                 }
             }
         }
 
-        // Try it out Field
-        Text(
-            text = stringResource(R.string.action_try),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
+        // Keyboard size card
+        SettingsCard {
+            Column {
+                Text(stringResource(R.string.size_title), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.size_intro),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+            }
+            LabeledSlider(
+                label = stringResource(R.string.size_label_key_height),
+                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.rowHeightDp.toInt()),
+                value = currentMetrics.rowHeightDp,
+                onValueChange = { applyMetrics(rowHeightDp = it) },
+                valueRange = KeyboardMetrics.ROW_HEIGHT_MIN..KeyboardMetrics.ROW_HEIGHT_MAX,
+            )
+            LabeledSlider(
+                label = stringResource(R.string.size_label_lift),
+                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.bottomPaddingDp.toInt()),
+                value = currentMetrics.bottomPaddingDp,
+                onValueChange = { applyMetrics(bottomPaddingDp = it) },
+                valueRange = KeyboardMetrics.BOTTOM_PAD_MIN..KeyboardMetrics.BOTTOM_PAD_MAX,
+            )
+            LabeledSlider(
+                label = stringResource(R.string.size_label_gap_h),
+                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapHorizontalDp.toInt()),
+                value = currentMetrics.gapHorizontalDp,
+                onValueChange = { applyMetrics(gapHorizontalDp = it) },
+                valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+            )
+            LabeledSlider(
+                label = stringResource(R.string.size_label_gap_v),
+                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapVerticalDp.toInt()),
+                value = currentMetrics.gapVerticalDp,
+                onValueChange = { applyMetrics(gapVerticalDp = it) },
+                valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+            )
+        }
+
+        // Live preview card
+        SettingsCard(spacing = 12.dp, padding = PaddingValues(16.dp)) {
+            Text(
+                stringResource(R.string.size_live_preview),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 2.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(colorResource(R.color.kb_background))
+                    .padding(8.dp)
+            ) {
+                LatinKeyboard(
+                    keyboard = KeyboardLayouts.qwerty(currentMetrics.showDedicatedNumberRow),
+                    metrics = currentMetrics,
+                    spaceLabel = stringResource(R.string.subtype_en),
+                    shifted = false,
+                    capsLock = false,
+                    listener = object : LatinKeyboardListener {
+                        override fun onKey(key: Key) {}
+                        override fun onKeyRepeat(key: Key) {}
+                        override fun onSpaceSwipe(direction: Int) {}
+                        override fun onShiftHold(active: Boolean) {}
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+
+        // Typing options card
+        SettingsCard(spacing = 0.dp, padding = PaddingValues(horizontal = 18.dp, vertical = 4.dp)) {
+            Text(
+                stringResource(R.string.size_typing_options),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                ToggleRow(
+                    title = stringResource(R.string.size_number_row),
+                    desc = stringResource(R.string.size_number_row_desc),
+                    checked = currentMetrics.showNumberRow,
+                    onCheckedChange = { checked ->
+                        applyMetrics(
+                            showNumberRow = checked,
+                            showSymbolHints = if (checked) false else currentMetrics.showSymbolHints
+                        )
+                    },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ToggleRow(
+                    title = stringResource(R.string.size_symbol_hints),
+                    desc = stringResource(R.string.size_symbol_hints_desc),
+                    checked = currentMetrics.showSymbolHints,
+                    onCheckedChange = { checked ->
+                        applyMetrics(
+                            showNumberRow = if (checked) false else currentMetrics.showNumberRow,
+                            showSymbolHints = checked
+                        )
+                    },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ToggleRow(
+                    title = stringResource(R.string.size_dedicated_number_row),
+                    desc = stringResource(R.string.size_dedicated_number_row_desc),
+                    checked = currentMetrics.showDedicatedNumberRow,
+                    onCheckedChange = { checked -> applyMetrics(showDedicatedNumberRow = checked) },
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Haptics card
+        SettingsCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.size_haptic), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        stringResource(R.string.size_haptic_desc),
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                M3Switch(
+                    checked = hapticEnabled,
+                    onCheckedChange = { checked ->
+                        hapticEnabled = checked
+                        prefs.edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
+                        if (checked) haptics.tap((hapticLevel + 1) * 100 / 5 / 100f)
+                    }
+                )
+            }
+
+            if (hapticEnabled) {
+                val strengthName = hapticLevels.getOrNull(hapticLevel) ?: stringResource(R.string.haptic_level_mid)
+                LabeledSlider(
+                    label = stringResource(R.string.vibration_strength),
+                    valueLabel = strengthName,
+                    value = hapticLevel.toFloat(),
+                    onValueChange = {
+                        val newLevel = it.toInt()
+                        hapticLevel = newLevel
+                        val percent = (newLevel + 1) * 100 / 5
+                        prefs.edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, percent).apply()
+                        haptics.tap(percent / 100f)
+                    },
+                    valueRange = 0f..4f,
+                    steps = 3,
+                )
+            }
+        }
+
+        // Reset
+        PillButton(
+            text = stringResource(R.string.size_reset),
+            onClick = {
+                applyMetrics(
+                    rowHeightDp = KeyboardMetrics.DEFAULT.rowHeightDp,
+                    gapHorizontalDp = KeyboardMetrics.DEFAULT.gapHorizontalDp,
+                    gapVerticalDp = KeyboardMetrics.DEFAULT.gapVerticalDp,
+                    bottomPaddingDp = KeyboardMetrics.DEFAULT.bottomPaddingDp,
+                    showNumberRow = KeyboardMetrics.DEFAULT.showNumberRow,
+                    showDedicatedNumberRow = KeyboardMetrics.DEFAULT.showDedicatedNumberRow,
+                    showSymbolHints = KeyboardMetrics.DEFAULT.showSymbolHints,
+                )
+                hapticEnabled = true
+                hapticLevel = 2
+                prefs.edit()
+                    .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
+                    .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, 60)
+                    .apply()
+            },
+            modifier = Modifier.fillMaxWidth()
         )
 
-        var tryText by remember { mutableStateOf("") }
-        OutlinedTextField(
-            value = tryText,
-            onValueChange = { tryText = it },
-            placeholder = { Text(stringResource(R.string.try_hint)) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 32.dp)
-        )
+        // Try it out
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                stringResource(R.string.action_try),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp)
+            )
+            var tryText by remember { mutableStateOf("") }
+            TextField(
+                value = tryText,
+                onValueChange = { tryText = it },
+                placeholder = { Text(stringResource(R.string.try_hint)) },
+                singleLine = true,
+                shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
