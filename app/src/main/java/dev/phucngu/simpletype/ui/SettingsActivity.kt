@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.SeekBar
@@ -28,8 +29,11 @@ import kotlin.concurrent.thread
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var status: TextView
+    private lateinit var btnSelect: Button
+    private lateinit var setupSelectLabel: View
     private lateinit var btnEn: Button
     private lateinit var btnVi: Button
+    private lateinit var enabledOnlyViews: List<View>
     private val models by lazy { ModelManager(this) }
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -38,13 +42,24 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(R.layout.activity_settings)
 
         status = findViewById(R.id.status)
+        btnSelect = findViewById(R.id.btn_select)
+        setupSelectLabel = findViewById(R.id.setup_select_label)
         btnEn = findViewById(R.id.btn_model_en)
         btnVi = findViewById(R.id.btn_model_vi)
+        enabledOnlyViews = listOf(
+            findViewById(R.id.voice_models_card),
+            findViewById(R.id.size_card),
+            findViewById(R.id.preview_card),
+            findViewById(R.id.typing_card),
+            findViewById(R.id.btn_size_reset),
+            findViewById(R.id.try_label),
+            findViewById(R.id.try_field),
+        )
 
         findViewById<Button>(R.id.btn_enable).setOnClickListener {
             startActivity(android.content.Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
         }
-        findViewById<Button>(R.id.btn_select).setOnClickListener {
+        btnSelect.setOnClickListener {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
                 .showInputMethodPicker()
         }
@@ -180,9 +195,13 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        val enabled = isImeEnabled()
         status.text = getString(
-            if (isImeEnabled()) R.string.status_enabled else R.string.status_not_enabled
+            if (enabled) R.string.status_enabled else R.string.status_not_enabled
         )
+        setupSelectLabel.visibility = if (enabled) View.VISIBLE else View.GONE
+        btnSelect.visibility = if (enabled) View.VISIBLE else View.GONE
+        enabledOnlyViews.forEach { it.visibility = if (enabled) View.VISIBLE else View.GONE }
         if (models.isInstalled(VoiceLanguage.ENGLISH)) {
             btnEn.text = getString(R.string.model_installed)
             btnEn.isEnabled = false

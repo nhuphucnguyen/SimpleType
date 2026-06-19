@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Root view returned by SimpleTypeIME.onCreateInputView: M3 Expressive toolbar, keys,
-     clipboard sheet, and bottom chrome strip. -->
+     and clipboard sheet. The system IME navigation area provides hide/globe controls. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/keyboard_root"
@@ -157,34 +157,4 @@
         </LinearLayout>
     </FrameLayout>
 
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="@dimen/kb_strip_height"
-        android:paddingStart="28dp"
-        android:paddingEnd="28dp">
-
-        <ImageButton
-            android:id="@+id/keyboard_hide"
-            android:layout_width="@dimen/kb_strip_height"
-            android:layout_height="@dimen/kb_strip_height"
-            android:layout_alignParentStart="true"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_kb_hide"
-            android:scaleType="centerInside"
-            android:padding="9dp"
-            android:tint="@color/kb_key_hint"
-            android:contentDescription="@string/keyboard_hide" />
-
-        <ImageButton
-            android:id="@+id/keyboard_language"
-            android:layout_width="@dimen/kb_strip_height"
-            android:layout_height="@dimen/kb_strip_height"
-            android:layout_alignParentEnd="true"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_kb_globe"
-            android:scaleType="centerInside"
-            android:padding="9dp"
-            android:tint="@color/kb_key_hint"
-            android:contentDescription="@string/keyboard_language" />
-    </RelativeLayout>
 </LinearLayout>

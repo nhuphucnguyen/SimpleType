@@ -63,6 +63,7 @@
         </RelativeLayout>
 
         <LinearLayout
+            android:id="@+id/setup_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_settings_card"
@@ -86,45 +87,72 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
-                android:orientation="horizontal">
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/step_enable"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_enable"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginEnd="5dp"
+                    android:layout_marginTop="8dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:minHeight="48dp"
+                    android:minHeight="52dp"
                     android:text="@string/action_enable"
                     android:textAllCaps="false"
-                    android:textColor="@color/m3_on_secondary_container"
-                    android:textSize="13sp"
+                    android:textColor="@color/m3_on_primary"
+                    android:textSize="15sp"
                     android:textStyle="bold"
-                    app:backgroundTint="@color/m3_secondary_container"
-                    app:cornerRadius="24dp" />
+                    app:backgroundTint="@color/m3_primary"
+                    app:cornerRadius="26dp" />
+
+                <TextView
+                    android:id="@+id/setup_select_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/step_select"
+                    android:textColor="@color/m3_on_surface"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_select"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="5dp"
+                    android:layout_marginTop="8dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:minHeight="48dp"
+                    android:minHeight="52dp"
                     android:text="@string/action_select"
                     android:textAllCaps="false"
                     android:textColor="@color/m3_on_secondary_container"
-                    android:textSize="13sp"
+                    android:textSize="15sp"
                     android:textStyle="bold"
                     app:backgroundTint="@color/m3_secondary_container"
-                    app:cornerRadius="24dp" />
+                    app:cornerRadius="26dp" />
             </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/voice_models_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_settings_card"
+            android:orientation="vertical"
+            android:padding="18dp">
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
                 android:text="@string/settings_models_offline"
                 android:textColor="@color/m3_primary"
                 android:textSize="13sp"
@@ -160,6 +188,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/size_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
@@ -253,6 +282,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/preview_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
@@ -276,6 +306,7 @@
         </LinearLayout>
 
         <LinearLayout
+            android:id="@+id/typing_card"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
@@ -366,6 +397,7 @@
             app:cornerRadius="25dp" />
 
         <TextView
+            android:id="@+id/try_label"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"

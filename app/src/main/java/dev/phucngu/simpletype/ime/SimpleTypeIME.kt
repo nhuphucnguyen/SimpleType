@@ -149,12 +149,6 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         root.findViewById<ImageButton>(R.id.toolbar_menu).setOnClickListener {
             toggleOptions()
         }
-        root.findViewById<ImageButton>(R.id.keyboard_hide).setOnClickListener {
-            requestHideSelf(0)
-        }
-        root.findViewById<ImageButton>(R.id.keyboard_language).setOnClickListener {
-            toggleLanguage()
-        }
 
         applyBottomInset(root.findViewById(R.id.keyboard_root))
         applyKeyboardMetrics()

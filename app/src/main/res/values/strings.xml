@@ -30,8 +30,6 @@
     <string name="clipboard_delete">Delete item</string>
     <string name="clipboard_pinned">Pinned</string>
     <string name="clipboard_recent">Recent</string>
-    <string name="keyboard_hide">Hide keyboard</string>
-    <string name="keyboard_language">Switch language</string>
 
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
