@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- One-time download of the on-device voice models (no audio/text is ever sent). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Haptic feedback on key press (strength is user-adjustable; see HapticPlayer). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"

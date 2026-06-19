@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
-import android.view.HapticFeedbackConstants
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.SeekBar
@@ -13,6 +12,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ime.HapticPlayer
 import dev.phucngu.simpletype.ime.KeyboardLayouts
 import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboardView
@@ -70,6 +70,9 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var switchDedicatedNumberRow: SwitchCompat
     private lateinit var switchSymbolHints: SwitchCompat
     private lateinit var switchHaptic: SwitchCompat
+    private lateinit var lblHapticStrength: TextView
+    private lateinit var seekHapticStrength: SeekBar
+    private val haptics by lazy { HapticPlayer(this) }
 
     private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
 
@@ -88,13 +91,9 @@ class SettingsActivity : AppCompatActivity() {
         switchDedicatedNumberRow = findViewById(R.id.switch_dedicated_number_row)
         switchSymbolHints = findViewById(R.id.switch_symbol_hints)
         switchHaptic = findViewById(R.id.switch_haptic)
-
-        // Haptic feedback is a standalone preference (not a sizing metric), saved on its own.
-        switchHaptic.isChecked = prefs().getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-        switchHaptic.setOnCheckedChangeListener { _, checked ->
-            prefs().edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
-            if (checked) switchHaptic.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-        }
+        lblHapticStrength = findViewById(R.id.lbl_haptic_strength)
+        seekHapticStrength = findViewById(R.id.seek_haptic_strength)
+        setupHapticControls()
 
         seekRow.max = (KeyboardMetrics.ROW_HEIGHT_MAX - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
         seekGapH.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
@@ -130,6 +129,40 @@ class SettingsActivity : AppCompatActivity() {
             seekToMetrics(KeyboardMetrics.DEFAULT)
             applySizeFromSeekBars()
         }
+    }
+
+    /**
+     * Haptics are a standalone preference (not a sizing metric): an on/off switch plus a strength
+     * slider. The slider is disabled while the switch is off, and dragging it plays a live preview
+     * at that intensity so the user can feel what they're choosing.
+     */
+    private fun setupHapticControls() {
+        val enabled = prefs().getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
+        val strength = prefs().getInt(
+            LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT
+        )
+        switchHaptic.isChecked = enabled
+        seekHapticStrength.max = 100
+        seekHapticStrength.progress = strength
+        seekHapticStrength.isEnabled = enabled
+        lblHapticStrength.text = getString(R.string.size_haptic_strength, strength)
+
+        switchHaptic.setOnCheckedChangeListener { _, checked ->
+            prefs().edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
+            seekHapticStrength.isEnabled = checked
+            if (checked) haptics.tap(seekHapticStrength.progress / 100f)
+        }
+        seekHapticStrength.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) {
+                lblHapticStrength.text = getString(R.string.size_haptic_strength, progress)
+                prefs().edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, progress).apply()
+            }
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            // Preview the chosen intensity once the user lets go.
+            override fun onStopTrackingTouch(s: SeekBar?) {
+                if (switchHaptic.isChecked) haptics.tap((s?.progress ?: 0) / 100f)
+            }
+        })
     }
 
     private fun seekToMetrics(m: KeyboardMetrics) {
