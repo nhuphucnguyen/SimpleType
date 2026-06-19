@@ -397,7 +397,7 @@ fun SettingsScreen(
 
                 // Live Preview
                 Text(
-                    text = "Live Preview",
+                    text = stringResource(R.string.size_live_preview),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -525,7 +525,7 @@ fun SettingsScreen(
                 }
 
                 // Haptics Section
-                Divider(modifier = Modifier.padding(vertical = 16.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
