@@ -231,7 +231,45 @@
         <SeekBar
             android:id="@+id/seek_haptic_strength"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:tickMark="@drawable/seek_tick" />
+
+        <!-- Anchor labels aligned to the slider's ends and centre (the 0%/50%/100% stops). -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingStart="2dp"
+            android:paddingEnd="2dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="start"
+                android:text="@string/haptic_level_min"
+                android:textSize="12sp"
+                android:alpha="0.7" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="@string/haptic_level_mid"
+                android:textSize="12sp"
+                android:alpha="0.7" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end"
+                android:text="@string/haptic_level_max"
+                android:textSize="12sp"
+                android:alpha="0.7" />
+        </LinearLayout>
 
         <Button
             android:id="@+id/btn_size_reset"

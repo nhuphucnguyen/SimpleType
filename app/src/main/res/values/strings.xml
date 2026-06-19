@@ -64,11 +64,15 @@
     <string name="size_haptic">Haptic feedback</string>
     <string name="size_haptic_desc">Vibrate briefly on each key press.</string>
     <string name="size_haptic_strength">Vibration strength: %1$s</string>
+    <!-- Anchor labels under the slider; keep in sync with the ends/centre of haptic_levels. -->
+    <string name="haptic_level_min">Subtle</string>
+    <string name="haptic_level_mid">Medium</string>
+    <string name="haptic_level_max">Max</string>
     <string-array name="haptic_levels">
-        <item>Subtle</item>
+        <item>@string/haptic_level_min</item>
         <item>Light</item>
-        <item>Medium</item>
+        <item>@string/haptic_level_mid</item>
         <item>Strong</item>
-        <item>Max</item>
+        <item>@string/haptic_level_max</item>
     </string-array>
 </resources>
