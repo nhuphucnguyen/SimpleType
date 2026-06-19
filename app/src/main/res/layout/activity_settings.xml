@@ -221,6 +221,18 @@
             android:alpha="0.7"
             android:paddingBottom="4dp" />
 
+        <TextView
+            android:id="@+id/lbl_haptic_strength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:paddingTop="4dp" />
+
+        <SeekBar
+            android:id="@+id/seek_haptic_strength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
         <Button
             android:id="@+id/btn_size_reset"
             android:layout_width="wrap_content"

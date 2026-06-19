@@ -7,7 +7,6 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
@@ -44,6 +43,11 @@ class LatinKeyboardView @JvmOverloads constructor(
 
     /** When true, a short tap vibration is played on each key press (see [hapticTap]). */
     var hapticEnabled: Boolean = true
+
+    /** Vibration intensity for key presses, 0f..1f. Ignored while [hapticEnabled] is false. */
+    var hapticStrength: Float = DEFAULT_HAPTIC_STRENGTH
+
+    private val haptics by lazy { HapticPlayer(context) }
 
     /** Label drawn on the space bar — shows the active language. */
     var spaceLabel: String = ""
@@ -176,7 +180,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     private val longPressRunnable = Runnable {
         val code = pressed?.key?.longPressCode ?: return@Runnable
         longPressFired = true
-        if (hapticEnabled) performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        if (hapticEnabled) haptics.longPress(hapticStrength)
         listener?.onKey(Key(code, ""))
     }
 
@@ -510,13 +514,8 @@ class LatinKeyboardView @JvmOverloads constructor(
      * makes the in-app toggle authoritative, so typing still buzzes even when the system-wide touch
      * feedback setting is off (the user opted in via SimpleType's own setting).
      */
-    @Suppress("DEPRECATION") // FLAG_IGNORE_GLOBAL_SETTING is intentional: our toggle is authoritative.
     private fun hapticTap() {
-        if (!hapticEnabled) return
-        performHapticFeedback(
-            HapticFeedbackConstants.KEYBOARD_TAP,
-            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING,
-        )
+        if (hapticEnabled) haptics.tap(hapticStrength)
     }
 
     private fun dp(dimenRes: Int): Float = resources.getDimension(dimenRes)
@@ -526,6 +525,15 @@ class LatinKeyboardView @JvmOverloads constructor(
     companion object {
         /** SharedPreferences key for the haptic-on-keypress toggle (in "simpletype_prefs"). */
         const val PREF_HAPTIC = "kb_haptic"
+
+        /** SharedPreferences key for haptic intensity, stored as a percent 0..100. */
+        const val PREF_HAPTIC_STRENGTH = "kb_haptic_strength"
+
+        /** Default haptic intensity (percent) when the user hasn't set one. */
+        const val DEFAULT_HAPTIC_PERCENT = 60
+
+        /** Default haptic intensity as a 0f..1f scale, used by the view before prefs are applied. */
+        const val DEFAULT_HAPTIC_STRENGTH = DEFAULT_HAPTIC_PERCENT / 100f
 
         private const val REPEAT_INITIAL_DELAY_MS = 400L
         private const val REPEAT_INTERVAL_MS = 55L

@@ -63,4 +63,5 @@
     <string name="size_dedicated_number_row_desc">Add a permanent row of number keys above the QWERTY row.</string>
     <string name="size_haptic">Haptic feedback</string>
     <string name="size_haptic_desc">Vibrate briefly on each key press.</string>
+    <string name="size_haptic_strength">Vibration strength: %1$d%%</string>
 </resources>
