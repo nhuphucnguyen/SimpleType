@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;}
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#e7e5df;font-family:'Plus Jakarta Sans',-apple-system,sans-serif;">
+
+  <div style="margin-bottom:34px;max-width:760px;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#8a7bff;">SimpleType · redesign</div>
+    <div style="font-size:26px;font-weight:800;letter-spacing:-0.02em;color:#23242b;margin-top:8px;">One design system — settings, keyboard &amp; clipboard</div>
+    <div style="font-size:15px;line-height:1.5;color:#65656d;margin-top:8px;">Grouped-card settings (your pick) shown in dark and light, plus the keyboard and clipboard surfaces redesigned to match: one violet accent, shared key shape, and the same card + section-label language across every screen. The settings screen is interactive — drag the sliders and flip the switches.</div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;">
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#2c2d34;">Settings · Grouped cards</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1f2027;border-radius:999px;padding:4px 10px;">Dark</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #16171c;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="SettingsScreen" variant="A" theme="dark" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#2c2d34;">Settings · Grouped cards</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#3a3b45;background:#fff;border:1px solid #cfcfc9;border-radius:999px;padding:4px 10px;">Light</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #d8d8e0;background:#fff;box-shadow:0 34px 70px rgba(0,0,0,0.16);">
+        <dc-import name="SettingsScreen" variant="A" theme="light" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#2c2d34;">Keyboard in use</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1f2027;border-radius:999px;padding:4px 10px;">Redesigned</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #16171c;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="Keyboard" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#2c2d34;">Clipboard panel</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1f2027;border-radius:999px;padding:4px 10px;">Redesigned</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #16171c;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="Clipboard" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

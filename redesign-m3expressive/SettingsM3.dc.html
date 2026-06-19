@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400..800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  .m3scroll::-webkit-scrollbar{width:0;height:0;}
+  .m3in::placeholder{color:inherit;opacity:0.7;}
+  input[type=range].m3range{-webkit-appearance:none;appearance:none;background:transparent;margin:0;}
+  input[type=range].m3range::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:24px;height:28px;background:transparent;}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;background:{{ pal.bg }};color:{{ pal.onSurface }};font-family:'Roboto Flex','Roboto',sans-serif;overflow:hidden;">
+
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 22px 6px;font-size:14px;font-weight:600;">
+    <span>12:39</span>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <span style="font-size:11px;font-weight:700;color:{{ pal.onSurfaceVar }};">4G</span>
+      <div style="display:flex;align-items:flex-end;gap:1.5px;height:12px;">
+        <div style="width:3px;height:5px;border-radius:1px;background:{{ pal.onSurface }};"></div>
+        <div style="width:3px;height:8px;border-radius:1px;background:{{ pal.onSurface }};"></div>
+        <div style="width:3px;height:11px;border-radius:1px;background:{{ pal.onSurface }};"></div>
+        <div style="width:3px;height:12px;border-radius:1px;background:{{ pal.onSurfaceVar }};"></div>
+      </div>
+      <div style="width:22px;height:12px;border:1.5px solid {{ pal.onSurface }};border-radius:3px;padding:1.5px;display:flex;"><div style="width:63%;height:100%;border-radius:1px;background:{{ pal.onSurface }};"></div></div>
+    </div>
+  </div>
+
+  <div class="m3scroll" style="flex:1;overflow-y:auto;padding:6px 16px 40px;">
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 6px 8px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;letter-spacing:0.02em;color:{{ pal.primary }};">Keyboard</div>
+          <div style="font-size:30px;font-weight:700;letter-spacing:-0.01em;line-height:1.05;margin-top:4px;">SimpleType</div>
+        </div>
+        <div style="width:44px;height:44px;border-radius:16px;background:{{ pal.primaryContainer }};display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:{{ pal.onPrimaryContainer }};">S</div>
+      </div>
+
+      <div style="background:{{ pal.sCLow }};border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;gap:14px;background:{{ pal.primaryContainer }};border-radius:20px;padding:14px 16px;">
+          <div style="flex:none;width:40px;height:40px;border-radius:50%;background:{{ pal.primary }};display:flex;align-items:center;justify-content:center;color:{{ pal.onPrimary }};">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </div>
+          <div style="flex:1;color:{{ pal.onPrimaryContainer }};">
+            <div style="font-size:15px;font-weight:600;">Keyboard is active</div>
+            <div style="font-size:13px;opacity:0.85;margin-top:1px;">SimpleType is your current keyboard</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div style="flex:1;text-align:center;background:{{ pal.secondaryContainer }};color:{{ pal.onSecondaryContainer }};border-radius:999px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer;">Input settings</div>
+          <div style="flex:1;text-align:center;background:{{ pal.secondaryContainer }};color:{{ pal.onSecondaryContainer }};border-radius:999px;padding:12px;font-size:13.5px;font-weight:600;cursor:pointer;">Switch keyboard</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div style="font-size:13px;font-weight:600;color:{{ pal.primary }};padding-left:2px;">Voice models · offline</div>
+          <div style="display:flex;gap:9px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:7px;background:{{ pal.secondaryContainer }};color:{{ pal.onSecondaryContainer }};border-radius:9px;padding:8px 13px;font-size:13px;font-weight:600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg> English
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;background:{{ pal.secondaryContainer }};color:{{ pal.onSecondaryContainer }};border-radius:9px;padding:8px 13px;font-size:13px;font-weight:600;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg> Tiếng Việt
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:{{ pal.sCLow }};border-radius:28px;padding:20px 18px;display:flex;flex-direction:column;gap:18px;">
+        <div>
+          <div style="font-size:17px;font-weight:700;">Keyboard size</div>
+          <div style="font-size:13px;line-height:1.45;color:{{ pal.onSurfaceVar }};margin-top:3px;">Make keys taller and add space between them to type more accurately.</div>
+        </div>
+        <sc-for list="{{ sizeSliders }}" as="s" hint-placeholder-count="4">
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:14.5px;font-weight:600;">{{ s.label }}</span>
+              <span style="font-size:13px;font-weight:600;color:{{ pal.onPrimaryContainer }};background:{{ pal.primaryContainer }};border-radius:8px;padding:3px 10px;">{{ s.valLabel }}</span>
+            </div>
+            <div style="position:relative;height:28px;display:flex;align-items:center;">
+              <div style="position:absolute;left:0;right:0;height:16px;border-radius:999px;background:{{ pal.sCHighest }};"></div>
+              <div style="position:absolute;left:0;height:16px;border-radius:999px;background:{{ pal.primary }};width:{{ s.pct }};"></div>
+              <div style="position:absolute;top:0;height:28px;width:4px;border-radius:999px;background:{{ pal.primary }};left:{{ s.pct }};transform:translateX(-50%);box-shadow:0 0 0 4px {{ s.ring }};"></div>
+              <input class="m3range" type="range" min="{{ s.min }}" max="{{ s.max }}" value="{{ s.val }}" onChange="{{ s.on }}" style="position:absolute;left:0;right:0;width:100%;height:28px;cursor:pointer;opacity:0;" />
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background:{{ pal.sCLow }};border-radius:28px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:13px;font-weight:600;color:{{ pal.primary }};padding-left:2px;">Live preview</div>
+        {{ keyboardEl }}
+      </div>
+
+      <div style="background:{{ pal.sCLow }};border-radius:28px;padding:8px 18px 14px;display:flex;flex-direction:column;">
+        <div style="font-size:17px;font-weight:700;padding:14px 0 4px;">Typing options</div>
+        <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;gap:16px;padding:15px 0;border-top:{{ t.borderTop }};">
+            <div style="flex:1;">
+              <div style="font-size:15.5px;font-weight:600;">{{ t.title }}</div>
+              <div style="font-size:12.5px;line-height:1.45;color:{{ pal.onSurfaceVar }};margin-top:4px;">{{ t.desc }}</div>
+            </div>
+            <div onClick="{{ t.toggle }}" style="flex:none;position:relative;width:52px;height:32px;border-radius:999px;background:{{ t.trackBg }};border:{{ t.trackBorder }};cursor:pointer;transition:background .2s;">
+              <div style="position:absolute;top:50%;left:{{ t.thumbLeft }};width:{{ t.thumbW }};height:{{ t.thumbW }};transform:translateY(-50%);border-radius:50%;background:{{ t.thumbBg }};display:flex;align-items:center;justify-content:center;transition:all .18s;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ t.checkColor }}" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="background:{{ pal.sCLow }};border-radius:28px;padding:18px;display:flex;flex-direction:column;gap:18px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="flex:1;">
+            <div style="font-size:17px;font-weight:700;">Haptic feedback</div>
+            <div style="font-size:12.5px;line-height:1.45;color:{{ pal.onSurfaceVar }};margin-top:4px;">Vibrate briefly on each key press.</div>
+          </div>
+          <div onClick="{{ toggleHaptic }}" style="flex:none;position:relative;width:52px;height:32px;border-radius:999px;background:{{ hap.trackBg }};border:{{ hap.trackBorder }};cursor:pointer;transition:background .2s;">
+            <div style="position:absolute;top:50%;left:{{ hap.thumbLeft }};width:{{ hap.thumbW }};height:{{ hap.thumbW }};transform:translateY(-50%);border-radius:50%;background:{{ hap.thumbBg }};display:flex;align-items:center;justify-content:center;transition:all .18s;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ hap.checkColor }}" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;opacity:{{ hapticOpacity }};pointer-events:{{ hapticPE }};transition:opacity .2s;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:14.5px;font-weight:600;">Vibration strength</span>
+            <span style="font-size:13px;font-weight:600;color:{{ pal.onPrimaryContainer }};background:{{ pal.primaryContainer }};border-radius:8px;padding:3px 10px;">{{ vibLabel }}</span>
+          </div>
+          <div style="display:flex;">
+            <sc-for list="{{ vibOpts }}" as="v" hint-placeholder-count="3">
+              <div onClick="{{ v.set }}" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:42px;background:{{ v.bg }};color:{{ v.color }};border:1px solid {{ pal.outline }};border-radius:{{ v.radius }};margin-left:{{ v.ml }};font-size:13.5px;font-weight:600;cursor:pointer;transition:background .15s;">
+                <sc-if value="{{ v.selected }}" hint-placeholder-val="{{ false }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                </sc-if>
+                {{ v.label }}
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:18px;margin-top:4px;">
+        <div onClick="{{ reset }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:{{ pal.secondaryContainer }};color:{{ pal.onSecondaryContainer }};border-radius:999px;padding:14px;font-size:14px;font-weight:600;cursor:pointer;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+          Reset to default
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-size:13px;font-weight:600;color:{{ pal.primary }};padding-left:4px;">Try it out</div>
+          <input class="m3in" placeholder="Tap here and start typing…" style="width:100%;background:{{ pal.sCHigh }};border:none;border-bottom:2px solid {{ pal.primary }};border-radius:12px 12px 0 0;padding:16px;font-size:15px;font-family:inherit;color:{{ pal.onSurface }};outline:none;" />
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const DEFAULTS = { keyHeight:50, lift:30, hGap:2, vGap:2, numberHints:false, symbolHints:false, numberRow:false, haptic:true, vib:2 };
+
+class Component extends DCLogic {
+  state = { ...DEFAULTS };
+
+  getPal(isDark){
+    return isDark ? {
+      bg:'#141218', sCLow:'#1D1B20', sC:'#211F26', sCHigh:'#2B2930', sCHighest:'#36343B',
+      onSurface:'#E6E0E9', onSurfaceVar:'#CAC4D0', outline:'#938F99', outlineVar:'#49454F',
+      primary:'#D0BCFF', onPrimary:'#381E72', primaryContainer:'#4F378B', onPrimaryContainer:'#EADDFF',
+      secondaryContainer:'#4A4458', onSecondaryContainer:'#E8DEF8',
+      key:'#36343B', keyText:'#E6E0E9', keyHint:'#938F99', keySpecial:'#2B2930', keySpecialText:'#CAC4D0', kbBg:'#1D1B20'
+    } : {
+      bg:'#FEF7FF', sCLow:'#F7F2FA', sC:'#F3EDF7', sCHigh:'#ECE6F0', sCHighest:'#E6E0E9',
+      onSurface:'#1D1B20', onSurfaceVar:'#49454F', outline:'#79747E', outlineVar:'#CAC4D0',
+      primary:'#6750A4', onPrimary:'#FFFFFF', primaryContainer:'#EADDFF', onPrimaryContainer:'#21005D',
+      secondaryContainer:'#E8DEF8', onSecondaryContainer:'#1D192B',
+      key:'#FFFFFF', keyText:'#1D1B20', keyHint:'#79747E', keySpecial:'#ECE6F0', keySpecialText:'#49454F', kbBg:'#ECE6F0'
+    };
+  }
+
+  buildKeyboard(pal){
+    const { keyHeight, lift, hGap, vGap, numberHints, symbolHints, numberRow } = this.state;
+    const kh = Math.round(keyHeight*0.7);
+    const hg = Math.max(1, hGap), vg = Math.max(1, vGap), liftPx = Math.round(lift*0.4);
+    const e = React.createElement;
+    const symTop=['!','@','#','$','%','^','&','*','(',')'];
+    const symMid=['~','\\','|','-','_','=','+','[',']'];
+    const symBot=['*','/',':',';','?','!','"'];
+    const digits=['1','2','3','4','5','6','7','8','9','0'];
+    const r1='qwertyuiop'.split(''), r2='asdfghjkl'.split(''), r3='zxcvbnm'.split('');
+    const radius = Math.max(8, Math.round(kh*0.3));
+    const fs = Math.max(12, Math.round(kh*0.42));
+    const base = { flex:'1 1 0', minWidth:0, height:kh, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:radius, background:pal.key, color:pal.keyText, fontSize:fs, fontWeight:500, position:'relative' };
+    const hintFs = Math.max(8, Math.round(kh*0.26));
+    const letter = (ch, hint, key) => e('div',{key, style:base},
+      hint ? e('span',{style:{position:'absolute', top:3, right:5, fontSize:hintFs, lineHeight:1, color:pal.keyHint, fontWeight:600}}, hint) : null,
+      e('span',null,ch));
+    const special = (label, grow, sfs, key, bg, col) => e('div',{key, style:{...base, flex:grow+' 1 0', background:bg||pal.keySpecial, color:col||pal.keySpecialText, fontSize:sfs||fs}}, label);
+    const rows = [];
+    if(numberRow){ rows.push(e('div',{key:'nr', style:{display:'flex', gap:hg}}, digits.map((d,i)=>letter(d,'','nr'+i)))); }
+    rows.push(e('div',{key:'r1', style:{display:'flex', gap:hg}}, r1.map((ch,i)=>letter(ch, symbolHints?symTop[i]:(numberHints?digits[i]:''), 'r1'+i))));
+    rows.push(e('div',{key:'r2', style:{display:'flex', gap:hg, padding:'0 '+Math.round(kh*0.5)+'px'}}, r2.map((ch,i)=>letter(ch, symbolHints?symMid[i]:'', 'r2'+i))));
+    rows.push(e('div',{key:'r3', style:{display:'flex', gap:hg}}, [ special('⇧',1.4,fs,'sh', pal.primary, pal.onPrimary), ...r3.map((ch,i)=>letter(ch, symbolHints?symBot[i]:'', 'r3'+i)), special('⌫',1.4,fs,'bk') ]));
+    rows.push(e('div',{key:'r4', style:{display:'flex', gap:hg}}, [
+      special('?123',1.6, Math.max(11,Math.round(kh*0.32)),'sym'),
+      special(',',1,fs,'comma', pal.key, pal.keyText),
+      e('div',{key:'space', style:{...base, flex:'4.6 1 0', background:pal.keySpecial}}, ''),
+      special('‹ ›',1.5, Math.max(11,Math.round(kh*0.36)),'arr'),
+      special('.',1,fs,'dot', pal.key, pal.keyText),
+      special('↵',1.6,fs,'ent', pal.primaryContainer, pal.onPrimaryContainer)
+    ]));
+    return e('div',{style:{display:'flex', flexDirection:'column', gap:vg, padding:12, paddingBottom:12+liftPx, background:pal.kbBg, borderRadius:20}}, rows);
+  }
+
+  renderVals(){
+    const theme = this.props.theme || 'dark';
+    const isDark = theme !== 'light';
+    const pal = this.getPal(isDark);
+    const s = this.state;
+    const onRange = (f) => (e) => this.setState({ [f]: parseInt(e.target.value,10) });
+    const pct = (v,mn,mx) => (((v-mn)/(mx-mn))*100) + '%';
+
+    const sliderDefs = [['Key height','keyHeight','dp',40,72],['Lift from bottom','lift','dp',0,80],['Horizontal gap','hGap','dp',0,12],['Vertical gap','vGap','dp',0,12]];
+    const sizeSliders = sliderDefs.map(([label,field,unit,min,max]) => ({
+      label, field, min, max, val:s[field], valLabel:s[field]+' '+unit, pct:pct(s[field],min,max), on:onRange(field), ring:pal.sCLow
+    }));
+
+    const mkToggle = (field, extra) => () => this.setState(st => { const n={[field]:!st[field]}; if(extra)Object.assign(n,extra(st)); return n; });
+    const tdefs = [
+      { field:'numberHints', title:'Number hints on top row', desc:'Show small digits on q–p; swipe down on a key to type its number.', toggle: mkToggle('numberHints', st => (!st.numberHints ? {symbolHints:false} : {})) },
+      { field:'symbolHints', title:'Symbol hints on letter keys', desc:'Show a common symbol on each letter key and swipe down to type it. Turns off number hints.', toggle: mkToggle('symbolHints', st => (!st.symbolHints ? {numberHints:false} : {})) },
+      { field:'numberRow', title:'Dedicated number row', desc:'Add a permanent row of number keys above the QWERTY row.', toggle: mkToggle('numberRow') },
+    ];
+    const sw = (on) => ({ trackBg: on?pal.primary:pal.sCHighest, trackBorder: on?('2px solid '+pal.primary):('2px solid '+pal.outline), thumbW: on?'24px':'16px', thumbBg: on?pal.onPrimary:pal.outline, thumbLeft: on?'24px':'7px', checkColor: on?pal.primary:'transparent' });
+    const toggles = tdefs.map((t,i) => { const on=s[t.field]; return { ...t, on, ...sw(on), borderTop: i===0?'none':('1px solid '+pal.outlineVar) }; });
+
+    const vibNames = ['Subtle','Medium','Max'];
+    const vibOpts = vibNames.map((label,i) => ({
+      label, selected:i===s.vib, set:()=>this.setState({vib:i}),
+      bg: i===s.vib?pal.secondaryContainer:'transparent',
+      color: i===s.vib?pal.onSecondaryContainer:pal.onSurface,
+      radius: i===0?'20px 0 0 20px':(i===vibNames.length-1?'0 20px 20px 0':'0'),
+      ml: i===0?'0':'-1px',
+    }));
+
+    return {
+      pal, isDark, sizeSliders, toggles, vibOpts,
+      hap: sw(s.haptic), toggleHaptic: mkToggle('haptic'),
+      vibLabel: vibNames[s.vib], hapticOpacity: s.haptic?'1':'0.38', hapticPE: s.haptic?'auto':'none',
+      reset: () => this.setState({ ...DEFAULTS }),
+      keyboardEl: this.buildKeyboard(pal),
+    };
+  }
+}
+</script>
+</body>
+</html>

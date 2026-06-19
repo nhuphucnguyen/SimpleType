@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400..800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  body{margin:0;}
+</style>
+</helmet>
+<div style="width:max-content;min-width:100%;min-height:100vh;box-sizing:border-box;padding:48px;background:#e7e5df;font-family:'Roboto Flex','Roboto',sans-serif;">
+
+  <div style="margin-bottom:34px;max-width:780px;">
+    <div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6750A4;">SimpleType · Material 3 Expressive</div>
+    <div style="font-size:26px;font-weight:700;letter-spacing:-0.01em;color:#1d1b20;margin-top:8px;">Rebuilt on the Material 3 Expressive system</div>
+    <div style="font-size:15px;line-height:1.5;color:#605d66;margin-top:8px;">M3 color roles &amp; tonal surface layering, pill buttons, the M3 switch (outlined track, growing thumb + checkmark), tall-handle sliders, segmented buttons, 28px card shapes and Roboto Flex. Settings shown in dark and light; the keyboard and clipboard carry the same tokens. The settings screen is interactive.</div>
+  </div>
+
+  <div style="display:flex;gap:44px;align-items:flex-start;">
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#1d1b20;">Settings</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1d1b20;border-radius:999px;padding:4px 10px;">Dark</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #141218;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="SettingsM3" theme="dark" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#1d1b20;">Settings</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#21005d;background:#EADDFF;border-radius:999px;padding:4px 10px;">Light</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #d8d3de;background:#fff;box-shadow:0 34px 70px rgba(0,0,0,0.16);">
+        <dc-import name="SettingsM3" theme="light" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#1d1b20;">Keyboard in use</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1d1b20;border-radius:999px;padding:4px 10px;">M3</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #141218;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="KeyboardM3" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;flex:none;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:14px;font-weight:700;color:#1d1b20;">Clipboard panel</span>
+        <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#fff;background:#1d1b20;border-radius:999px;padding:4px 10px;">M3</span>
+      </div>
+      <div style="width:390px;height:844px;border-radius:46px;overflow:hidden;border:9px solid #141218;background:#000;box-shadow:0 34px 70px rgba(0,0,0,0.28);">
+        <dc-import name="ClipboardM3" hint-size="372px,826px" style="display:block;width:100%;height:100%;"></dc-import>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

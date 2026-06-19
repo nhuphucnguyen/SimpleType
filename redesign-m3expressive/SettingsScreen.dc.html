@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  .stscroll::-webkit-scrollbar{width:0;height:0;}
+  input[type=range]{cursor:pointer;}
+  .stinput::placeholder{color:inherit;opacity:0.55;}
+</style>
+</helmet>
+<div style="display:flex;flex-direction:column;height:100%;background:{{ pal.bg }};color:{{ pal.text }};font-family:'Plus Jakarta Sans',-apple-system,sans-serif;overflow:hidden;">
+
+  <div style="flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 22px 6px;font-size:14px;font-weight:600;color:{{ pal.text }};">
+    <span>12:39</span>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <span style="font-size:11px;font-weight:700;letter-spacing:0.04em;color:{{ pal.textDim }};">4G</span>
+      <div style="display:flex;align-items:flex-end;gap:1.5px;height:12px;">
+        <div style="width:3px;height:5px;border-radius:1px;background:{{ pal.text }};"></div>
+        <div style="width:3px;height:8px;border-radius:1px;background:{{ pal.text }};"></div>
+        <div style="width:3px;height:11px;border-radius:1px;background:{{ pal.text }};"></div>
+        <div style="width:3px;height:12px;border-radius:1px;background:{{ pal.textDim }};"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:3px;">
+        <div style="width:22px;height:12px;border:1.5px solid {{ pal.text }};border-radius:3px;padding:1.5px;display:flex;">
+          <div style="width:63%;height:100%;border-radius:1px;background:{{ pal.text }};"></div>
+        </div>
+        <span style="font-size:10px;font-weight:700;color:{{ pal.textDim }};">63</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stscroll" style="flex:1;overflow-y:auto;padding:8px 20px 36px;">
+
+    <sc-if value="{{ isA }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:18px;">
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;padding:6px 2px 2px;">
+          <div>
+            <div style="font-size:27px;font-weight:800;letter-spacing:-0.02em;line-height:1;">SimpleType</div>
+            <div style="font-size:13.5px;font-weight:500;color:{{ pal.textDim }};margin-top:5px;">Keyboard settings</div>
+          </div>
+          <div style="width:38px;height:38px;border-radius:12px;background:{{ accentSoft }};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;color:{{ accent }};">S</div>
+        </div>
+
+        <div style="background:{{ pal.surface }};border:1px solid {{ pal.line }};border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div style="display:flex;align-items:center;gap:12px;background:{{ greenSoft }};border-radius:15px;padding:13px 14px;">
+            <div style="flex:none;width:34px;height:34px;border-radius:50%;background:{{ green }};display:flex;align-items:center;justify-content:center;color:#04150e;font-size:17px;font-weight:800;">✓</div>
+            <div style="flex:1;">
+              <div style="font-size:14.5px;font-weight:700;">Keyboard is active</div>
+              <div style="font-size:12.5px;color:{{ pal.textDim }};margin-top:1px;">SimpleType is your current keyboard</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;">
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ pal.surface2 }};border:1px solid {{ pal.line }};border-radius:13px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;">Input settings</div>
+            <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:{{ pal.surface2 }};border:1px solid {{ pal.line }};border-radius:13px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;">Switch keyboard</div>
+          </div>
+          <div style="height:1px;background:{{ pal.line }};"></div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:{{ pal.textFaint }};">Voice models · offline</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <div style="display:flex;align-items:center;gap:6px;background:{{ pal.chipBg }};border:1px solid {{ pal.line }};border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;color:{{ pal.text }};"><span style="color:{{ green }};">✓</span> English</div>
+              <div style="display:flex;align-items:center;gap:6px;background:{{ pal.chipBg }};border:1px solid {{ pal.line }};border-radius:999px;padding:7px 13px;font-size:12.5px;font-weight:600;color:{{ pal.text }};"><span style="color:{{ green }};">✓</span> Tiếng Việt</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:{{ pal.surface }};border:1px solid {{ pal.line }};border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="font-size:16px;font-weight:700;">Keyboard size</div>
+            <div style="font-size:13px;line-height:1.45;color:{{ pal.textDim }};margin-top:3px;">Make keys taller and add space between them to type more accurately.</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <sc-for list="{{ sizeSliders }}" as="s" hint-placeholder-count="4">
+              <div style="display:flex;flex-direction:column;gap:9px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                  <span style="font-size:13px;font-weight:600;color:{{ pal.textDim }};">{{ s.label }}</span>
+                  <span style="font-size:12px;font-weight:700;color:{{ accent }};background:{{ accentSoft }};border-radius:7px;padding:2px 8px;">{{ s.valLabel }}</span>
+                </div>
+                <input type="range" min="{{ s.min }}" max="{{ s.max }}" value="{{ s.val }}" onChange="{{ s.on }}" style="accent-color:{{ accent }};width:100%;height:18px;" />
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="background:{{ pal.surface }};border:1px solid {{ pal.line }};border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:{{ pal.textFaint }};">Live preview</div>
+            <div style="font-size:11.5px;font-weight:600;color:{{ pal.textDim }};">QWERTY</div>
+          </div>
+          {{ keyboardEl }}
+        </div>
+
+        <div style="background:{{ pal.surface }};border:1px solid {{ pal.line }};border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:0;">
+          <div style="font-size:16px;font-weight:700;margin-bottom:6px;">Typing options</div>
+          <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-top:{{ t.borderTop }};">
+              <div style="flex:1;">
+                <div style="font-size:14.5px;font-weight:600;">{{ t.title }}</div>
+                <div style="font-size:12.5px;line-height:1.45;color:{{ pal.textDim }};margin-top:4px;">{{ t.desc }}</div>
+              </div>
+              <div onClick="{{ t.toggle }}" style="flex:none;width:48px;height:29px;border-radius:999px;background:{{ t.trackBg }};padding:3.5px;cursor:pointer;transition:background .2s;display:flex;align-items:center;">
+                <div style="width:22px;height:22px;border-radius:50%;background:#fff;transform:translateX({{ t.knobX }});transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="background:{{ pal.surface }};border:1px solid {{ pal.line }};border-radius:22px;padding:18px;display:flex;flex-direction:column;gap:16px;">
+          <div style="display:flex;align-items:flex-start;gap:14px;">
+            <div style="flex:1;">
+              <div style="font-size:16px;font-weight:700;">Haptic feedback</div>
+              <div style="font-size:12.5px;line-height:1.45;color:{{ pal.textDim }};margin-top:4px;">Vibrate briefly on each key press.</div>
+            </div>
+            <div onClick="{{ toggleHaptic }}" style="flex:none;width:48px;height:29px;border-radius:999px;background:{{ hapticTrack }};padding:3.5px;cursor:pointer;transition:background .2s;display:flex;align-items:center;">
+              <div style="width:22px;height:22px;border-radius:50%;background:#fff;transform:translateX({{ hapticKnob }});transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;opacity:{{ hapticOpacity }};pointer-events:{{ hapticPE }};transition:opacity .2s;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:13px;font-weight:600;color:{{ pal.textDim }};">Vibration strength</span>
+              <span style="font-size:12px;font-weight:700;color:{{ accent }};background:{{ accentSoft }};border-radius:7px;padding:2px 8px;">{{ vibLabel }}</span>
+            </div>
+            <div style="display:flex;gap:5px;background:{{ pal.surface2 }};border-radius:13px;padding:4px;">
+              <sc-for list="{{ vibOpts }}" as="v" hint-placeholder-count="3">
+                <div onClick="{{ v.set }}" style="flex:1;text-align:center;padding:9px 4px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;background:{{ v.bg }};color:{{ v.color }};transition:all .15s;">{{ v.label }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:2px;">
+          <div onClick="{{ reset }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:{{ accentSoft }};color:{{ accent }};border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">↺ Reset to default</div>
+          <div style="display:flex;flex-direction:column;gap:9px;">
+            <div style="font-size:11.5px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:{{ pal.textFaint }};">Try it out</div>
+            <input class="stinput" placeholder="Tap here and start typing…" style="width:100%;background:{{ pal.inputBg }};border:1px solid {{ pal.line }};border-radius:14px;padding:14px;font-size:15px;font-family:inherit;color:{{ pal.text }};outline:none;" />
+          </div>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isB }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <div style="padding:8px 2px 0;">
+          <div style="font-size:32px;font-weight:800;letter-spacing:-0.025em;line-height:1;">SimpleType</div>
+          <div style="font-size:14px;font-weight:500;color:{{ pal.textDim }};margin-top:8px;">On-device voice typing · English &amp; Tiếng Việt</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:13px;padding:14px 0;border-bottom:1px solid {{ pal.line }};">
+            <div style="flex:none;width:26px;height:26px;border-radius:50%;background:{{ green }};display:flex;align-items:center;justify-content:center;color:#04150e;font-size:14px;font-weight:800;">✓</div>
+            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Keyboard enabled</div><div style="font-size:12.5px;color:{{ pal.textDim }};margin-top:1px;">Active in system settings</div></div>
+            <span style="font-size:13px;font-weight:600;color:{{ accent }};cursor:pointer;">Manage</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;padding:14px 0;border-bottom:1px solid {{ pal.line }};">
+            <div style="flex:none;width:26px;height:26px;border-radius:50%;background:{{ green }};display:flex;align-items:center;justify-content:center;color:#04150e;font-size:14px;font-weight:800;">✓</div>
+            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Set as default</div><div style="font-size:12.5px;color:{{ pal.textDim }};margin-top:1px;">SimpleType is the current keyboard</div></div>
+            <span style="font-size:13px;font-weight:600;color:{{ accent }};cursor:pointer;">Switch</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;padding:14px 0;">
+            <span style="font-size:13px;color:{{ pal.textDim }};">Voice models</span>
+            <div style="display:flex;gap:8px;margin-left:auto;">
+              <div style="display:flex;align-items:center;gap:5px;background:{{ pal.chipBg }};border:1px solid {{ pal.line }};border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600;"><span style="color:{{ green }};">✓</span> English</div>
+              <div style="display:flex;align-items:center;gap:5px;background:{{ pal.chipBg }};border:1px solid {{ pal.line }};border-radius:999px;padding:6px 11px;font-size:12px;font-weight:600;"><span style="color:{{ green }};">✓</span> Tiếng Việt</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div>
+            <div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ accent }};">Keyboard size</div>
+            <div style="font-size:13.5px;line-height:1.45;color:{{ pal.textDim }};margin-top:6px;">Make keys taller and add space between them to type more accurately.</div>
+          </div>
+          <sc-for list="{{ sizeSliders }}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;align-items:baseline;justify-content:space-between;">
+                <span style="font-size:15px;font-weight:600;">{{ s.label }}</span>
+                <span style="font-size:14px;font-weight:700;color:{{ accent }};">{{ s.valLabel }}</span>
+              </div>
+              <input type="range" min="{{ s.min }}" max="{{ s.max }}" value="{{ s.val }}" onChange="{{ s.on }}" style="accent-color:{{ accent }};width:100%;height:20px;" />
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:11px;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ pal.textFaint }};">Live preview</div>
+          {{ keyboardEl }}
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:2px;">
+          <div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ accent }};margin-bottom:6px;">Typing options</div>
+          <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+            <div style="display:flex;align-items:flex-start;gap:16px;padding:17px 0;border-top:{{ t.borderTop }};">
+              <div style="flex:1;">
+                <div style="font-size:16px;font-weight:600;">{{ t.title }}</div>
+                <div style="font-size:13px;line-height:1.5;color:{{ pal.textDim }};margin-top:5px;">{{ t.desc }}</div>
+              </div>
+              <div onClick="{{ t.toggle }}" style="flex:none;width:50px;height:30px;border-radius:999px;background:{{ t.trackBg }};padding:3.5px;cursor:pointer;transition:background .2s;display:flex;align-items:center;">
+                <div style="width:23px;height:23px;border-radius:50%;background:#fff;transform:translateX({{ t.knobX }});transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div style="display:flex;align-items:flex-start;gap:16px;border-top:1px solid {{ pal.line }};padding-top:17px;">
+            <div style="flex:1;">
+              <div style="font-size:16px;font-weight:600;">Haptic feedback</div>
+              <div style="font-size:13px;line-height:1.5;color:{{ pal.textDim }};margin-top:5px;">Vibrate briefly on each key press.</div>
+            </div>
+            <div onClick="{{ toggleHaptic }}" style="flex:none;width:50px;height:30px;border-radius:999px;background:{{ hapticTrack }};padding:3.5px;cursor:pointer;transition:background .2s;display:flex;align-items:center;">
+              <div style="width:23px;height:23px;border-radius:50%;background:#fff;transform:translateX({{ hapticKnob }});transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);"></div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px;opacity:{{ hapticOpacity }};pointer-events:{{ hapticPE }};transition:opacity .2s;">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;">
+              <span style="font-size:15px;font-weight:600;">Vibration strength</span>
+              <span style="font-size:14px;font-weight:700;color:{{ accent }};">{{ vibLabel }}</span>
+            </div>
+            <input type="range" min="0" max="2" step="1" value="{{ vib }}" onChange="{{ onVib }}" style="accent-color:{{ accent }};width:100%;height:20px;" />
+            <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:{{ pal.textDim }};">
+              <span>Subtle</span><span>Medium</span><span>Max</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:18px;margin-top:4px;">
+          <div onClick="{{ reset }}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;color:{{ accent }};border:1.5px solid {{ accent }};border-radius:14px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;">↺ Reset to default</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="font-size:13px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:{{ pal.textFaint }};">Try it out</div>
+            <input class="stinput" placeholder="Tap here and start typing…" style="width:100%;background:transparent;border:none;border-bottom:2px solid {{ pal.line }};border-radius:0;padding:12px 2px;font-size:16px;font-family:inherit;color:{{ pal.text }};outline:none;" />
+          </div>
+        </div>
+
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844},&quot;variant&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A&quot;,&quot;B&quot;],&quot;default&quot;:&quot;A&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;theme&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dark&quot;,&quot;light&quot;],&quot;default&quot;:&quot;dark&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#7B68FF&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const DEFAULTS = { keyHeight:50, lift:30, hGap:2, vGap:2, numberHints:false, symbolHints:false, numberRow:false, haptic:true, vib:2 };
+
+class Component extends DCLogic {
+  state = { ...DEFAULTS };
+
+  hexToRgba(hex, a){
+    const h = hex.replace('#','');
+    const n = h.length===3 ? h.split('').map(c=>c+c).join('') : h;
+    const r=parseInt(n.slice(0,2),16), g=parseInt(n.slice(2,4),16), b=parseInt(n.slice(4,6),16);
+    return 'rgba('+r+','+g+','+b+','+a+')';
+  }
+
+  getPal(isDark){
+    return isDark ? {
+      bg:'#0C0D12', surface:'#15171F', surface2:'#1B1E27', line:'rgba(255,255,255,0.07)',
+      text:'#F4F5F8', textDim:'#9498A6', textFaint:'#676B79',
+      key:'#2B2F3B', keyText:'#ECEEF4', keyHint:'#868B9B', keySpecial:'#1F232E', keySpecialText:'#C7CAD4', kbBg:'#101219',
+      switchOff:'#3A3E4A', chipBg:'rgba(255,255,255,0.05)', inputBg:'#15171F'
+    } : {
+      bg:'#F3F4FA', surface:'#FFFFFF', surface2:'#ECEEF6', line:'rgba(17,20,34,0.09)',
+      text:'#15171F', textDim:'#5C6172', textFaint:'#8A8FA0',
+      key:'#FFFFFF', keyText:'#1A1C24', keyHint:'#9BA0B2', keySpecial:'#E4E6F0', keySpecialText:'#454A5A', kbBg:'#E2E4EE',
+      switchOff:'#C9CCDA', chipBg:'rgba(17,20,34,0.035)', inputBg:'#FFFFFF'
+    };
+  }
+
+  buildKeyboard(pal, accent){
+    const { keyHeight, lift, hGap, vGap, numberHints, symbolHints, numberRow } = this.state;
+    const kh = Math.round(keyHeight*0.7);
+    const hg = Math.max(1, hGap), vg = Math.max(1, vGap), liftPx = Math.round(lift*0.4);
+    const e = React.createElement;
+    const symTop=['!','@','#','$','%','^','&','*','(',')'];
+    const symMid=['~','\\','|','-','_','=','+','[',']'];
+    const symBot=['*','/',':',';','?','!','"'];
+    const digits=['1','2','3','4','5','6','7','8','9','0'];
+    const r1='qwertyuiop'.split(''), r2='asdfghjkl'.split(''), r3='zxcvbnm'.split('');
+    const radius = Math.max(5, Math.round(kh*0.2));
+    const fs = Math.max(12, Math.round(kh*0.42));
+    const base = { flex:'1 1 0', minWidth:0, height:kh, display:'flex', alignItems:'center', justifyContent:'center', borderRadius:radius, background:pal.key, color:pal.keyText, fontSize:fs, fontWeight:500, position:'relative' };
+    const hintFs = Math.max(8, Math.round(kh*0.26));
+    const letter = (ch, hint, key) => e('div',{key, style:base},
+      hint ? e('span',{style:{position:'absolute', top:3, right:5, fontSize:hintFs, lineHeight:1, color:pal.keyHint, fontWeight:600}}, hint) : null,
+      e('span',null,ch));
+    const special = (label, grow, sfs, key) => e('div',{key, style:{...base, flex:grow+' 1 0', background:pal.keySpecial, color:pal.keySpecialText, fontSize:sfs||fs, fontWeight:500}}, label);
+    const rows = [];
+    if(numberRow){ rows.push(e('div',{key:'nr', style:{display:'flex', gap:hg}}, digits.map((d,i)=>letter(d,'','nr'+i)))); }
+    rows.push(e('div',{key:'r1', style:{display:'flex', gap:hg}}, r1.map((ch,i)=>letter(ch, symbolHints?symTop[i]:(numberHints?digits[i]:''), 'r1'+i))));
+    rows.push(e('div',{key:'r2', style:{display:'flex', gap:hg, padding:'0 '+Math.round(kh*0.5)+'px'}}, r2.map((ch,i)=>letter(ch, symbolHints?symMid[i]:'', 'r2'+i))));
+    rows.push(e('div',{key:'r3', style:{display:'flex', gap:hg}}, [ special('⇧',1.4,fs,'sh'), ...r3.map((ch,i)=>letter(ch, symbolHints?symBot[i]:'', 'r3'+i)), special('⌫',1.4,fs,'bk') ]));
+    rows.push(e('div',{key:'r4', style:{display:'flex', gap:hg}}, [
+      special('?123',1.6, Math.max(11,Math.round(kh*0.32)),'sym'),
+      special(',',1,fs,'comma'),
+      e('div',{key:'space', style:{...base, flex:'4.6 1 0', background:pal.keySpecial}}, ''),
+      special('‹ ›',1.5, Math.max(11,Math.round(kh*0.36)),'arr'),
+      special('.',1,fs,'dot'),
+      special('↵',1.6,fs,'ent')
+    ]));
+    return e('div',{style:{display:'flex', flexDirection:'column', gap:vg, padding:12, paddingBottom:12+liftPx, background:pal.kbBg, borderRadius:16}}, rows);
+  }
+
+  renderVals(){
+    const variant = this.props.variant || 'A';
+    const theme = this.props.theme || 'dark';
+    const accent = this.props.accent || '#7B68FF';
+    const isDark = theme !== 'light';
+    const pal = this.getPal(isDark);
+    const accentSoft = this.hexToRgba(accent, 0.14);
+    const green = '#22C58A';
+    const greenSoft = this.hexToRgba(green, isDark ? 0.13 : 0.14);
+    const s = this.state;
+
+    const onRange = (field) => (e) => this.setState({ [field]: parseInt(e.target.value,10) });
+    const sizeSliders = [
+      { label:'Key height', val:s.keyHeight, valLabel:s.keyHeight+' dp', min:40, max:72, on:onRange('keyHeight') },
+      { label:'Lift from bottom', val:s.lift, valLabel:s.lift+' dp', min:0, max:80, on:onRange('lift') },
+      { label:'Horizontal gap', val:s.hGap, valLabel:s.hGap+' dp', min:0, max:12, on:onRange('hGap') },
+      { label:'Vertical gap', val:s.vGap, valLabel:s.vGap+' dp', min:0, max:12, on:onRange('vGap') },
+    ];
+
+    const mkToggle = (field, extra) => () => this.setState(st => {
+      const next = { [field]: !st[field] };
+      if(extra) Object.assign(next, extra(st));
+      return next;
+    });
+    const toggleData = [
+      { field:'numberHints', title:'Number hints on top row', desc:'Show small digits on q–p; swipe down on a key to type its number.',
+        toggle: mkToggle('numberHints', st => (!st.numberHints ? { symbolHints:false } : {})) },
+      { field:'symbolHints', title:'Symbol hints on letter keys', desc:'Show a common symbol on each letter key and swipe down to type it. Turns off number hints.',
+        toggle: mkToggle('symbolHints', st => (!st.symbolHints ? { numberHints:false } : {})) },
+      { field:'numberRow', title:'Dedicated number row', desc:'Add a permanent row of number keys above the QWERTY row.',
+        toggle: mkToggle('numberRow') },
+    ];
+    const toggles = toggleData.map((t,i) => {
+      const on = s[t.field];
+      return { ...t, on, trackBg: on?accent:pal.switchOff, knobX: on?'19px':'0px',
+        borderTop: i===0 ? 'none' : ('1px solid '+pal.line) };
+    });
+
+    const vibNames = ['Subtle','Medium','Max'];
+    const vibOpts = vibNames.map((label,i) => ({
+      label, set: () => this.setState({ vib:i }),
+      bg: i===s.vib ? accent : 'transparent',
+      color: i===s.vib ? '#fff' : pal.textDim,
+    }));
+
+    return {
+      isA: variant==='A', isB: variant!=='A', accent, accentSoft, green, greenSoft, pal,
+      sizeSliders, toggles, vibOpts,
+      vib: s.vib, vibLabel: vibNames[s.vib], onVib: onRange('vib'),
+      toggleHaptic: mkToggle('haptic'),
+      hapticTrack: s.haptic?accent:pal.switchOff, hapticKnob: s.haptic?'19px':'0px',
+      hapticOpacity: s.haptic?'1':'0.4', hapticPE: s.haptic?'auto':'none',
+      reset: () => this.setState({ ...DEFAULTS }),
+      keyboardEl: this.buildKeyboard(pal, accent),
+    };
+  }
+}
+</script>
+</body>
+</html>
