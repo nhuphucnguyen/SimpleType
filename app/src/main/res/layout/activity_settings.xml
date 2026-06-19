@@ -205,6 +205,22 @@
             android:alpha="0.7"
             android:paddingBottom="4dp" />
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switch_haptic"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/size_haptic"
+            android:textSize="15sp"
+            android:paddingTop="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/size_haptic_desc"
+            android:textSize="13sp"
+            android:alpha="0.7"
+            android:paddingBottom="4dp" />
+
         <Button
             android:id="@+id/btn_size_reset"
             android:layout_width="wrap_content"

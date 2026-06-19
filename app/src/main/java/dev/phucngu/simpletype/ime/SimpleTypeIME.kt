@@ -167,6 +167,7 @@ open class SimpleTypeIME : InputMethodService(), LatinKeyboardView.Listener {
         keyboardView.applyMetrics(metrics)
         keyboardView.showNumberRow = metrics.numberHintsVisible
         keyboardView.showSymbolHints = metrics.showSymbolHints
+        keyboardView.hapticEnabled = prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
         bottomPaddingPx = (metrics.bottomPaddingDp * resources.displayMetrics.density).toInt()
         keyboardRoot?.let { ViewCompat.requestApplyInsets(it) }
     }
