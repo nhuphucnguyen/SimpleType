@@ -17,12 +17,7 @@
     <string name="status_enabled">SimpleType is enabled ✓</string>
     <string name="status_not_enabled">SimpleType is not enabled yet</string>
 
-    <!-- Keyboard key labels / content descriptions -->
-    <string name="key_shift">Shift</string>
-    <string name="key_delete">Delete</string>
-    <string name="key_enter">Enter</string>
-    <string name="key_space">Space</string>
-    <string name="key_symbols">Symbols</string>
+    <!-- Keyboard content descriptions -->
     <string name="key_clipboard">Clipboard</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_close">Close clipboard</string>
@@ -54,6 +49,7 @@
     <string name="size_gap_h">Horizontal gap: %1$d dp</string>
     <string name="size_gap_v">Vertical gap: %1$d dp</string>
     <string name="size_bottom_pad">Lift from bottom: %1$d dp</string>
+    <string name="size_live_preview">Live preview</string>
     <string name="size_reset">Reset to default</string>
     <string name="size_number_row">Number hints on top row</string>
     <string name="size_number_row_desc">Show small digits on q–p and swipe down on a key to type its number.</string>

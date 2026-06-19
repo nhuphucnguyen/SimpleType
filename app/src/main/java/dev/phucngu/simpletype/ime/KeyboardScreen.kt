@@ -26,9 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
 
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionInWindow
-
 @Composable
 fun KeyboardScreen(
     keyboard: Keyboard,
@@ -61,19 +58,13 @@ fun KeyboardScreen(
         modifier = modifier
             .fillMaxWidth()
             .background(bgColor)
-            .onGloballyPositioned { coords ->
-                android.util.Log.d("SimpleTypeLayout", "KeyboardScreen Column: size=${coords.size}, posInWindow=${coords.positionInWindow()}")
-            }
     ) {
         // Toolbar Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp) // kb_toolbar_height
-                .padding(start = 6.dp, end = 10.dp)
-                .onGloballyPositioned { coords ->
-                    android.util.Log.d("SimpleTypeLayout", "Toolbar Row: size=${coords.size}, posInWindow=${coords.positionInWindow()}")
-                },
+                .padding(start = 6.dp, end = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Options Container
@@ -166,9 +157,6 @@ fun KeyboardScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight()
-                .onGloballyPositioned { coords ->
-                    android.util.Log.d("SimpleTypeLayout", "Keyboard Box: size=${coords.size}, posInWindow=${coords.positionInWindow()}")
-                }
         ) {
             LatinKeyboard(
                 keyboard = keyboard,

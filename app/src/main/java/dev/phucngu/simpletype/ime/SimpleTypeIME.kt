@@ -12,8 +12,10 @@ import android.view.inputmethod.InputMethodSubtype
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -145,6 +147,7 @@ open class SimpleTypeIME : InputMethodService(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(colorResource(R.color.kb_background))
+                    .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))
             ) {
                 KeyboardScreen(
                     keyboard = composeKeyboard,
@@ -617,9 +620,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun toggleOptions() {
-        android.util.Log.d("SimpleTypeIME", "toggleOptions called: before=$composeOptionsExpanded")
         composeOptionsExpanded = !composeOptionsExpanded
-        android.util.Log.d("SimpleTypeIME", "toggleOptions called: after=$composeOptionsExpanded")
     }
 
     private companion object {
