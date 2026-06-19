@@ -33,9 +33,8 @@ class TelexCursorMoveTest {
         override fun finishComposingText(): Boolean { events += "finish"; return true }
     }
 
-    private class TestIme(kv: LatinKeyboardView, private val ic: InputConnection) : SimpleTypeIME() {
+    private class TestIme(private val ic: InputConnection) : SimpleTypeIME() {
         init {
-            SimpleTypeIME::class.java.getDeclaredField("keyboardView").apply { isAccessible = true }.set(this, kv)
             SimpleTypeIME::class.java.getDeclaredField("language").apply { isAccessible = true }
                 .set(this, VoiceLanguage.VIETNAMESE)
         }
@@ -52,7 +51,7 @@ class TelexCursorMoveTest {
     @Test
     fun tapping_elsewhere_ends_composing() {
         val ic = FakeIc(View(ctx))
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
 
         ime.onKey(Key('a'.code, "a")) // compose "a" → composing region [0,1], cursor at 1
         assertFalse("engine should be composing", telexEmpty(ime))
@@ -67,7 +66,7 @@ class TelexCursorMoveTest {
     @Test
     fun our_own_composing_update_does_not_reset() {
         val ic = FakeIc(View(ctx))
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
 
         ime.onKey(Key('a'.code, "a"))
         // The selection update caused by our own setComposingText: cursor sits at composing end.

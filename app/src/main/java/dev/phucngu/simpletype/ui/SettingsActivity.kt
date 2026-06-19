@@ -1,237 +1,76 @@
 package dev.phucngu.simpletype.ui
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
-import android.widget.Button
-import android.widget.SeekBar
-import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.HapticPlayer
 import dev.phucngu.simpletype.ime.KeyboardLayouts
 import dev.phucngu.simpletype.ime.KeyboardMetrics
+import dev.phucngu.simpletype.ime.LatinKeyboard
+import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
+import dev.phucngu.simpletype.ime.Key
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import kotlin.concurrent.thread
 
-/**
- * Entry-point screen. Android requires the user to (1) enable an IME in system settings
- * and (2) select it as the active keyboard — neither can be done programmatically — so this
- * screen links to both system flows, shows whether SimpleType is enabled, and offers a
- * field to try the keyboard out.
- */
-class SettingsActivity : AppCompatActivity() {
+class SettingsActivity : ComponentActivity() {
 
-    private lateinit var status: TextView
-    private lateinit var btnEn: Button
-    private lateinit var btnVi: Button
     private val models by lazy { ModelManager(this) }
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val haptics by lazy { HapticPlayer(this) }
+
+    private val imeEnabledStatus = mutableStateOf("")
+    private val enModelText = mutableStateOf("")
+    private val enModelEnabled = mutableStateOf(true)
+    private val viModelText = mutableStateOf("")
+    private val viModelEnabled = mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_settings)
-
-        status = findViewById(R.id.status)
-        btnEn = findViewById(R.id.btn_model_en)
-        btnVi = findViewById(R.id.btn_model_vi)
-
-        findViewById<Button>(R.id.btn_enable).setOnClickListener {
-            startActivity(android.content.Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-        }
-        findViewById<Button>(R.id.btn_select).setOnClickListener {
-            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
-                .showInputMethodPicker()
-        }
-        btnEn.setOnClickListener { downloadModel(VoiceLanguage.ENGLISH, btnEn) }
-        btnVi.setOnClickListener { downloadModel(VoiceLanguage.VIETNAMESE, btnVi) }
-
-        setupSizeControls()
-    }
-
-    // ---- Keyboard sizing ----
-
-    private lateinit var sizePreview: LatinKeyboardView
-    private lateinit var lblRow: TextView
-    private lateinit var lblGapH: TextView
-    private lateinit var lblGapV: TextView
-    private lateinit var lblBottom: TextView
-    private lateinit var seekRow: SeekBar
-    private lateinit var seekGapH: SeekBar
-    private lateinit var seekGapV: SeekBar
-    private lateinit var seekBottom: SeekBar
-    private lateinit var switchNumberRow: SwitchCompat
-    private lateinit var switchDedicatedNumberRow: SwitchCompat
-    private lateinit var switchSymbolHints: SwitchCompat
-    private lateinit var switchHaptic: SwitchCompat
-    private lateinit var lblHapticStrength: TextView
-    private lateinit var seekHapticStrength: SeekBar
-    private val haptics by lazy { HapticPlayer(this) }
-
-    private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
-
-    /** Three sliders (key height, horizontal gap, vertical gap) with a live keyboard preview. */
-    private fun setupSizeControls() {
-        sizePreview = findViewById(R.id.size_preview)
-        lblRow = findViewById(R.id.lbl_row_height)
-        lblGapH = findViewById(R.id.lbl_gap_h)
-        lblGapV = findViewById(R.id.lbl_gap_v)
-        lblBottom = findViewById(R.id.lbl_bottom_pad)
-        seekRow = findViewById(R.id.seek_row_height)
-        seekGapH = findViewById(R.id.seek_gap_h)
-        seekGapV = findViewById(R.id.seek_gap_v)
-        seekBottom = findViewById(R.id.seek_bottom_pad)
-        switchNumberRow = findViewById(R.id.switch_number_row)
-        switchDedicatedNumberRow = findViewById(R.id.switch_dedicated_number_row)
-        switchSymbolHints = findViewById(R.id.switch_symbol_hints)
-        switchHaptic = findViewById(R.id.switch_haptic)
-        lblHapticStrength = findViewById(R.id.lbl_haptic_strength)
-        seekHapticStrength = findViewById(R.id.seek_haptic_strength)
-        setupHapticControls()
-
-        seekRow.max = (KeyboardMetrics.ROW_HEIGHT_MAX - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
-        seekGapH.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
-        seekGapV.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
-        seekBottom.max = (KeyboardMetrics.BOTTOM_PAD_MAX - KeyboardMetrics.BOTTOM_PAD_MIN).toInt()
-
-        seekToMetrics(KeyboardMetrics.load(prefs()))
-        applySizeFromSeekBars()
-
-        val onChange = object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, progress: Int, fromUser: Boolean) = applySizeFromSeekBars()
-            override fun onStartTrackingTouch(s: SeekBar?) {}
-            override fun onStopTrackingTouch(s: SeekBar?) {}
-        }
-        seekRow.setOnSeekBarChangeListener(onChange)
-        seekGapH.setOnSeekBarChangeListener(onChange)
-        seekGapV.setOnSeekBarChangeListener(onChange)
-        seekBottom.setOnSeekBarChangeListener(onChange)
-        // Number hints and symbol hints share the corner/swipe slot, so each one switches the other
-        // off. Setting isChecked only re-fires the listener when the value actually changes, so the
-        // two updates settle without looping.
-        switchNumberRow.setOnCheckedChangeListener { _, checked ->
-            if (checked) switchSymbolHints.isChecked = false
-            applySizeFromSeekBars()
-        }
-        switchSymbolHints.setOnCheckedChangeListener { _, checked ->
-            if (checked) switchNumberRow.isChecked = false
-            applySizeFromSeekBars()
-        }
-        switchDedicatedNumberRow.setOnCheckedChangeListener { _, _ -> applySizeFromSeekBars() }
-
-        findViewById<Button>(R.id.btn_size_reset).setOnClickListener {
-            seekToMetrics(KeyboardMetrics.DEFAULT)
-            applySizeFromSeekBars()
-        }
-    }
-
-    /**
-     * Haptics are a standalone preference (not a sizing metric): an on/off switch plus a strength
-     * slider with [HAPTIC_LEVELS] discrete steps (Subtle..Max). The slider is disabled while the
-     * switch is off, and changing it plays a live preview so the user can feel each level.
-     *
-     * Storage stays as a 0..100 percent ([LatinKeyboardView.PREF_HAPTIC_STRENGTH]) so the IME code
-     * is unchanged; levels are just evenly-spaced percents, and any old free-slider value snaps to
-     * the nearest level on load.
-     */
-    private fun setupHapticControls() {
-        val enabled = prefs().getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-        val savedPercent = prefs().getInt(
-            LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT
-        )
-        switchHaptic.isChecked = enabled
-        seekHapticStrength.max = HAPTIC_LEVELS - 1
-        seekHapticStrength.progress = percentToLevel(savedPercent)
-        seekHapticStrength.isEnabled = enabled
-        showHapticLevel(seekHapticStrength.progress)
-
-        switchHaptic.setOnCheckedChangeListener { _, checked ->
-            prefs().edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
-            seekHapticStrength.isEnabled = checked
-            if (checked) haptics.tap(levelToPercent(seekHapticStrength.progress) / 100f)
-        }
-        seekHapticStrength.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(s: SeekBar?, level: Int, fromUser: Boolean) {
-                showHapticLevel(level)
-                prefs().edit()
-                    .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, levelToPercent(level)).apply()
-                // Each discrete step is a deliberate choice, so preview it as the user lands on it.
-                if (fromUser && switchHaptic.isChecked) haptics.tap(levelToPercent(level) / 100f)
-            }
-            override fun onStartTrackingTouch(s: SeekBar?) {}
-            override fun onStopTrackingTouch(s: SeekBar?) {}
-        })
-    }
-
-    /** Level index (0-based) -> intensity percent, evenly spread so the top level is 100%. */
-    private fun levelToPercent(level: Int): Int = (level + 1) * 100 / HAPTIC_LEVELS
-
-    /** Nearest level index for a stored percent (snaps legacy free-slider values onto a step). */
-    private fun percentToLevel(percent: Int): Int =
-        (Math.round(percent * HAPTIC_LEVELS / 100f) - 1).coerceIn(0, HAPTIC_LEVELS - 1)
-
-    private fun showHapticLevel(level: Int) {
-        val name = resources.getStringArray(R.array.haptic_levels)[level]
-        lblHapticStrength.text = getString(R.string.size_haptic_strength, name)
-    }
-
-    private fun seekToMetrics(m: KeyboardMetrics) {
-        seekRow.progress = (m.rowHeightDp - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
-        seekGapH.progress = (m.gapHorizontalDp - KeyboardMetrics.GAP_MIN).toInt()
-        seekGapV.progress = (m.gapVerticalDp - KeyboardMetrics.GAP_MIN).toInt()
-        seekBottom.progress = (m.bottomPaddingDp - KeyboardMetrics.BOTTOM_PAD_MIN).toInt()
-        switchNumberRow.isChecked = m.showNumberRow
-        switchDedicatedNumberRow.isChecked = m.showDedicatedNumberRow
-        switchSymbolHints.isChecked = m.showSymbolHints
-    }
-
-    private fun applySizeFromSeekBars() {
-        val m = KeyboardMetrics.of(
-            KeyboardMetrics.ROW_HEIGHT_MIN + seekRow.progress,
-            KeyboardMetrics.GAP_MIN + seekGapH.progress,
-            KeyboardMetrics.GAP_MIN + seekGapV.progress,
-            KeyboardMetrics.BOTTOM_PAD_MIN + seekBottom.progress,
-            switchNumberRow.isChecked,
-            switchDedicatedNumberRow.isChecked,
-            switchSymbolHints.isChecked,
-        )
-        lblRow.text = getString(R.string.size_row_height, m.rowHeightDp.toInt())
-        lblGapH.text = getString(R.string.size_gap_h, m.gapHorizontalDp.toInt())
-        lblGapV.text = getString(R.string.size_gap_v, m.gapVerticalDp.toInt())
-        lblBottom.text = getString(R.string.size_bottom_pad, m.bottomPaddingDp.toInt())
-        sizePreview.applyMetrics(m)
-        sizePreview.showNumberRow = m.numberHintsVisible
-        sizePreview.showSymbolHints = m.showSymbolHints
-        sizePreview.keyboard = KeyboardLayouts.qwerty(m.showDedicatedNumberRow)
-        KeyboardMetrics.save(prefs(), m)
-    }
-
-    /** Download + unpack a voice model on a background thread, reporting progress on the button. */
-    private fun downloadModel(language: VoiceLanguage, button: Button) {
-        if (models.isInstalled(language)) {
-            button.text = getString(R.string.model_installed)
-            return
-        }
-        button.isEnabled = false
-        thread {
-            try {
-                models.download(language) { percent ->
-                    mainHandler.post { button.text = getString(R.string.model_downloading, percent) }
-                }
-                mainHandler.post {
-                    button.text = getString(R.string.model_installed)
-                    button.isEnabled = false
-                }
-            } catch (t: Throwable) {
-                mainHandler.post {
-                    button.text = getString(R.string.model_download_failed, t.message ?: "error")
-                    button.isEnabled = true
+        setContent {
+            MaterialTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    SettingsScreen(
+                        imeEnabledStatus = imeEnabledStatus.value,
+                        enModelText = enModelText.value,
+                        enModelEnabled = enModelEnabled.value,
+                        viModelText = viModelText.value,
+                        viModelEnabled = viModelEnabled.value,
+                        onDownloadClick = { lang -> downloadModel(lang) },
+                        onEnableClick = {
+                            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                        },
+                        onSelectClick = {
+                            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                                .showInputMethodPicker()
+                        },
+                        haptics = haptics
+                    )
                 }
             }
         }
@@ -239,26 +78,550 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        status.text = getString(
-            if (isImeEnabled()) R.string.status_enabled else R.string.status_not_enabled
-        )
-        if (models.isInstalled(VoiceLanguage.ENGLISH)) {
-            btnEn.text = getString(R.string.model_installed)
-            btnEn.isEnabled = false
-        }
-        if (models.isInstalled(VoiceLanguage.VIETNAMESE)) {
-            btnVi.text = getString(R.string.model_installed)
-            btnVi.isEnabled = false
-        }
+        updateImeStatus()
+        updateModelStatus()
     }
 
-    private fun isImeEnabled(): Boolean {
+    private fun updateImeStatus() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        return imm.enabledInputMethodList.any { it.packageName == packageName }
+        val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
+        imeEnabledStatus.value = getString(
+            if (isEnabled) R.string.status_enabled else R.string.status_not_enabled
+        )
     }
 
-    companion object {
-        /** Number of discrete vibration-strength steps; must match the haptic_levels string array. */
-        private const val HAPTIC_LEVELS = 5
+    private fun updateModelStatus() {
+        if (models.isInstalled(VoiceLanguage.ENGLISH)) {
+            enModelText.value = getString(R.string.model_installed)
+            enModelEnabled.value = false
+        } else {
+            enModelText.value = getString(R.string.action_download_en)
+            enModelEnabled.value = true
+        }
+
+        if (models.isInstalled(VoiceLanguage.VIETNAMESE)) {
+            viModelText.value = getString(R.string.model_installed)
+            viModelEnabled.value = false
+        } else {
+            viModelText.value = getString(R.string.action_download_vi)
+            viModelEnabled.value = true
+        }
+    }
+
+    private fun downloadModel(language: VoiceLanguage) {
+        if (language == VoiceLanguage.ENGLISH) {
+            enModelEnabled.value = false
+            enModelText.value = getString(R.string.model_downloading, 0)
+        } else {
+            viModelEnabled.value = false
+            viModelText.value = getString(R.string.model_downloading, 0)
+        }
+
+        thread {
+            try {
+                models.download(language) { percent ->
+                    runOnUiThread {
+                        if (language == VoiceLanguage.ENGLISH) {
+                            enModelText.value = getString(R.string.model_downloading, percent)
+                        } else {
+                            viModelText.value = getString(R.string.model_downloading, percent)
+                        }
+                    }
+                }
+                runOnUiThread {
+                    if (language == VoiceLanguage.ENGLISH) {
+                        enModelText.value = getString(R.string.model_installed)
+                        enModelEnabled.value = false
+                    } else {
+                        viModelText.value = getString(R.string.model_installed)
+                        viModelEnabled.value = false
+                    }
+                }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    if (language == VoiceLanguage.ENGLISH) {
+                        enModelText.value = getString(R.string.model_download_failed, t.message ?: "error")
+                        enModelEnabled.value = true
+                    } else {
+                        viModelText.value = getString(R.string.model_download_failed, t.message ?: "error")
+                        viModelEnabled.value = true
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    imeEnabledStatus: String,
+    enModelText: String,
+    enModelEnabled: Boolean,
+    viModelText: String,
+    viModelEnabled: Boolean,
+    onDownloadClick: (VoiceLanguage) -> Unit,
+    onEnableClick: () -> Unit,
+    onSelectClick: () -> Unit,
+    haptics: HapticPlayer
+) {
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("simpletype_prefs", Context.MODE_PRIVATE) }
+    var currentMetrics by remember { mutableStateOf(KeyboardMetrics.load(prefs)) }
+
+    var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
+    var hapticLevel by remember {
+        mutableStateOf(
+            (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
+        )
+    }
+
+    val hapticLevels = stringArrayResource(R.array.haptic_levels)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.settings_title),
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Text(
+            text = stringResource(R.string.settings_intro),
+            fontSize = 15.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        // Setup Steps Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = imeEnabledStatus,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Text(
+                    text = stringResource(R.string.step_enable),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Button(
+                    onClick = onEnableClick,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Text(stringResource(R.string.action_enable))
+                }
+
+                Text(
+                    text = stringResource(R.string.step_select),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Button(onClick = onSelectClick) {
+                    Text(stringResource(R.string.action_select))
+                }
+            }
+        }
+
+        // Voice Models Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.voice_models_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = stringResource(R.string.voice_models_intro),
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                Button(
+                    onClick = { onDownloadClick(VoiceLanguage.ENGLISH) },
+                    enabled = enModelEnabled,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                ) {
+                    Text(enModelText)
+                }
+
+                Button(
+                    onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) },
+                    enabled = viModelEnabled,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(viModelText)
+                }
+            }
+        }
+
+        // Sizing & Preferences Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = stringResource(R.string.size_title),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Text(
+                    text = stringResource(R.string.size_intro),
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Row Height
+                Text(
+                    text = stringResource(R.string.size_row_height, currentMetrics.rowHeightDp.toInt()),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Slider(
+                    value = currentMetrics.rowHeightDp,
+                    onValueChange = {
+                        val newMetrics = KeyboardMetrics.of(
+                            rowHeightDp = it,
+                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                            gapVerticalDp = currentMetrics.gapVerticalDp,
+                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                            showNumberRow = currentMetrics.showNumberRow,
+                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                            showSymbolHints = currentMetrics.showSymbolHints
+                        )
+                        currentMetrics = newMetrics
+                        KeyboardMetrics.save(prefs, newMetrics)
+                    },
+                    valueRange = KeyboardMetrics.ROW_HEIGHT_MIN..KeyboardMetrics.ROW_HEIGHT_MAX,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Horizontal Gap
+                Text(
+                    text = stringResource(R.string.size_gap_h, currentMetrics.gapHorizontalDp.toInt()),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Slider(
+                    value = currentMetrics.gapHorizontalDp,
+                    onValueChange = {
+                        val newMetrics = KeyboardMetrics.of(
+                            rowHeightDp = currentMetrics.rowHeightDp,
+                            gapHorizontalDp = it,
+                            gapVerticalDp = currentMetrics.gapVerticalDp,
+                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                            showNumberRow = currentMetrics.showNumberRow,
+                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                            showSymbolHints = currentMetrics.showSymbolHints
+                        )
+                        currentMetrics = newMetrics
+                        KeyboardMetrics.save(prefs, newMetrics)
+                    },
+                    valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Vertical Gap
+                Text(
+                    text = stringResource(R.string.size_gap_v, currentMetrics.gapVerticalDp.toInt()),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Slider(
+                    value = currentMetrics.gapVerticalDp,
+                    onValueChange = {
+                        val newMetrics = KeyboardMetrics.of(
+                            rowHeightDp = currentMetrics.rowHeightDp,
+                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                            gapVerticalDp = it,
+                            bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                            showNumberRow = currentMetrics.showNumberRow,
+                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                            showSymbolHints = currentMetrics.showSymbolHints
+                        )
+                        currentMetrics = newMetrics
+                        KeyboardMetrics.save(prefs, newMetrics)
+                    },
+                    valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
+                // Bottom Pad
+                Text(
+                    text = stringResource(R.string.size_bottom_pad, currentMetrics.bottomPaddingDp.toInt()),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Slider(
+                    value = currentMetrics.bottomPaddingDp,
+                    onValueChange = {
+                        val newMetrics = KeyboardMetrics.of(
+                            rowHeightDp = currentMetrics.rowHeightDp,
+                            gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                            gapVerticalDp = currentMetrics.gapVerticalDp,
+                            bottomPaddingDp = it,
+                            showNumberRow = currentMetrics.showNumberRow,
+                            showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                            showSymbolHints = currentMetrics.showSymbolHints
+                        )
+                        currentMetrics = newMetrics
+                        KeyboardMetrics.save(prefs, newMetrics)
+                    },
+                    valueRange = KeyboardMetrics.BOTTOM_PAD_MIN..KeyboardMetrics.BOTTOM_PAD_MAX,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                // Live Preview
+                Text(
+                    text = stringResource(R.string.size_live_preview),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(colorResource(R.color.kb_background), RoundedCornerShape(8.dp))
+                        .padding(8.dp)
+                ) {
+                    LatinKeyboard(
+                        keyboard = KeyboardLayouts.qwerty(currentMetrics.showDedicatedNumberRow),
+                        metrics = currentMetrics,
+                        spaceLabel = stringResource(R.string.subtype_en),
+                        shifted = false,
+                        capsLock = false,
+                        listener = object : LatinKeyboardListener {
+                            override fun onKey(key: Key) {}
+                            override fun onKeyRepeat(key: Key) {}
+                            override fun onSpaceSwipe(direction: Int) {}
+                            override fun onShiftHold(active: Boolean) {}
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Switches
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.size_number_row), fontSize = 15.sp)
+                        Text(
+                            stringResource(R.string.size_number_row_desc),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = currentMetrics.showNumberRow,
+                        onCheckedChange = { checked ->
+                            val newMetrics = KeyboardMetrics.of(
+                                rowHeightDp = currentMetrics.rowHeightDp,
+                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                                gapVerticalDp = currentMetrics.gapVerticalDp,
+                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                                showNumberRow = checked,
+                                showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                                showSymbolHints = if (checked) false else currentMetrics.showSymbolHints
+                            )
+                            currentMetrics = newMetrics
+                            KeyboardMetrics.save(prefs, newMetrics)
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.size_symbol_hints), fontSize = 15.sp)
+                        Text(
+                            stringResource(R.string.size_symbol_hints_desc),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = currentMetrics.showSymbolHints,
+                        onCheckedChange = { checked ->
+                            val newMetrics = KeyboardMetrics.of(
+                                rowHeightDp = currentMetrics.rowHeightDp,
+                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                                gapVerticalDp = currentMetrics.gapVerticalDp,
+                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                                showNumberRow = if (checked) false else currentMetrics.showNumberRow,
+                                showDedicatedNumberRow = currentMetrics.showDedicatedNumberRow,
+                                showSymbolHints = checked
+                            )
+                            currentMetrics = newMetrics
+                            KeyboardMetrics.save(prefs, newMetrics)
+                        }
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.size_dedicated_number_row), fontSize = 15.sp)
+                        Text(
+                            stringResource(R.string.size_dedicated_number_row_desc),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = currentMetrics.showDedicatedNumberRow,
+                        onCheckedChange = { checked ->
+                            val newMetrics = KeyboardMetrics.of(
+                                rowHeightDp = currentMetrics.rowHeightDp,
+                                gapHorizontalDp = currentMetrics.gapHorizontalDp,
+                                gapVerticalDp = currentMetrics.gapVerticalDp,
+                                bottomPaddingDp = currentMetrics.bottomPaddingDp,
+                                showNumberRow = currentMetrics.showNumberRow,
+                                showDedicatedNumberRow = checked,
+                                showSymbolHints = currentMetrics.showSymbolHints
+                            )
+                            currentMetrics = newMetrics
+                            KeyboardMetrics.save(prefs, newMetrics)
+                        }
+                    )
+                }
+
+                // Haptics Section
+                HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.size_haptic), fontSize = 15.sp)
+                        Text(
+                            stringResource(R.string.size_haptic_desc),
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = hapticEnabled,
+                        onCheckedChange = { checked ->
+                            hapticEnabled = checked
+                            prefs.edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
+                            if (checked) {
+                                val percent = (hapticLevel + 1) * 100 / 5
+                                haptics.tap(percent / 100f)
+                            }
+                        }
+                    )
+                }
+
+                if (hapticEnabled) {
+                    val strengthName = hapticLevels.getOrNull(hapticLevel) ?: "Medium"
+                    Text(
+                        text = stringResource(R.string.size_haptic_strength, strengthName),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                    )
+                    Slider(
+                        value = hapticLevel.toFloat(),
+                        onValueChange = {
+                            val newLevel = it.toInt()
+                            hapticLevel = newLevel
+                            val percent = (newLevel + 1) * 100 / 5
+                            prefs.edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, percent).apply()
+                            haptics.tap(percent / 100f)
+                        },
+                        valueRange = 0f..4f,
+                        steps = 3,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(stringResource(R.string.haptic_level_min), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.haptic_level_mid), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.haptic_level_max), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Button(
+                    onClick = {
+                        val newMetrics = KeyboardMetrics.DEFAULT
+                        currentMetrics = newMetrics
+                        KeyboardMetrics.save(prefs, newMetrics)
+                        // Reset haptics
+                        hapticEnabled = true
+                        hapticLevel = 2 // Medium
+                        prefs.edit()
+                            .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
+                            .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, 60)
+                            .apply()
+                    },
+                    modifier = Modifier.padding(top = 16.dp)
+                ) {
+                    Text(stringResource(R.string.size_reset))
+                }
+            }
+        }
+
+        // Try it out Field
+        Text(
+            text = stringResource(R.string.action_try),
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        var tryText by remember { mutableStateOf("") }
+        OutlinedTextField(
+            value = tryText,
+            onValueChange = { tryText = it },
+            placeholder = { Text(stringResource(R.string.try_hint)) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        )
     }
 }
