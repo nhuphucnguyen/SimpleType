@@ -22,6 +22,20 @@ android {
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
+
+        // CMake build arguments for the native whisper.cpp build live here in defaultConfig
+        // (the android.externalNativeBuild.cmake block below only declares the path/version).
+        // Force CMAKE_BUILD_TYPE=Release for ggml/whisper.cpp even in the debug app variant:
+        // the variant default (Debug) builds ggml's arm64 CPU kernels unoptimized, which SIGSEGV
+        // on-device in ggml_compute_forward_mul_mat. Release is the tested, working config
+        // (verified against whisper-cli on the device) and is also far faster.
+        if (project.hasProperty("withWhisper")) {
+            externalNativeBuild {
+                cmake {
+                    arguments += "-DCMAKE_BUILD_TYPE=Release"
+                }
+            }
+        }
     }
 
     buildTypes {
@@ -48,7 +62,7 @@ android {
     // unavailable when libwhisper_jni.so is absent and the IME falls back to Vosk.
     if (project.hasProperty("withWhisper")) {
         // Override on the command line if a different NDK is installed: -PndkVersion=...
-        ndkVersion = (project.findProperty("ndkVersion") as String?) ?: "27.0.12077973"
+        ndkVersion = (project.findProperty("ndkVersion") as String?) ?: "27.3.13750724"
         externalNativeBuild {
             cmake {
                 path = file("src/main/cpp/CMakeLists.txt")
