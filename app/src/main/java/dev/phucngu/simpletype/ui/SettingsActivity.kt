@@ -283,37 +283,46 @@ private fun VoiceModelChip(
     modifier: Modifier = Modifier,
 ) {
     val onContainer = MaterialTheme.colorScheme.onSecondaryContainer
-    Column(
+    Row(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (installed) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_check),
-                    contentDescription = null,
-                    tint = onContainer,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-            Text(
-                label,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = onContainer,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Text(
+            label,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = onContainer,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+        when {
+            // Installed → checkmark.
+            installed -> Icon(
+                painter = painterResource(R.drawable.ic_check),
+                contentDescription = null,
+                tint = onContainer,
+                modifier = Modifier.size(20.dp)
             )
-        }
-        if (!installed) {
-            Text(
+            // Idle and downloadable → download affordance.
+            enabled -> Icon(
+                painter = painterResource(R.drawable.ic_download),
+                contentDescription = null,
+                tint = onContainer,
+                modifier = Modifier.size(20.dp)
+            )
+            // In progress (download running) → live status text.
+            else -> Text(
                 statusText,
-                fontSize = 11.5.sp,
-                color = onContainer.copy(alpha = 0.8f),
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = onContainer.copy(alpha = 0.85f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -479,22 +488,20 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(start = 2.dp)
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     VoiceModelChip(
                         label = stringResource(R.string.subtype_en),
                         statusText = enModelText,
                         installed = enModelText == installedText,
                         enabled = enModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) },
-                        modifier = Modifier.weight(1f)
+                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) }
                     )
                     VoiceModelChip(
                         label = stringResource(R.string.subtype_vi),
                         statusText = viModelText,
                         installed = viModelText == installedText,
                         enabled = viModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) },
-                        modifier = Modifier.weight(1f)
+                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) }
                     )
                 }
             }
