@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="kb_key_radius">14dp</dimen>
+    <dimen name="kb_key_radius">10dp</dimen>
     <dimen name="kb_key_text_size">22sp</dimen>
     <dimen name="kb_key_label_text_size">13sp</dimen>
     <dimen name="kb_icon_size">23dp</dimen>
