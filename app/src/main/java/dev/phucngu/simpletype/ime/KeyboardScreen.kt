@@ -7,8 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -22,9 +22,39 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
+
+/** A round tonal icon button used throughout the keyboard chrome (M3 Expressive). */
+@Composable
+private fun CircleIconButton(
+    iconRes: Int,
+    contentDescription: String?,
+    onClick: () -> Unit,
+    tint: Color,
+    background: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+    iconSize: Dp = 20.dp,
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(background)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(iconSize)
+        )
+    }
+}
 
 @Composable
 fun KeyboardScreen(
@@ -51,62 +81,54 @@ fun KeyboardScreen(
 ) {
     val bgColor = colorResource(R.color.kb_background)
     val chromeIconColor = colorResource(R.color.kb_chrome_icon)
+    val chromeButtonBg = colorResource(R.color.kb_key_special)
     val statusTextColor = colorResource(R.color.kb_status_text)
     val micActiveColor = colorResource(R.color.kb_mic_active)
+    val primaryContainerColor = colorResource(R.color.kb_primary_container)
+    val onPrimaryContainerColor = colorResource(R.color.kb_on_primary_container)
 
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
             .background(bgColor)
     ) {
         // Toolbar Row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp) // kb_toolbar_height
-                .padding(start = 6.dp, end = 10.dp),
+                .height(56.dp)
+                .padding(start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Options Container
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
+            // Left options cluster
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircleIconButton(
+                    iconRes = R.drawable.ic_kb_menu,
+                    contentDescription = stringResource(R.string.toolbar_menu),
                     onClick = onMenuClick,
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_kb_menu),
-                        contentDescription = stringResource(R.string.toolbar_menu),
-                        tint = chromeIconColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                    tint = chromeIconColor,
+                    background = chromeButtonBg
+                )
 
                 AnimatedVisibility(visible = optionsExpanded) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
+                        Spacer(modifier = Modifier.width(10.dp))
+                        CircleIconButton(
+                            iconRes = R.drawable.ic_kb_settings,
+                            contentDescription = stringResource(R.string.settings_title),
                             onClick = onSetupClick,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_kb_settings),
-                                contentDescription = stringResource(R.string.settings_title),
-                                tint = chromeIconColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                        IconButton(
+                            tint = chromeIconColor,
+                            background = chromeButtonBg
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        CircleIconButton(
+                            iconRes = R.drawable.ic_kb_clipboard,
+                            contentDescription = stringResource(R.string.key_clipboard),
                             onClick = onClipboardClick,
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_kb_clipboard),
-                                contentDescription = stringResource(R.string.key_clipboard),
-                                tint = chromeIconColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+                            tint = chromeIconColor,
+                            background = chromeButtonBg
+                        )
                     }
                 }
             }
@@ -128,27 +150,21 @@ fun KeyboardScreen(
                 }
             }
 
-            // Mic Button
-            IconButton(
-                onClick = onMicClick,
+            // Prominent mic button (M3 filled, primaryContainer).
+            Box(
                 modifier = Modifier
-                    .size(40.dp) // kb_toolbar_mic_size
-                    .clip(CircleShape)
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (micActive) micActiveColor else primaryContainerColor)
+                    .clickable(onClick = onMicClick),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape)
-                        .background(if (micActive) micActiveColor.copy(alpha = 0.15f) else Color.Transparent),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_kb_mic),
-                        contentDescription = stringResource(R.string.toolbar_mic),
-                        tint = if (micActive) micActiveColor else chromeIconColor,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Icon(
+                    painter = painterResource(R.drawable.ic_kb_mic),
+                    contentDescription = stringResource(R.string.toolbar_mic),
+                    tint = if (micActive) Color.White else onPrimaryContainerColor,
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
 
@@ -169,56 +185,97 @@ fun KeyboardScreen(
             )
 
             if (clipboardVisible) {
-                Column(
-                    modifier = Modifier
-                        .matchParentSize()
-                        .background(bgColor)
-                ) {
-                    // Clipboard Header Row
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(40.dp)
-                            .padding(start = 12.dp, end = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(R.string.clipboard_title),
-                            color = statusTextColor,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        IconButton(
-                            onClick = onClipboardClose,
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_kb_backspace),
-                                contentDescription = stringResource(R.string.clipboard_close),
-                                tint = chromeIconColor,
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .rotate(180f)
-                            )
-                        }
-                    }
+                ClipboardPanel(
+                    items = clipboardItems,
+                    bgColor = bgColor,
+                    onClose = onClipboardClose,
+                    onSelect = onClipboardSelect,
+                    onPin = onClipboardPin,
+                    onDelete = onClipboardDelete,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
+        }
+    }
+}
 
-                    // Clipboard scrollable list
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        items(clipboardItems, key = { it.id }) { item ->
-                            ClipboardItemRow(
-                                item = item,
-                                onSelect = onClipboardSelect,
-                                onPin = onClipboardPin,
-                                onDelete = onClipboardDelete
-                            )
-                        }
-                    }
+@Composable
+private fun ClipboardPanel(
+    items: List<ClipboardItem>,
+    bgColor: Color,
+    onClose: () -> Unit,
+    onSelect: (String) -> Unit,
+    onPin: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val keyTextColor = colorResource(R.color.kb_key_text)
+    val chromeIconColor = colorResource(R.color.kb_chrome_icon)
+    val chromeButtonBg = colorResource(R.color.kb_key_special)
+    val accentColor = colorResource(R.color.kb_accent)
+
+    val pinned = items.filter { it.isPinned }
+    val recent = items.filter { !it.isPinned }
+
+    Column(
+        modifier = modifier
+            .background(bgColor)
+            .padding(horizontal = 16.dp)
+    ) {
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.clipboard_title),
+                color = keyTextColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 22.sp
+            )
+            CircleIconButton(
+                iconRes = R.drawable.ic_kb_backspace,
+                contentDescription = stringResource(R.string.clipboard_close),
+                onClick = onClose,
+                tint = chromeIconColor,
+                background = chromeButtonBg,
+                modifier = Modifier.rotate(180f),
+                iconSize = 18.dp
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(bottom = 12.dp)
+        ) {
+            if (pinned.isNotEmpty()) {
+                item(key = "hdr_pinned") {
+                    ClipboardSectionHeader(
+                        label = stringResource(R.string.clipboard_section_pinned),
+                        color = accentColor,
+                        iconRes = R.drawable.ic_kb_pin
+                    )
+                }
+                items(pinned, key = { it.id }) { item ->
+                    ClipboardCard(item, onSelect, onPin, onDelete)
+                }
+            }
+            if (recent.isNotEmpty()) {
+                item(key = "hdr_recent") {
+                    ClipboardSectionHeader(
+                        label = stringResource(R.string.clipboard_section_recent),
+                        color = accentColor,
+                        iconRes = null
+                    )
+                }
+                items(recent, key = { it.id }) { item ->
+                    ClipboardCard(item, onSelect, onPin, onDelete)
                 }
             }
         }
@@ -226,7 +283,28 @@ fun KeyboardScreen(
 }
 
 @Composable
-fun ClipboardItemRow(
+private fun ClipboardSectionHeader(label: String, color: Color, iconRes: Int?) {
+    Row(
+        modifier = Modifier.padding(start = 2.dp, top = 4.dp, bottom = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (iconRes != null) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = color,
+                modifier = Modifier
+                    .size(14.dp)
+                    .padding(end = 0.dp)
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+        }
+        Text(text = label, color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun ClipboardCard(
     item: ClipboardItem,
     onSelect: (String) -> Unit,
     onPin: (String) -> Unit,
@@ -234,45 +312,46 @@ fun ClipboardItemRow(
 ) {
     val keyTextColor = colorResource(R.color.kb_key_text)
     val chromeIconColor = colorResource(R.color.kb_chrome_icon)
-    val accentColor = colorResource(R.color.kb_accent)
+    val chromeButtonBg = colorResource(R.color.kb_key_special)
+    val surfaceColor = colorResource(R.color.kb_surface)
+    val primaryContainerColor = colorResource(R.color.kb_primary_container)
+    val onPrimaryContainerColor = colorResource(R.color.kb_on_primary_container)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(surfaceColor)
             .clickable { onSelect(item.text) }
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = 16.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text(
             text = item.text,
             color = keyTextColor,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        IconButton(
+        CircleIconButton(
+            iconRes = R.drawable.ic_kb_pin,
+            contentDescription = stringResource(R.string.clipboard_pin),
             onClick = { onPin(item.id) },
-            modifier = Modifier.size(width = 28.dp, height = 36.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_kb_pin),
-                contentDescription = stringResource(R.string.clipboard_pin),
-                tint = if (item.isPinned) accentColor else chromeIconColor,
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Spacer(modifier = Modifier.width(4.dp))
-        IconButton(
+            tint = if (item.isPinned) onPrimaryContainerColor else chromeIconColor,
+            background = if (item.isPinned) primaryContainerColor else Color.Transparent,
+            size = 38.dp,
+            iconSize = 16.dp
+        )
+        CircleIconButton(
+            iconRes = R.drawable.ic_kb_delete,
+            contentDescription = stringResource(R.string.clipboard_delete),
             onClick = { onDelete(item.id) },
-            modifier = Modifier.size(width = 28.dp, height = 36.dp)
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_kb_delete),
-                contentDescription = stringResource(R.string.clipboard_delete),
-                tint = chromeIconColor,
-                modifier = Modifier.size(18.dp)
-            )
-        }
+            tint = chromeIconColor,
+            background = chromeButtonBg,
+            size = 38.dp,
+            iconSize = 16.dp
+        )
     }
 }

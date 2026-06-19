@@ -122,8 +122,12 @@ fun LatinKeyboard(
     val keyPressedColor = colorResource(R.color.kb_key_pressed)
     val keySpecialColor = colorResource(R.color.kb_key_special)
     val accentColor = colorResource(R.color.kb_accent)
+    val accentTextColor = colorResource(R.color.kb_accent_text)
+    val enterColor = colorResource(R.color.kb_key_enter)
+    val enterTextColor = colorResource(R.color.kb_key_enter_text)
     val keyTextColor = colorResource(R.color.kb_key_text)
     val keySpecialTextColor = colorResource(R.color.kb_key_special_text)
+    val keyHintColor = colorResource(R.color.kb_key_hint)
 
     // Load Haptic player and preferences reactively
     val haptics = remember(context) { HapticPlayer(context) }
@@ -394,12 +398,23 @@ fun LatinKeyboard(
                     val r = p.rect
                     val isPressed = p == pressedPlacement || (key.code == KeyCode.SHIFT && touchState.shiftPointerId != null)
                     val active = key.code == KeyCode.SHIFT && (shifted || capsLock)
+                    val isShift = key.code == KeyCode.SHIFT
+                    val isEnter = key.code == KeyCode.ENTER
 
                     keyPaint.color = when {
                         isPressed -> keyPressedColor.toArgb()
-                        active -> accentColor.toArgb()
+                        isShift || active -> accentColor.toArgb()
+                        isEnter -> enterColor.toArgb()
                         key.style == KeyStyle.SPECIAL -> keySpecialColor.toArgb()
                         else -> keyColor.toArgb()
+                    }
+
+                    // Foreground (glyph/text) color matching the key's role.
+                    val fg = when {
+                        isShift || active -> accentTextColor.toArgb()
+                        isEnter -> enterTextColor.toArgb()
+                        key.style == KeyStyle.SPECIAL -> keySpecialTextColor.toArgb()
+                        else -> keyTextColor.toArgb()
                     }
 
                     val insetH = gapHorizontalPx / 2f
@@ -442,7 +457,7 @@ fun LatinKeyboard(
                             chevronPaint.alpha = baseAlpha
                         }
                         iconResFor(key) != null -> {
-                            val tint = if (active) Color.White.toArgb() else keySpecialTextColor.toArgb()
+                            val tint = fg
                             val res = iconResFor(key)!!
                             val d = iconCache.getOrPut(res) { ContextCompat.getDrawable(context, res)!!.mutate() }
                             d.setTint(tint)
@@ -453,7 +468,7 @@ fun LatinKeyboard(
                             d.draw(canvas.nativeCanvas)
                         }
                         !key.isPrintable -> {
-                            labelPaint.color = if (active) Color.White.toArgb() else keySpecialTextColor.toArgb()
+                            labelPaint.color = fg
                             canvas.nativeCanvas.drawText(
                                 key.label,
                                 cx,
@@ -462,11 +477,7 @@ fun LatinKeyboard(
                             )
                         }
                         else -> {
-                            textPaint.color = when {
-                                active -> Color.White.toArgb()
-                                special -> keySpecialTextColor.toArgb()
-                                else -> keyTextColor.toArgb()
-                            }
+                            textPaint.color = fg
                             canvas.nativeCanvas.drawText(displayLabel(key), cx, cy, textPaint)
                         }
                     }
@@ -477,7 +488,7 @@ fun LatinKeyboard(
                         val pad = 5f * densityFloat
                         val hx = rr.right - pad - hintPaint.textSize / 2f
                         val hy = rr.top + pad - hintPaint.fontMetrics.ascent
-                        hintPaint.color = keySpecialTextColor.toArgb()
+                        hintPaint.color = keyHintColor.toArgb()
                         canvas.nativeCanvas.drawText(hint.toString(), hx, hy, hintPaint)
                     }
                 }
