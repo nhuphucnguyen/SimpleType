@@ -59,9 +59,8 @@ class TelexContextPickupTest {
         }
     }
 
-    private class TestIme(kv: LatinKeyboardView, private val ic: InputConnection) : SimpleTypeIME() {
+    private class TestIme(private val ic: InputConnection) : SimpleTypeIME() {
         init {
-            SimpleTypeIME::class.java.getDeclaredField("keyboardView").apply { isAccessible = true }.set(this, kv)
             SimpleTypeIME::class.java.getDeclaredField("language").apply { isAccessible = true }
                 .set(this, VoiceLanguage.VIETNAMESE)
         }
@@ -82,7 +81,7 @@ class TelexContextPickupTest {
         ic.selStart = 4 // end of "cong"
         ic.selEnd = 4
         
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
 
         // Simulate moving cursor to end of "cong"
         // In a real scenario, this might be triggered by onUpdateSelection

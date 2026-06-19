@@ -58,7 +58,7 @@ class ClipboardHistoryManager(context: Context) {
         // Remove duplicate if exists
         items.removeAll { it.text == text }
         val newItem = ClipboardItem(
-            id = System.currentTimeMillis().toString(),
+            id = java.util.UUID.randomUUID().toString(),
             text = text,
             timestamp = System.currentTimeMillis()
         )

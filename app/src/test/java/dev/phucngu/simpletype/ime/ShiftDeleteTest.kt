@@ -60,16 +60,9 @@ class ShiftDeleteTest {
 
     /** Test seam: feed our fake connection/editor-info and a real (but headless) keyboard view. */
     private class TestIme(
-        private val kv: LatinKeyboardView,
         private val ic: InputConnection,
         private val info: EditorInfo?,
     ) : SimpleTypeIME() {
-        init {
-            SimpleTypeIME::class.java.getDeclaredField("keyboardView").apply {
-                isAccessible = true
-                set(this@TestIme, kv)
-            }
-        }
         override fun getCurrentInputConnection(): InputConnection = ic
         override fun getCurrentInputEditorInfo(): EditorInfo? = info
     }
@@ -89,7 +82,7 @@ class ShiftDeleteTest {
     @Test
     fun held_shift_then_delete_thrice_removes_three_words() {
         val ic = FakeIc(View(ctx), "the quick brown fox")
-        val ime = TestIme(LatinKeyboardView(ctx), ic, null)
+        val ime = TestIme(ic, null)
 
         ime.onShiftHold(true) // hold Shift as a modifier
         ime.onKey(del())      // delete "fox"
@@ -106,7 +99,7 @@ class ShiftDeleteTest {
     @Test
     fun one_shot_shift_then_delete_removes_single_char() {
         val ic = FakeIc(View(ctx), "the quick")
-        val ime = TestIme(LatinKeyboardView(ctx), ic, null)
+        val ime = TestIme(ic, null)
 
         ime.onKey(shift()) // one-shot caps arm, not a held modifier
         ime.onKey(del())
@@ -123,7 +116,7 @@ class ShiftDeleteTest {
     @Test
     fun held_shift_then_delete_removes_word_still_being_composed() {
         val ic = FakeIc(View(ctx), "the ")
-        val ime = TestIme(LatinKeyboardView(ctx), ic, null)
+        val ime = TestIme(ic, null)
         ime.setVietnamese()
 
         "hello".forEach { ime.onKey(typeLetter(it)) } // composing region = "hello"

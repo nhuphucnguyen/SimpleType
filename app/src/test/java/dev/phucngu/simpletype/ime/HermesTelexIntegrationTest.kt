@@ -70,10 +70,8 @@ class HermesTelexIntegrationTest {
         }
     }
 
-    private class TestIme(kv: LatinKeyboardView, private val ic: InputConnection) : SimpleTypeIME() {
+    private class TestIme(private val ic: InputConnection) : SimpleTypeIME() {
         init {
-            SimpleTypeIME::class.java.getDeclaredField("keyboardView")
-                .apply { isAccessible = true }.set(this, kv)
             SimpleTypeIME::class.java.getDeclaredField("language")
                 .apply { isAccessible = true }.set(this, VoiceLanguage.VIETNAMESE)
         }
@@ -84,7 +82,7 @@ class HermesTelexIntegrationTest {
     /** Type a word letter-by-letter, firing onUpdateSelection after each key like the framework. */
     private fun typeWord(word: String, reportComposingRegion: Boolean): String {
         val ic = FakeIc(View(ctx))
-        val ime = TestIme(LatinKeyboardView(ctx), ic)
+        val ime = TestIme(ic)
         var old = 0
         for (c in word) {
             ime.onKey(Key(c.code, c.toString()))
