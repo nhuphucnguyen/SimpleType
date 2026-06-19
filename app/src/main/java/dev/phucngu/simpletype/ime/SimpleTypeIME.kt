@@ -45,6 +45,8 @@ import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
+import dev.phucngu.simpletype.voice.WhisperAsrEngine
+import dev.phucngu.simpletype.voice.WhisperLib
 
 open class SimpleTypeIME : InputMethodService(),
     LatinKeyboardListener,
@@ -96,8 +98,21 @@ open class SimpleTypeIME : InputMethodService(),
     private val engines = mutableMapOf<VoiceLanguage, AsrEngine>()
 
     private fun engineFor(lang: VoiceLanguage): AsrEngine = engines.getOrPut(lang) {
-        val tag = if (lang == VoiceLanguage.ENGLISH) "vosk-en" else "vosk-vi"
-        VoskAsrEngine(modelManager.modelDir(lang).path, tag)
+        // Vietnamese uses PhoWhisper (whisper.cpp) when the native lib and ggml model are both
+        // present; otherwise — and always for English — fall back to the Vosk streaming engine.
+        if (lang == VoiceLanguage.VIETNAMESE &&
+            WhisperLib.available &&
+            modelManager.isWhisperInstalled(lang)
+        ) {
+            WhisperAsrEngine(
+                modelPath = modelManager.whisperModelFile(lang).path,
+                name = "phowhisper-vi",
+                language = "vi",
+            )
+        } else {
+            val tag = if (lang == VoiceLanguage.ENGLISH) "vosk-en" else "vosk-vi"
+            VoskAsrEngine(modelManager.modelDir(lang).path, tag)
+        }
     }
 
     private val commandMatcher = CommandMatcher()

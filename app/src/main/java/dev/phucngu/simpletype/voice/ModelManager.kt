@@ -28,6 +28,18 @@ class ModelManager(context: Context) {
         return File(dir, "am").exists() || File(dir, "conf").exists()
     }
 
+    /**
+     * ggml model file for the Whisper engine (PhoWhisper, Vietnamese). Lives under
+     * `filesDir/models/whisper-<lang>/`. For now this is placed manually (see whisper/README.md);
+     * runtime download is a TODO once the converted model is hosted (see [WHISPER_VI_MODEL_URL]).
+     */
+    fun whisperModelFile(language: VoiceLanguage): File =
+        File(File(modelsRoot, "whisper-${langCode(language)}"), WHISPER_MODEL_FILE)
+
+    /** Whether the Whisper ggml model for [language] is present on disk. */
+    fun isWhisperInstalled(language: VoiceLanguage): Boolean =
+        whisperModelFile(language).let { it.isFile && it.length() > 0 }
+
     /** Synchronously download and unpack the model for [language]. Call off the main thread. */
     @Throws(IOException::class)
     fun download(language: VoiceLanguage, progress: (Int) -> Unit = {}) {
@@ -99,6 +111,11 @@ class ModelManager(context: Context) {
         VoiceLanguage.VIETNAMESE -> "vosk-vi"
     }
 
+    private fun langCode(language: VoiceLanguage) = when (language) {
+        VoiceLanguage.ENGLISH -> "en"
+        VoiceLanguage.VIETNAMESE -> "vi"
+    }
+
     private fun modelUrl(language: VoiceLanguage) = when (language) {
         VoiceLanguage.ENGLISH -> EN_MODEL_URL
         VoiceLanguage.VIETNAMESE -> VI_MODEL_URL
@@ -117,5 +134,11 @@ class ModelManager(context: Context) {
             "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
         const val VI_MODEL_URL =
             "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip"
+
+        /** Filename of the converted PhoWhisper ggml model (see whisper/README.md). */
+        const val WHISPER_MODEL_FILE = "ggml-model.bin"
+
+        /** TODO: host the converted PhoWhisper ggml model and point runtime download here. */
+        const val WHISPER_VI_MODEL_URL = ""
     }
 }

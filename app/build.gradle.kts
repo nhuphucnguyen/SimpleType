@@ -41,6 +41,21 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
     }
+
+    // Native whisper.cpp build (PhoWhisper for Vietnamese voice typing). Opt-in: it requires the
+    // Android NDK + CMake and the whisper.cpp submodule, so it is only wired in when assembling
+    // with -PwithWhisper. The default build stays NDK-free; WhisperAsrEngine reports itself
+    // unavailable when libwhisper_jni.so is absent and the IME falls back to Vosk.
+    if (project.hasProperty("withWhisper")) {
+        // Override on the command line if a different NDK is installed: -PndkVersion=...
+        ndkVersion = (project.findProperty("ndkVersion") as String?) ?: "27.0.12077973"
+        externalNativeBuild {
+            cmake {
+                path = file("src/main/cpp/CMakeLists.txt")
+                version = "3.22.1"
+            }
+        }
+    }
 }
 
 dependencies {

@@ -21,3 +21,7 @@ local.properties
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Whisper conversion artifacts
+whisper/.work/
+whisper/out/
