@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.content.ContextCompat
@@ -40,6 +41,9 @@ class LatinKeyboardView @JvmOverloads constructor(
     }
 
     var listener: Listener? = null
+
+    /** When true, a short tap vibration is played on each key press (see [hapticTap]). */
+    var hapticEnabled: Boolean = true
 
     /** Label drawn on the space bar — shows the active language. */
     var spaceLabel: String = ""
@@ -161,6 +165,7 @@ class LatinKeyboardView @JvmOverloads constructor(
         override fun run() {
             val p = pressed ?: return
             listener?.onKeyRepeat(p.key)
+            hapticTap()
             postDelayed(this, REPEAT_INTERVAL_MS)
         }
     }
@@ -171,6 +176,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     private val longPressRunnable = Runnable {
         val code = pressed?.key?.longPressCode ?: return@Runnable
         longPressFired = true
+        if (hapticEnabled) performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
         listener?.onKey(Key(code, ""))
     }
 
@@ -356,6 +362,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                         shiftPointerId = id
                         shiftKey = p.key
                         shiftUsedAsModifier = false
+                        hapticTap()
                         invalidate()
                     }
                     // A normal key: only one active pointer drives taps/repeat/space-swipe.
@@ -374,6 +381,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                     // Stay locked on space and fire one language switch once the drag is far enough.
                     if (!swipeFired && kotlin.math.abs(swipeOffset) >= swipeThreshold) {
                         swipeFired = true
+                        hapticTap()
                         listener?.onSpaceSwipe(if (swipeOffset > 0) 1 else -1)
                     }
                     invalidate()
@@ -388,6 +396,7 @@ class LatinKeyboardView @JvmOverloads constructor(
                         numberSwipeFired = true
                         removeCallbacks(repeatRunnable)
                         removeCallbacks(longPressRunnable)
+                        hapticTap()
                         listener?.onKey(Key(hint.code, hint.toString()))
                         return true
                     }
@@ -449,6 +458,7 @@ class LatinKeyboardView @JvmOverloads constructor(
     /** Start tracking a normal key under the active pointer. Arms Shift-hold if Shift is down. */
     private fun beginActiveKey(p: Placement, x: Float, y: Float) {
         setPressed(p)
+        hapticTap()
         downOnSpace = p.key.code == KeyCode.SPACE
         swipeStartX = x
         swipeStartY = y
@@ -495,11 +505,28 @@ class LatinKeyboardView @JvmOverloads constructor(
 
     // ---- Helpers ----
 
+    /**
+     * Play the standard keyboard-tap vibration. [HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING]
+     * makes the in-app toggle authoritative, so typing still buzzes even when the system-wide touch
+     * feedback setting is off (the user opted in via SimpleType's own setting).
+     */
+    @Suppress("DEPRECATION") // FLAG_IGNORE_GLOBAL_SETTING is intentional: our toggle is authoritative.
+    private fun hapticTap() {
+        if (!hapticEnabled) return
+        performHapticFeedback(
+            HapticFeedbackConstants.KEYBOARD_TAP,
+            HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING,
+        )
+    }
+
     private fun dp(dimenRes: Int): Float = resources.getDimension(dimenRes)
     private fun dpf(value: Float): Float = value * resources.displayMetrics.density
     private fun color(colorRes: Int): Int = ContextCompat.getColor(context, colorRes)
 
     companion object {
+        /** SharedPreferences key for the haptic-on-keypress toggle (in "simpletype_prefs"). */
+        const val PREF_HAPTIC = "kb_haptic"
+
         private const val REPEAT_INITIAL_DELAY_MS = 400L
         private const val REPEAT_INTERVAL_MS = 55L
         private const val LONG_PRESS_MS = 300L

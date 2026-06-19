@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.SeekBar
@@ -68,6 +69,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var switchNumberRow: SwitchCompat
     private lateinit var switchDedicatedNumberRow: SwitchCompat
     private lateinit var switchSymbolHints: SwitchCompat
+    private lateinit var switchHaptic: SwitchCompat
 
     private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
 
@@ -85,6 +87,14 @@ class SettingsActivity : AppCompatActivity() {
         switchNumberRow = findViewById(R.id.switch_number_row)
         switchDedicatedNumberRow = findViewById(R.id.switch_dedicated_number_row)
         switchSymbolHints = findViewById(R.id.switch_symbol_hints)
+        switchHaptic = findViewById(R.id.switch_haptic)
+
+        // Haptic feedback is a standalone preference (not a sizing metric), saved on its own.
+        switchHaptic.isChecked = prefs().getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
+        switchHaptic.setOnCheckedChangeListener { _, checked ->
+            prefs().edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
+            if (checked) switchHaptic.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+        }
 
         seekRow.max = (KeyboardMetrics.ROW_HEIGHT_MAX - KeyboardMetrics.ROW_HEIGHT_MIN).toInt()
         seekGapH.max = (KeyboardMetrics.GAP_MAX - KeyboardMetrics.GAP_MIN).toInt()
