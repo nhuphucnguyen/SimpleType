@@ -26,6 +26,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -279,14 +280,15 @@ private fun VoiceModelChip(
     installed: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val onContainer = MaterialTheme.colorScheme.onSecondaryContainer
     Column(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(12.dp))
             .background(MaterialTheme.colorScheme.secondaryContainer)
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -298,10 +300,23 @@ private fun VoiceModelChip(
                     modifier = Modifier.size(16.dp)
                 )
             }
-            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, color = onContainer)
+            Text(
+                label,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = onContainer,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
         if (!installed) {
-            Text(statusText, fontSize = 11.5.sp, color = onContainer.copy(alpha = 0.8f))
+            Text(
+                statusText,
+                fontSize = 11.5.sp,
+                color = onContainer.copy(alpha = 0.8f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -470,14 +485,16 @@ fun SettingsScreen(
                         statusText = enModelText,
                         installed = enModelText == installedText,
                         enabled = enModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) }
+                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) },
+                        modifier = Modifier.weight(1f)
                     )
                     VoiceModelChip(
                         label = stringResource(R.string.subtype_vi),
                         statusText = viModelText,
                         installed = viModelText == installedText,
                         enabled = viModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) }
+                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) },
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
