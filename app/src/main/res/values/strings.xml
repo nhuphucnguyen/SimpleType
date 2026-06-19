@@ -8,6 +8,19 @@
     <!-- Settings screen -->
     <string name="settings_title">SimpleType Keyboard</string>
     <string name="settings_intro">On-device voice typing for English &amp; Vietnamese. Set up in two steps:</string>
+    <string name="settings_eyebrow">Keyboard</string>
+    <string name="settings_brand">SimpleType</string>
+    <string name="settings_status_active_sub">SimpleType is your current keyboard</string>
+    <string name="settings_status_inactive_sub">Enable it in Input settings to start typing</string>
+    <string name="settings_input_settings">Input settings</string>
+    <string name="voice_models_offline">Voice models · offline</string>
+    <string name="size_typing_options">Typing options</string>
+    <string name="vibration_strength">Vibration strength</string>
+    <string name="size_label_key_height">Key height</string>
+    <string name="size_label_lift">Lift from bottom</string>
+    <string name="size_label_gap_h">Horizontal gap</string>
+    <string name="size_label_gap_v">Vertical gap</string>
+    <string name="size_value_dp">%1$d dp</string>
     <string name="step_enable">1. Enable SimpleType in system settings</string>
     <string name="step_select">2. Select SimpleType as your active keyboard</string>
     <string name="action_enable">Enable keyboard</string>
