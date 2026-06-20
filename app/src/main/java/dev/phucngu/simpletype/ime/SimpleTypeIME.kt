@@ -107,6 +107,9 @@ open class SimpleTypeIME : InputMethodService(),
             // Vietnamese: prefer the sherpa-onnx Zipformer (VAD-gated) when its model is
             // installed; otherwise fall back to the bundled Vosk streaming model.
             VoiceLanguage.VIETNAMESE -> {
+                // Populate the model dir from bundled assets if this build embeds it (local
+                // test builds); no-op otherwise. One-time copy, then isAvailable sees the files.
+                modelManager.installSherpaViFromAssetsIfBundled()
                 val sherpa = SherpaAsrEngine(modelManager.sherpaViDir().path, "sherpa-vi")
                 if (sherpa.isAvailable) sherpa
                 else VoskAsrEngine(modelManager.modelDir(lang).path, "vosk-vi")

@@ -9,7 +9,11 @@ plugins {
 }
 
 // Prebuilt sherpa-onnx AAR version. Keep in sync with scripts/fetch-sherpa-onnx-aar.sh.
-val sherpaOnnxVersion = "1.12.34"
+// Pinned to 1.10.46 (onnxruntime 1.17.1). Newer sherpa-onnx (1.11+) bundles onnxruntime built
+// with KleidiAI SME2 matmul kernels that SIGILL on Snapdragon 8 Elite Gen 5 (SM8850): the CPU
+// advertises SME but the SME2 `ptrue pn.b` path raises an illegal instruction. 1.10.46's
+// onnxruntime predates KleidiAI and uses the NEON path. See SHERPA_ONNX.md.
+val sherpaOnnxVersion = "1.10.46"
 
 android {
     namespace = "dev.phucngu.simpletype"
