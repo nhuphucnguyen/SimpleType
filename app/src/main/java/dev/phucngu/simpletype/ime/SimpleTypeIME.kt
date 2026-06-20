@@ -51,6 +51,7 @@ import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
+import dev.phucngu.simpletype.voice.SherpaAsrEngine
 import dev.phucngu.simpletype.voice.VoskAsrEngine
 
 open class SimpleTypeIME : InputMethodService(),
@@ -102,8 +103,17 @@ open class SimpleTypeIME : InputMethodService(),
     private val engines = mutableMapOf<VoiceLanguage, AsrEngine>()
 
     private fun engineFor(lang: VoiceLanguage): AsrEngine = engines.getOrPut(lang) {
-        val tag = if (lang == VoiceLanguage.ENGLISH) "vosk-en" else "vosk-vi"
-        VoskAsrEngine(modelManager.modelDir(lang).path, tag)
+        when (lang) {
+            // Vietnamese: prefer the sherpa-onnx Zipformer (VAD-gated) when its model is
+            // installed; otherwise fall back to the bundled Vosk streaming model.
+            VoiceLanguage.VIETNAMESE -> {
+                val sherpa = SherpaAsrEngine(modelManager.sherpaViDir().path, "sherpa-vi")
+                if (sherpa.isAvailable) sherpa
+                else VoskAsrEngine(modelManager.modelDir(lang).path, "vosk-vi")
+            }
+            VoiceLanguage.ENGLISH ->
+                VoskAsrEngine(modelManager.modelDir(lang).path, "vosk-en")
+        }
     }
 
     private val commandMatcher = CommandMatcher()
