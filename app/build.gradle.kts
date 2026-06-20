@@ -1,3 +1,6 @@
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 plugins {
     // AGP 9+ has built-in Kotlin support; no separate kotlin-android plugin needed.
     alias(libs.plugins.android.application)
@@ -6,7 +9,7 @@ plugins {
 
 android {
     namespace = "dev.phucngu.simpletype"
-    compileSdk = 36 // Let's simplify this compilation syntax if needed, keeping standard 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.phucngu.simpletype"
@@ -32,14 +35,30 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
     buildFeatures {
         compose = true
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+}
+
+val apkTimestamp = providers.provider {
+    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
+}
+
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        variant.outputs.forEach { output ->
+            output.outputFileName.set(
+                apkTimestamp.map { timestamp ->
+                    "SimpleType-${variant.name}-$timestamp.apk"
+                },
+            )
+        }
     }
 }
 
