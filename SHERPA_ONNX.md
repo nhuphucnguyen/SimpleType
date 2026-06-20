@@ -29,26 +29,18 @@ pause-delimited phrase ≈ one sentence. There is no on-device Vietnamese punctu
 model (sherpa-onnx only ships English and Chinese+English ones), so commas / `?` / `!` are not
 produced.
 
-## ⚠️ Version pin — why sherpa-onnx 1.10.46
+## sherpa-onnx version
 
-`app/build.gradle.kts` pins `sherpaOnnxVersion = "1.10.46"` (onnxruntime **1.17.1**) **on
-purpose — do not bump it casually.** Newer sherpa-onnx (1.11+) bundles an onnxruntime built
-with KleidiAI, whose **SME2** matmul kernels (`smstart` / `ptrue pn.b` / multi-vector `ld1w`)
-**SIGILL** on Snapdragon 8 Elite Gen 5 (SM8850): that CPU advertises `sme` but not `sme2`, yet
-onnxruntime dispatches the SME2 path → illegal instruction on the first VAD call. 1.10.46's
-onnxruntime predates KleidiAI and uses the NEON path. The vi Zipformer transducer loads and
-decodes correctly on 1.17.1.
-
-Consequence: this pin trades away newer-opset support and SME acceleration. If a future device
-or model needs a newer onnxruntime, the SME2 crash must be solved another way (e.g. an
-onnxruntime built **without** `--use_kleidiai`), not by bumping to a stock prebuilt AAR.
+`app/build.gradle.kts` uses sherpa-onnx **1.13.3**. The project previously pinned 1.10.46 to
+avoid an onnxruntime KleidiAI/SME2 illegal-instruction crash on Snapdragon 8 Elite Gen 5
+(SM8850). That upstream issue is fixed in the newer runtime, so the project now follows 1.13.3.
 
 ### Silero VAD must be v5
 
-sherpa-onnx 1.10.46 accepts only Silero **v4** (4-in/3-out) or **v5** (3-in/2-out) VAD models.
-The `silero_vad.onnx` published in the k2-fsa `asr-models` release is a 3-in/3-out variant that
-1.10.46 rejects with `Unsupported silero vad model` → a silent `exit(-1)` (the keyboard just
-vanishes, no crash log). Use the **v5** model from
+The project uses a Silero **v5** (3-in/2-out) VAD model. The `silero_vad.onnx` published in the
+k2-fsa `asr-models` release is a 3-in/3-out variant that the previously pinned runtime rejected
+with `Unsupported silero vad model` → a silent `exit(-1)` (the keyboard just vanished, with no
+crash log). Continue using the known-good **v5** model from
 [snakers4/silero-vad](https://github.com/snakers4/silero-vad) — `fetch-sherpa-vi-model.sh`
 already points there.
 
@@ -70,7 +62,7 @@ model onto a device.
 ./scripts/fetch-sherpa-onnx-aar.sh
 ```
 
-Downloads the prebuilt `sherpa-onnx-1.10.46.aar` into `app/libs/` (gitignored). The AAR bundles
+Downloads the prebuilt `sherpa-onnx-1.13.3.aar` into `app/libs/` (gitignored). The AAR bundles
 the `com.k2fsa.sherpa.onnx` Kotlin API and native libs (`sherpa-onnx-jni`, `onnxruntime`, …)
 for `arm64-v8a` and `x86_64`. Keep the version in sync between the script and `sherpaOnnxVersion`
 in `app/build.gradle.kts`. Compiling the app requires this AAR (the engine imports
@@ -115,7 +107,7 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 
 ```bash
 ./gradlew test              # runs SherpaAudioTest (pure JVM, no native libs needed)
-./gradlew assembleDebug     # requires app/libs/sherpa-onnx-1.10.46.aar present
+./gradlew assembleDebug     # requires app/libs/sherpa-onnx-1.13.3.aar present
 ```
 
 ## Files
@@ -126,7 +118,7 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 | `voice/SherpaAudio.kt` | Pure PCM→float helper (unit-tested) |
 | `voice/ModelManager.kt` | `sherpaViDir()` + `installSherpaViFromAssetsIfBundled()` |
 | `ime/SimpleTypeIME.kt` | `engineFor()` selects sherpa for Vietnamese |
-| `scripts/fetch-sherpa-onnx-aar.sh` | Fetch the native AAR (1.10.46) |
+| `scripts/fetch-sherpa-onnx-aar.sh` | Fetch the native AAR (1.13.3) |
 | `scripts/fetch-sherpa-vi-model.sh` | Fetch + adb-push the model (+ v5 VAD) to the device |
 
 ## Known limitations / next steps
@@ -136,7 +128,6 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 - **Heuristic punctuation only.** Sentence-case + a period per VAD segment; no commas / `?` /
   `!`, and a mid-thought pause produces a period. No Vietnamese punctuation model exists
   on-device.
-- **onnxruntime pinned to 1.17.1** to dodge the SME2 SIGILL — see the version-pin note above.
 - **Decoding runs on the audio thread.** Segments are short so this is fine for a POC, but a
   dedicated decode thread would avoid any chance of dropping mic frames on long segments.
 - **Engine is cached per language for the process.** If you install the model after first
