@@ -12,7 +12,7 @@
 set -euo pipefail
 
 # Keep in sync with `sherpaOnnxVersion` in app/build.gradle.kts.
-SHERPA_ONNX_VERSION="${SHERPA_ONNX_VERSION:-1.10.46}"
+SHERPA_ONNX_VERSION="${SHERPA_ONNX_VERSION:-1.13.3}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIBS_DIR="$SCRIPT_DIR/../app/libs"
