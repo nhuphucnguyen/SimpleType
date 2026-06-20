@@ -28,8 +28,11 @@ cd "$WORK"
 echo "==> Downloading model archive ($MODEL.tar.bz2)"
 curl -fL --progress-bar "$BASE_URL/$MODEL.tar.bz2" -o model.tar.bz2
 
-echo "==> Downloading silero_vad.onnx"
-curl -fL --progress-bar "$BASE_URL/silero_vad.onnx" -o silero_vad.onnx
+# Silero VAD: use the v5 model (3 inputs / 2 outputs). The k2-fsa asr-models silero_vad.onnx
+# is a 3-in/3-out variant that the pinned sherpa-onnx 1.10.46 rejects ("Unsupported silero vad
+# model"), causing an instant exit(-1) on this device. The official v5 model is compatible.
+echo "==> Downloading silero_vad.onnx (v5, sherpa-1.10.46-compatible)"
+curl -fL --progress-bar "https://github.com/snakers4/silero-vad/raw/master/src/silero_vad/data/silero_vad.onnx" -o silero_vad.onnx
 
 echo "==> Extracting"
 tar xf model.tar.bz2
