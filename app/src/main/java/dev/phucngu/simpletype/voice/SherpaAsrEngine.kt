@@ -143,7 +143,10 @@ class SherpaAsrEngine(
         return try {
             stream.acceptWaveform(samples, SAMPLE_RATE)
             rec.decode(stream)
-            rec.getResult(stream).text.trim()
+            // The vi Zipformer's token vocabulary is uppercase, so raw results come out in all
+            // caps (e.g. "ÂM LƯỢNG"). Lowercase for natural keyboard output; Unicode lowercasing
+            // handles Vietnamese diacritics (Ư→ư, Đ→đ) correctly.
+            rec.getResult(stream).text.trim().lowercase()
         } finally {
             stream.release()
         }

@@ -18,6 +18,7 @@ import java.util.zip.ZipInputStream
 class ModelManager(context: Context) {
 
     private val modelsRoot = File(context.filesDir, "models")
+    private val assets = context.assets
 
     /** Directory the [VoskAsrEngine] for [language] loads from. */
     fun modelDir(language: VoiceLanguage): File =
@@ -29,6 +30,36 @@ class ModelManager(context: Context) {
      * since the model ships as a .tar.bz2 the JDK can't unpack without extra deps.
      */
     fun sherpaViDir(): File = File(modelsRoot, "sherpa-vi")
+
+    /**
+     * Local non-commercial test convenience: if the sherpa-vi model was bundled into the APK
+     * under `assets/models/sherpa-vi/`, copy it into [sherpaViDir] (where [SherpaAsrEngine]
+     * loads from) on first use. This is the no-adb alternative to scripts/fetch-sherpa-vi-model.sh.
+     *
+     * No-op when the model is already installed, or when the assets aren't present (e.g. a
+     * release/CI build, since the bundled model is gitignored) — in which case the caller falls
+     * back to Vosk. Copy is one-time and guarded; call before checking [SherpaAsrEngine.isAvailable].
+     */
+    fun installSherpaViFromAssetsIfBundled() {
+        val dir = sherpaViDir()
+        if (SherpaAsrEngine.REQUIRED_FILES.all { File(dir, it).exists() }) return
+
+        val assetDir = "models/sherpa-vi"
+        val bundled = try {
+            assets.list(assetDir)?.toSet().orEmpty()
+        } catch (e: IOException) {
+            emptySet()
+        }
+        if (!bundled.containsAll(SherpaAsrEngine.REQUIRED_FILES)) return // not bundled in this build
+
+        dir.mkdirs()
+        for (name in SherpaAsrEngine.REQUIRED_FILES) {
+            val out = File(dir, name)
+            assets.open("$assetDir/$name").use { input ->
+                out.outputStream().buffered().use { input.copyTo(it) }
+            }
+        }
+    }
 
     fun isInstalled(language: VoiceLanguage): Boolean {
         val dir = modelDir(language)
