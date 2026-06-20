@@ -23,9 +23,7 @@ Java_dev_phucngu_simpletype_voice_WhisperLib_initContext(
     struct whisper_context_params cparams = whisper_context_default_params();
     // GPU off: phones run the CPU backend here.
     cparams.use_gpu = false;
-    // whisper.cpp defaults flash_attn = true, but it's a GPU-oriented path with no benefit on the
-    // CPU backend we run here. Keep the standard attention path.
-    cparams.flash_attn = false;
+
     struct whisper_context *context =
             whisper_init_from_file_with_params(model_path, cparams);
     if (context == nullptr) {

@@ -36,20 +36,6 @@ add_library(whisper_jni SHARED ${SOURCE_FILES})
 target_compile_definitions(whisper_jni PUBLIC GGML_USE_CPU)
 target_compile_definitions(whisper_jni PRIVATE WHISPER_VERSION="${WHISPER_VERSION}")
 
-# NOTE: the on-device SIGSEGV in ggml_compute_forward_mul_mat / flash_attn_ext was NOT fixed by
-# anything in this file — the real cause was an unoptimized (Debug) ggml build; the fix is forcing
-# CMAKE_BUILD_TYPE=Release (see app/build.gradle.kts). The two settings below just align this build
-# with the upstream whisper.android arm64 target and were kept after that was verified:
-#   - GGML_CPU_ARM_ARCH: ggml's knob for the ggml-cpu -march. armv8.2-a+fp16 enables FP16 vector
-#     arithmetic (faster); ignored on non-ARM ABIs, so x86_64 is unaffected.
-#   - BUILD_SHARED_LIBS OFF: links ggml statically into a single self-contained libwhisper_jni.so
-#     instead of shipping separate libggml*.so files.
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-set(GGML_CPU_ARM_ARCH "armv8.2-a+fp16" CACHE STRING "" FORCE)
-if(ANDROID_ABI STREQUAL "arm64-v8a")
-    target_compile_options(whisper_jni PRIVATE -march=armv8.2-a+fp16)
-endif()
-
 if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(whisper_jni PRIVATE
         -O3 -fvisibility=hidden -fvisibility-inlines-hidden -ffunction-sections -fdata-sections)
