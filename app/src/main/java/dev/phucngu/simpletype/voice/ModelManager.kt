@@ -23,6 +23,13 @@ class ModelManager(context: Context) {
     fun modelDir(language: VoiceLanguage): File =
         File(modelsRoot, dirName(language))
 
+    /**
+     * Directory the [SherpaAsrEngine] (Vietnamese Zipformer) loads from. Provisioned
+     * out-of-band via scripts/fetch-sherpa-vi-model.sh (adb push), not the in-app downloader,
+     * since the model ships as a .tar.bz2 the JDK can't unpack without extra deps.
+     */
+    fun sherpaViDir(): File = File(modelsRoot, "sherpa-vi")
+
     fun isInstalled(language: VoiceLanguage): Boolean {
         val dir = modelDir(language)
         return File(dir, "am").exists() || File(dir, "conf").exists()

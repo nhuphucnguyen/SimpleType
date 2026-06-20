@@ -21,3 +21,6 @@ local.properties
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Prebuilt sherpa-onnx AAR (large native libs) — fetched via scripts/fetch-sherpa-onnx-aar.sh
+/app/libs/sherpa-onnx-*.aar

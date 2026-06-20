@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// Prebuilt sherpa-onnx AAR version. Keep in sync with scripts/fetch-sherpa-onnx-aar.sh.
+val sherpaOnnxVersion = "1.12.34"
+
 android {
     namespace = "dev.phucngu.simpletype"
     compileSdk = 37
@@ -84,6 +87,12 @@ dependencies {
     // On-device streaming ASR (Apache-2.0). Ships prebuilt native libs in its AAR — no NDK.
     implementation(libs.vosk.android)
     implementation(libs.jna) { artifact { type = "aar" } }
+
+    // sherpa-onnx (Apache-2.0): on-device ASR via onnxruntime. The prebuilt .aar bundles the
+    // com.k2fsa.sherpa.onnx Kotlin API and native libs (sherpa-onnx-jni, onnxruntime) for
+    // arm64-v8a + x86_64. Drop the .aar into app/libs/ via scripts/fetch-sherpa-onnx-aar.sh.
+    // Not on Maven Central, hence the file dependency. Used for Vietnamese voice typing.
+    implementation(files("libs/sherpa-onnx-$sherpaOnnxVersion.aar"))
 
     // Jetpack Compose
     val composeBom = platform(libs.androidx.compose.bom)
