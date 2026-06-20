@@ -143,13 +143,26 @@ class SherpaAsrEngine(
         return try {
             stream.acceptWaveform(samples, SAMPLE_RATE)
             rec.decode(stream)
-            // The vi Zipformer's token vocabulary is uppercase, so raw results come out in all
-            // caps (e.g. "ÂM LƯỢNG"). Lowercase for natural keyboard output; Unicode lowercasing
-            // handles Vietnamese diacritics (Ư→ư, Đ→đ) correctly.
-            rec.getResult(stream).text.trim().lowercase()
+            formatUtterance(rec.getResult(stream).text)
         } finally {
             stream.release()
         }
+    }
+
+    /**
+     * Turn one raw VAD-segment result into natural keyboard text. The vi Zipformer emits
+     * uppercase, punctuation-free words (e.g. "ÂM LƯỢNG TV GIẢM"), so we:
+     *  - lowercase (Unicode-aware, handles Vietnamese diacritics Ư→ư, Đ→đ),
+     *  - capitalize the first letter, and
+     *  - append a terminal period.
+     * Each segment is pause-delimited, so it approximates one sentence. No real punctuation
+     * model exists on-device for Vietnamese, hence this heuristic (no commas / ? / !).
+     */
+    private fun formatUtterance(raw: String): String {
+        val text = raw.trim().lowercase()
+        if (text.isEmpty()) return ""
+        val cased = text.replaceFirstChar { it.uppercase() }
+        return if (cased.last() in ".!?") cased else "$cased."
     }
 
     companion object {
