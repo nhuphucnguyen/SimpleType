@@ -540,6 +540,10 @@ open class SimpleTypeIME : InputMethodService(),
         currentInputConnection?.let { finishComposing(it) }
         voice.setEngine(engineFor(language))
         voice.start()
+        if (voice.isListening) {
+            setMicListening(true)
+            showStatus(getString(R.string.voice_listening))
+        }
     }
 
     private fun requestMicPermission() {

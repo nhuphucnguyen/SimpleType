@@ -1,6 +1,11 @@
 package dev.phucngu.simpletype.ime
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -97,7 +103,7 @@ fun KeyboardScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(48.dp)
                 .padding(start = 12.dp, end = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -141,29 +147,44 @@ fun KeyboardScreen(
                 contentAlignment = Alignment.Center
             ) {
                 if (voiceStatus != null) {
-                    Text(
-                        text = voiceStatus,
-                        color = statusTextColor,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        if (micActive) {
+                            RecordingIndicator(color = micActiveColor)
+                            Spacer(modifier = Modifier.width(7.dp))
+                        }
+                        Text(
+                            text = voiceStatus,
+                            color = statusTextColor,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
 
             // Prominent mic button (M3 filled, primaryContainer).
             Box(
                 modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(14.dp))
                     .background(if (micActive) micActiveColor else primaryContainerColor)
                     .clickable(onClick = onMicClick),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_kb_mic),
-                    contentDescription = stringResource(R.string.toolbar_mic),
+                    painter = painterResource(
+                        if (micActive) R.drawable.ic_kb_stop else R.drawable.ic_kb_mic
+                    ),
+                    contentDescription = stringResource(
+                        if (micActive) R.string.toolbar_stop_mic else R.string.toolbar_mic
+                    ),
                     tint = if (micActive) Color.White else onPrimaryContainerColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -197,6 +218,27 @@ fun KeyboardScreen(
             }
         }
     }
+}
+
+@Composable
+private fun RecordingIndicator(color: Color) {
+    val transition = rememberInfiniteTransition(label = "recording")
+    val indicatorAlpha = transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 700),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "recording alpha",
+    )
+
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .alpha(indicatorAlpha.value)
+            .background(color, CircleShape)
+    )
 }
 
 @Composable
