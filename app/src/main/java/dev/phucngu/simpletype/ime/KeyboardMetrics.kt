@@ -33,13 +33,13 @@ data class KeyboardMetrics(
     companion object {
         /** Defaults mirror the original res/values/dimens.xml values. */
         val DEFAULT = KeyboardMetrics(
-            rowHeightDp = 52f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
-            bottomPaddingDp = 8f, showNumberRow = true, showDedicatedNumberRow = false,
+            rowHeightDp = 48f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            bottomPaddingDp = 30f, showNumberRow = true, showDedicatedNumberRow = false,
             showSymbolHints = false,
         )
 
-        const val ROW_HEIGHT_MIN = 44f
-        const val ROW_HEIGHT_MAX = 76f
+        const val ROW_HEIGHT_MIN = 30f
+        const val ROW_HEIGHT_MAX = 60f
         const val GAP_MIN = 2f
         const val GAP_MAX = 14f
         const val BOTTOM_PAD_MIN = 0f

@@ -6,11 +6,16 @@ import org.junit.Test
 /** Pure clamping/defaults for the user-adjustable keyboard sizing. */
 class KeyboardMetricsTest {
 
+    @Test fun row_height_range_is_30_to_60_dp() {
+        assertEquals(30f, KeyboardMetrics.ROW_HEIGHT_MIN, 0f)
+        assertEquals(60f, KeyboardMetrics.ROW_HEIGHT_MAX, 0f)
+    }
+
     @Test fun defaults_match_current_dimens() {
-        assertEquals(52f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
+        assertEquals(48f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
         assertEquals(4f, KeyboardMetrics.DEFAULT.gapHorizontalDp, 0f)
         assertEquals(4f, KeyboardMetrics.DEFAULT.gapVerticalDp, 0f)
-        assertEquals(8f, KeyboardMetrics.DEFAULT.bottomPaddingDp, 0f)
+        assertEquals(30f, KeyboardMetrics.DEFAULT.bottomPaddingDp, 0f)
         assertEquals(true, KeyboardMetrics.DEFAULT.showNumberRow)
         assertEquals(false, KeyboardMetrics.DEFAULT.showDedicatedNumberRow)
         assertEquals(false, KeyboardMetrics.DEFAULT.showSymbolHints)
