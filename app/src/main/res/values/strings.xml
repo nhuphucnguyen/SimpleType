@@ -42,10 +42,11 @@
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
     <string name="toolbar_mic">Voice typing</string>
+    <string name="toolbar_stop_mic">Stop voice typing</string>
 
     <!-- Voice -->
     <string name="voice_unavailable">Voice model not installed — open SimpleType to download it</string>
-    <string name="voice_listening">Listening…</string>
+    <string name="voice_listening">Listening… Tap stop to finish</string>
     <string name="voice_need_permission">Microphone permission needed for voice typing</string>
     <string name="voice_password_disabled">Voice typing is disabled in password fields</string>
 
