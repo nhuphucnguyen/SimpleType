@@ -2,6 +2,7 @@ package dev.phucngu.simpletype.ime
 
 import android.content.Context
 import android.graphics.Paint
+import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Canvas
@@ -39,6 +40,9 @@ import kotlin.math.abs
 private const val REPEAT_INITIAL_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 55L
 private const val LONG_PRESS_MS = 300L
+private const val NUMBER_HINT_TOP_PADDING_DP = 1f
+private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
+private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 
 object LatinKeyboardView {
     const val PREF_HAPTIC = "kb_haptic"
@@ -72,6 +76,25 @@ fun calculatePlacements(
     }
     return list
 }
+
+internal fun calculateNumberHintPosition(
+    keyRect: RectF,
+    densityFloat: Float,
+    fontAscent: Float,
+): PointF = PointF(
+    keyRect.centerX(),
+    keyRect.top + NUMBER_HINT_TOP_PADDING_DP * densityFloat - fontAscent,
+)
+
+internal fun calculateNumberHintedTextBaseline(
+    centeredBaseline: Float,
+    keyBottom: Float,
+    densityFloat: Float,
+    fontDescent: Float,
+): Float = minOf(
+    centeredBaseline + NUMBER_HINTED_TEXT_OFFSET_DP * densityFloat,
+    keyBottom - KEY_TEXT_BOTTOM_PADDING_DP * densityFloat - fontDescent,
+)
 
 class TouchState {
     var downOnSpace by mutableStateOf(false)
@@ -424,6 +447,17 @@ fun LatinKeyboard(
 
                     val cx = rr.centerX()
                     val cy = rr.centerY() - (fm.ascent + fm.descent) / 2f
+                    val hasNumberHint = metrics.numberHintsVisible && key.numberHint != null
+                    val printableTextBaseline = if (hasNumberHint) {
+                        calculateNumberHintedTextBaseline(
+                            centeredBaseline = cy,
+                            keyBottom = rr.bottom,
+                            densityFloat = densityFloat,
+                            fontDescent = fm.descent,
+                        )
+                    } else {
+                        cy
+                    }
 
                     val special = key.style == KeyStyle.SPECIAL
                     when {
@@ -478,18 +512,38 @@ fun LatinKeyboard(
                         }
                         else -> {
                             textPaint.color = fg
-                            canvas.nativeCanvas.drawText(displayLabel(key), cx, cy, textPaint)
+                            canvas.nativeCanvas.drawText(
+                                displayLabel(key),
+                                cx,
+                                printableTextBaseline,
+                                textPaint,
+                            )
                         }
                     }
 
                     // Corner hints
                     val hint = hintFor(key)
                     if (hint != null) {
-                        val pad = 5f * densityFloat
-                        val hx = rr.right - pad - hintPaint.textSize / 2f
-                        val hy = rr.top + pad - hintPaint.fontMetrics.ascent
+                        val hintPosition = if (hasNumberHint) {
+                            calculateNumberHintPosition(
+                                keyRect = rr,
+                                densityFloat = densityFloat,
+                                fontAscent = hintPaint.fontMetrics.ascent,
+                            )
+                        } else {
+                            val pad = 5f * densityFloat
+                            PointF(
+                                rr.right - pad - hintPaint.textSize / 2f,
+                                rr.top + pad - hintPaint.fontMetrics.ascent,
+                            )
+                        }
                         hintPaint.color = keyHintColor.toArgb()
-                        canvas.nativeCanvas.drawText(hint.toString(), hx, hy, hintPaint)
+                        canvas.nativeCanvas.drawText(
+                            hint.toString(),
+                            hintPosition.x,
+                            hintPosition.y,
+                            hintPaint,
+                        )
                     }
                 }
             }
