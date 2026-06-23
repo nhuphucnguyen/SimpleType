@@ -62,6 +62,31 @@ fun calculatePlacements(
 ): List<Placement> {
     val list = ArrayList<Placement>()
     val rowHeightPx = metrics.rowHeightDp * densityFloat
+    val fixedColumns = keyboard.fixedColumns
+    if (fixedColumns != null) {
+        val unit = widthPx / fixedColumns
+        val occupiedUntilRow = IntArray(fixedColumns)
+        keyboard.rows.forEachIndexed { rowIndex, row ->
+            var column = 0
+            for (key in row.keys) {
+                while (column < fixedColumns && occupiedUntilRow[column] > rowIndex) column++
+                val columnSpan = key.weight.toInt().coerceAtLeast(1)
+                require(column + columnSpan <= fixedColumns) { "Keyboard row exceeds fixed grid" }
+                val top = vPadPx + rowIndex * rowHeightPx
+                list.add(Placement(key, RectF(
+                    column * unit,
+                    top,
+                    (column + columnSpan) * unit,
+                    top + key.rowSpan * rowHeightPx,
+                )))
+                for (c in column until column + columnSpan) {
+                    occupiedUntilRow[c] = rowIndex + key.rowSpan
+                }
+                column += columnSpan
+            }
+        }
+        return list
+    }
     var top = vPadPx
     for (rowObj in keyboard.rows) {
         val totalWeight = rowObj.keys.sumOf { it.weight.toDouble() }.toFloat() + rowObj.sideWeight * 2f

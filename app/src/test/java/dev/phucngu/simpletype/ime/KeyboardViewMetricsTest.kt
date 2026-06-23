@@ -52,4 +52,25 @@ class KeyboardViewMetricsTest {
 
         assertTrue("taller bottom=$tallerBottom should exceed base bottom=$baseBottom", tallerBottom > baseBottom)
     }
+
+    @Test fun numeric_delete_and_enter_span_two_rows() {
+        val placements = calculatePlacements(
+            widthPx = 400f,
+            keyboard = KeyboardLayouts.numeric(),
+            metrics = KeyboardMetrics.of(50f, 4f, 4f),
+            densityFloat = 1f,
+            vPadPx = 0f,
+        )
+
+        val delete = placements.first { it.key.code == KeyCode.DELETE }.rect
+        val enter = placements.first { it.key.code == KeyCode.ENTER }.rect
+        val doubleZero = placements.first { it.key.code == KeyCode.DOUBLE_ZERO }.rect
+
+        assertEquals(100f, delete.height(), 0f)
+        assertEquals(100f, enter.height(), 0f)
+        assertEquals(300f, delete.left, 0f)
+        assertEquals(300f, enter.left, 0f)
+        assertEquals(0f, doubleZero.left, 0f)
+        assertEquals(150f, doubleZero.top, 0f)
+    }
 }
