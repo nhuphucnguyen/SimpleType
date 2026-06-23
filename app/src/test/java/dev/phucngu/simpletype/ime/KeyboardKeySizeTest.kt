@@ -1,5 +1,7 @@
 package dev.phucngu.simpletype.ime
 
+import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
+
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +24,7 @@ class KeyboardKeySizeTest {
     @Test fun letter_keys_are_equal_width_across_rows() {
         val placements = calculatePlacements(
             widthPx = 1080f,
-            keyboard = KeyboardLayouts.qwerty(showDedicatedNumberRow = false),
+            keyboard = QwertyKeyboardLayout.create(showDedicatedNumberRow = false),
             metrics = KeyboardMetrics.DEFAULT,
             densityFloat = 2.625f,
             vPadPx = 21f

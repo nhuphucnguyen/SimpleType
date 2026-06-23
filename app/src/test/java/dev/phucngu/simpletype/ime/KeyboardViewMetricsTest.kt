@@ -1,5 +1,9 @@
 package dev.phucngu.simpletype.ime
 
+import dev.phucngu.simpletype.ime.keyboard.layout.NumericKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
+
 import android.graphics.RectF
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -38,7 +42,7 @@ class KeyboardViewMetricsTest {
     private fun placementsBottom(metrics: KeyboardMetrics): Float {
         val placements = calculatePlacements(
             widthPx = 1080f,
-            keyboard = KeyboardLayouts.qwerty(showDedicatedNumberRow = false),
+            keyboard = QwertyKeyboardLayout.create(showDedicatedNumberRow = false),
             metrics = metrics,
             densityFloat = 2.625f,
             vPadPx = 21f
@@ -56,7 +60,7 @@ class KeyboardViewMetricsTest {
     @Test fun numeric_delete_and_enter_span_two_rows() {
         val placements = calculatePlacements(
             widthPx = 400f,
-            keyboard = KeyboardLayouts.numeric(),
+            keyboard = NumericKeyboardLayout.create(),
             metrics = KeyboardMetrics.of(50f, 4f, 4f),
             densityFloat = 1f,
             vPadPx = 0f,
