@@ -1,5 +1,6 @@
 package dev.phucngu.simpletype.ime
 
+import android.text.InputType
 import androidx.annotation.DrawableRes
 import dev.phucngu.simpletype.R
 
@@ -19,6 +20,7 @@ object KeyCode {
     const val ALPHA = -5     // symbols → letters
     const val SYMBOLS_ALT = -6 // symbols page 1 ↔ page 2
     const val EMOJI = -9     // emoji key (panel TBD)
+    const val DOUBLE_ZERO = -10
     const val SPACE = ' '.code
     // Note: language switching is the system globe (IME subtype) and voice is the toolbar
     // mic button, so neither has a grid key / KeyCode here.
@@ -48,6 +50,8 @@ data class Key(
      * when symbol hints are enabled, which is mutually exclusive with the number row.
      */
     val symbolHint: Char? = null,
+    /** Number of rows occupied by this key in a fixed-column keyboard. */
+    val rowSpan: Int = 1,
 ) {
     val isPrintable: Boolean get() = code >= 32
 }
@@ -59,7 +63,11 @@ data class Key(
  */
 data class KeyboardRow(val keys: List<Key>, val sideWeight: Float = 0f)
 
-data class Keyboard(val rows: List<KeyboardRow>)
+data class Keyboard(
+    val rows: List<KeyboardRow>,
+    /** Enables grid placement and vertically spanning keys when non-null. */
+    val fixedColumns: Int? = null,
+)
 
 /** Static layout definitions. Vietnamese reuses the QWERTY layout (Telex types diacritics). */
 object KeyboardLayouts {
@@ -150,6 +158,29 @@ object KeyboardLayouts {
             ),
             symbolsBottomRow(altPage = true),
         )
+    )
+
+    /** Calculator-style keypad used for fields reporting [InputType.TYPE_CLASS_NUMBER]. */
+    fun numeric(): Keyboard = Keyboard(
+        rows = listOf(
+            row(
+                *"123".map { letter(it) }.toTypedArray(),
+                Key(KeyCode.DELETE, "Delete", style = KeyStyle.SPECIAL, repeatable = true,
+                    iconRes = R.drawable.ic_kb_backspace, rowSpan = 2),
+            ),
+            lettersRow("456"),
+            row(
+                *"789".map { letter(it) }.toTypedArray(),
+                Key(KeyCode.ENTER, "Enter", style = KeyStyle.SPECIAL,
+                    iconRes = R.drawable.ic_kb_enter, rowSpan = 2),
+            ),
+            row(
+                Key(KeyCode.DOUBLE_ZERO, "00"),
+                letter('0'),
+                letter('.'),
+            ),
+        ),
+        fixedColumns = 4,
     )
 
     /**

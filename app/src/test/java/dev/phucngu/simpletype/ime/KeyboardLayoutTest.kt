@@ -1,11 +1,34 @@
 package dev.phucngu.simpletype.ime
 
+import android.text.InputType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Geometry checks for the static layouts. Pure data, no Android runtime needed. */
 class KeyboardLayoutTest {
+
+    @Test fun number_input_uses_numeric_layout() {
+        assertEquals(Layout.NUMERIC, layoutForInputType(InputType.TYPE_CLASS_NUMBER))
+        assertEquals(Layout.SYMBOLS, layoutForInputType(InputType.TYPE_CLASS_PHONE))
+        assertEquals(Layout.SYMBOLS, layoutForInputType(InputType.TYPE_CLASS_DATETIME))
+        assertEquals(Layout.ALPHA, layoutForInputType(InputType.TYPE_CLASS_TEXT))
+    }
+
+    @Test fun numeric_layout_matches_keypad_geometry() {
+        val layout = KeyboardLayouts.numeric()
+
+        assertEquals(4, layout.rows.size)
+        assertEquals(4, layout.fixedColumns)
+        assertEquals(listOf("1", "2", "3", "Delete"), layout.rows[0].keys.map { it.label })
+        assertEquals(listOf("4", "5", "6"), layout.rows[1].keys.map { it.label })
+        assertEquals(listOf("7", "8", "9", "Enter"), layout.rows[2].keys.map { it.label })
+        assertEquals(listOf("00", "0", "."), layout.rows[3].keys.map { it.label })
+        assertEquals(2, layout.rows[0].keys.last().rowSpan)
+        assertEquals(2, layout.rows[2].keys.last().rowSpan)
+        assertEquals(KeyCode.DOUBLE_ZERO, layout.rows[3].keys.first().code)
+        assertEquals(KeyCode.ENTER, layout.rows[2].keys.last().code)
+    }
 
     private fun spaceCentered(row: KeyboardRow) {
         val i = row.keys.indexOfFirst { it.code == KeyCode.SPACE }

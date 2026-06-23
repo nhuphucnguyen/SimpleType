@@ -46,6 +46,15 @@ import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
 
+internal enum class Layout { ALPHA, SYMBOLS, SYMBOLS_ALT, NUMERIC }
+
+internal fun layoutForInputType(inputType: Int): Layout =
+    when (inputType and InputType.TYPE_MASK_CLASS) {
+        InputType.TYPE_CLASS_NUMBER -> Layout.NUMERIC
+        InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> Layout.SYMBOLS
+        else -> Layout.ALPHA
+    }
+
 open class SimpleTypeIME : InputMethodService(),
     LatinKeyboardListener,
     LifecycleOwner,
@@ -80,7 +89,6 @@ open class SimpleTypeIME : InputMethodService(),
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
 
-    private enum class Layout { ALPHA, SYMBOLS, SYMBOLS_ALT }
     private var layout = Layout.ALPHA
 
     private var shifted = false
@@ -310,6 +318,10 @@ open class SimpleTypeIME : InputMethodService(),
             KeyCode.SYMBOLS_ALT -> switchLayout(Layout.SYMBOLS_ALT)
             KeyCode.ALPHA -> switchLayout(Layout.ALPHA)
             KeyCode.EMOJI -> handleEmoji(ic)
+            KeyCode.DOUBLE_ZERO -> {
+                finishComposing(ic)
+                ic.commitText("00", 1)
+            }
             else -> if (key.isPrintable) handlePrintable(ic, key)
         }
     }
@@ -467,12 +479,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun chooseLayoutForField(info: EditorInfo) {
-        val cls = info.inputType and InputType.TYPE_MASK_CLASS
-        layout = when (cls) {
-            InputType.TYPE_CLASS_NUMBER, InputType.TYPE_CLASS_PHONE,
-            InputType.TYPE_CLASS_DATETIME -> Layout.SYMBOLS
-            else -> Layout.ALPHA
-        }
+        layout = layoutForInputType(info.inputType)
     }
 
     private fun applyLayout() {
@@ -480,6 +487,7 @@ open class SimpleTypeIME : InputMethodService(),
             Layout.ALPHA -> KeyboardLayouts.qwerty(metrics.showDedicatedNumberRow)
             Layout.SYMBOLS -> KeyboardLayouts.symbols()
             Layout.SYMBOLS_ALT -> KeyboardLayouts.symbolsAlt()
+            Layout.NUMERIC -> KeyboardLayouts.numeric()
         }
         composeKeyboard = targetKeyboard
         composeSpaceLabel = languageLabel()
