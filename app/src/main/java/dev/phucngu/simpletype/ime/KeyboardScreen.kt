@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 
 /** A round tonal icon button used throughout the keyboard chrome (M3 Expressive). */
 @Composable

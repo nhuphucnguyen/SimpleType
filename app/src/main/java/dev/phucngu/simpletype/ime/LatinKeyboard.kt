@@ -31,6 +31,10 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ime.keyboard.model.Key
+import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
+import dev.phucngu.simpletype.ime.keyboard.model.KeyStyle
+import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive

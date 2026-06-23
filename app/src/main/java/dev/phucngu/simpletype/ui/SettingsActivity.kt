@@ -32,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.HapticPlayer
-import dev.phucngu.simpletype.ime.Key
-import dev.phucngu.simpletype.ime.KeyboardLayouts
+import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboard
 import dev.phucngu.simpletype.ime.LatinKeyboardListener
@@ -565,7 +565,7 @@ fun SettingsScreen(
                     .padding(8.dp)
             ) {
                 LatinKeyboard(
-                    keyboard = KeyboardLayouts.qwerty(currentMetrics.showDedicatedNumberRow),
+                    keyboard = QwertyKeyboardLayout.create(currentMetrics.showDedicatedNumberRow),
                     metrics = currentMetrics,
                     spaceLabel = stringResource(R.string.subtype_en),
                     shifted = false,

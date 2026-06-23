@@ -35,6 +35,13 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ime.keyboard.layout.NumericKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.layout.SymbolKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.model.Key
+import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
+import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutSelector
+import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutType
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.ui.MicPermissionActivity
 import dev.phucngu.simpletype.voice.AsrEngine
@@ -45,15 +52,6 @@ import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
-
-internal enum class Layout { ALPHA, SYMBOLS, SYMBOLS_ALT, NUMERIC }
-
-internal fun layoutForInputType(inputType: Int): Layout =
-    when (inputType and InputType.TYPE_MASK_CLASS) {
-        InputType.TYPE_CLASS_NUMBER -> Layout.NUMERIC
-        InputType.TYPE_CLASS_PHONE, InputType.TYPE_CLASS_DATETIME -> Layout.SYMBOLS
-        else -> Layout.ALPHA
-    }
 
 open class SimpleTypeIME : InputMethodService(),
     LatinKeyboardListener,
@@ -73,7 +71,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var metrics = KeyboardMetrics.DEFAULT
 
     // Compose states representing the keyboard UI state
-    private var composeKeyboard by mutableStateOf(KeyboardLayouts.qwerty())
+    private var composeKeyboard by mutableStateOf(QwertyKeyboardLayout.create())
     private var composeMetrics by mutableStateOf(KeyboardMetrics.DEFAULT)
     private var composeSpaceLabel by mutableStateOf("")
     private var composeShifted by mutableStateOf(false)
@@ -89,7 +87,7 @@ open class SimpleTypeIME : InputMethodService(),
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
 
-    private var layout = Layout.ALPHA
+    private var layout = KeyboardLayoutType.ALPHA
 
     private var shifted = false
     private var capsLock = false
@@ -214,7 +212,7 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
         telex.reset()
         commandHandler.clearHistory()
-        layout = Layout.ALPHA
+        layout = KeyboardLayoutType.ALPHA
         capsLock = false
         passwordField = isPasswordField(info)
         directCommit = info.inputType == InputType.TYPE_NULL
@@ -274,7 +272,8 @@ open class SimpleTypeIME : InputMethodService(),
                 ic.finishComposingText()
                 telex.reset()
             }
-            if (language == VoiceLanguage.VIETNAMESE && !passwordField && layout == Layout.ALPHA &&
+            if (language == VoiceLanguage.VIETNAMESE && !passwordField &&
+                layout == KeyboardLayoutType.ALPHA &&
                 !directCommit) {
                 pickupTelexContext(ic, newSelStart)
             }
@@ -314,9 +313,9 @@ open class SimpleTypeIME : InputMethodService(),
             KeyCode.DELETE -> handleDelete(ic)
             KeyCode.ENTER -> handleEnter(ic)
             KeyCode.SPACE -> handleSpace(ic)
-            KeyCode.SYMBOLS -> switchLayout(Layout.SYMBOLS)
-            KeyCode.SYMBOLS_ALT -> switchLayout(Layout.SYMBOLS_ALT)
-            KeyCode.ALPHA -> switchLayout(Layout.ALPHA)
+            KeyCode.SYMBOLS -> switchLayout(KeyboardLayoutType.SYMBOLS)
+            KeyCode.SYMBOLS_ALT -> switchLayout(KeyboardLayoutType.SYMBOLS_ALT)
+            KeyCode.ALPHA -> switchLayout(KeyboardLayoutType.ALPHA)
             KeyCode.EMOJI -> handleEmoji(ic)
             KeyCode.DOUBLE_ZERO -> {
                 finishComposing(ic)
@@ -344,7 +343,8 @@ open class SimpleTypeIME : InputMethodService(),
         var c = key.code.toChar()
         if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
 
-        val useTelex = language == VoiceLanguage.VIETNAMESE && layout == Layout.ALPHA &&
+        val useTelex = language == VoiceLanguage.VIETNAMESE &&
+            layout == KeyboardLayoutType.ALPHA &&
             !passwordField && !directCommit && c.isLetter()
 
         if (useTelex) {
@@ -444,7 +444,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun updateAutoCapitalize(info: EditorInfo?) {
-        if (capsLock || shiftHeld || passwordField || layout != Layout.ALPHA) return
+        if (capsLock || shiftHeld || passwordField || layout != KeyboardLayoutType.ALPHA) return
         info ?: return
         val capSentences = info.inputType and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0
         val capWords = info.inputType and InputType.TYPE_TEXT_FLAG_CAP_WORDS != 0
@@ -473,21 +473,21 @@ open class SimpleTypeIME : InputMethodService(),
 
     // ---- Layout & language ----
 
-    private fun switchLayout(target: Layout) {
+    private fun switchLayout(target: KeyboardLayoutType) {
         layout = target
         applyLayout()
     }
 
     private fun chooseLayoutForField(info: EditorInfo) {
-        layout = layoutForInputType(info.inputType)
+        layout = KeyboardLayoutSelector.forInputType(info.inputType)
     }
 
     private fun applyLayout() {
         val targetKeyboard = when (layout) {
-            Layout.ALPHA -> KeyboardLayouts.qwerty(metrics.showDedicatedNumberRow)
-            Layout.SYMBOLS -> KeyboardLayouts.symbols()
-            Layout.SYMBOLS_ALT -> KeyboardLayouts.symbolsAlt()
-            Layout.NUMERIC -> KeyboardLayouts.numeric()
+            KeyboardLayoutType.ALPHA -> QwertyKeyboardLayout.create(metrics.showDedicatedNumberRow)
+            KeyboardLayoutType.SYMBOLS -> SymbolKeyboardLayout.primary()
+            KeyboardLayoutType.SYMBOLS_ALT -> SymbolKeyboardLayout.alternate()
+            KeyboardLayoutType.NUMERIC -> NumericKeyboardLayout.create()
         }
         composeKeyboard = targetKeyboard
         composeSpaceLabel = languageLabel()

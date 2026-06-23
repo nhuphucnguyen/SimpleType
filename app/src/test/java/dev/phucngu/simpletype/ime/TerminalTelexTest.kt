@@ -1,5 +1,8 @@
 package dev.phucngu.simpletype.ime
 
+import dev.phucngu.simpletype.ime.keyboard.model.Key
+import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
+
 import android.view.View
 import android.view.inputmethod.BaseInputConnection
 import android.view.inputmethod.EditorInfo
