@@ -125,6 +125,14 @@ internal fun calculateNumberHintedTextBaseline(
     keyBottom - KEY_TEXT_BOTTOM_PADDING_DP * densityFloat - fontDescent,
 )
 
+internal fun displayLabel(key: Key, shifted: Boolean, capsLock: Boolean): String {
+    if (key.isPrintable && (shifted || capsLock)) {
+        val character = key.code.toChar()
+        if (character.isLetter()) return character.uppercaseChar().toString()
+    }
+    return key.label
+}
+
 class TouchState {
     var downOnSpace by mutableStateOf(false)
     var swipeStartX = 0f
@@ -257,14 +265,6 @@ fun LatinKeyboard(
             metrics.numberHintsVisible -> key.numberHint
             metrics.showSymbolHints -> key.symbolHint
             else -> null
-        }
-
-        fun displayLabel(key: Key): String {
-            if (key.isPrintable && shifted) {
-                val c = key.code.toChar()
-                if (c.isLetter()) return c.uppercaseChar().toString()
-            }
-            return key.label
         }
 
         fun iconResFor(key: Key): Int? = when {
@@ -542,7 +542,7 @@ fun LatinKeyboard(
                         else -> {
                             textPaint.color = fg
                             canvas.nativeCanvas.drawText(
-                                displayLabel(key),
+                                displayLabel(key, shifted, capsLock),
                                 cx,
                                 printableTextBaseline,
                                 textPaint,
