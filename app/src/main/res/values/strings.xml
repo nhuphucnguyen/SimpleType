@@ -46,7 +46,8 @@
 
     <!-- Voice -->
     <string name="voice_unavailable">Voice model not installed — open SimpleType to download it</string>
-    <string name="voice_listening">Listening… Tap stop to finish</string>
+    <string name="voice_listening_en">Listening… Tap stop to finish</string>
+    <string name="voice_listening_vi">Đang nghe… Chạm nút dừng để hoàn tất</string>
     <string name="voice_need_permission">Microphone permission needed for voice typing</string>
     <string name="voice_password_disabled">Voice typing is disabled in password fields</string>
 

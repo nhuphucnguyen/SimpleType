@@ -550,7 +550,7 @@ open class SimpleTypeIME : InputMethodService(),
         voice.start()
         if (voice.isListening) {
             setMicListening(true)
-            showStatus(getString(R.string.voice_listening))
+            showStatus(getString(language.listeningStatusRes()))
         }
     }
 
@@ -564,7 +564,7 @@ open class SimpleTypeIME : InputMethodService(),
     private val voiceListener = object : AsrListener {
         override fun onPartial(text: String) {
             setMicListening(true)
-            showStatus(getString(R.string.voice_listening))
+            showStatus(getString(language.listeningStatusRes()))
             currentInputConnection?.setComposingText(text, 1)
         }
 
