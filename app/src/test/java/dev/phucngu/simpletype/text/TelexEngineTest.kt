@@ -78,6 +78,7 @@ class TelexEngineTest {
     // A horn key typed after the coda reaches back to the nucleus: "duong" + w → "dương".
     @Test fun horn_after_coda_duong() = assertEquals("dương", type("duongw"))
     @Test fun horn_after_coda_huong() = assertEquals("hương", type("huongw"))
+    @Test fun horn_after_trailing_vowel_tuoi() = assertEquals("tươi", type("tuoiw"))
     @Test fun horn_after_coda_lang() = assertEquals("lăng", type("langw"))
     @Test fun horn_after_coda_qu_glide() = assertEquals("quơn", type("quonw"))
     // "ua" + w horns the u, not the a: "uă" is not a valid syllable, so "mua" + w → "mưa".

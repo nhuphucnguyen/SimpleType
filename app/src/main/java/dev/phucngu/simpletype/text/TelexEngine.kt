@@ -348,6 +348,10 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             // → "lăng". Fires when the last char is a coda consonant; finds the nucleus vowel and
             // applies the same a→ă / o→ơ / u→ư mapping, including the "uo" → "ươ" digraph.
             if (hornNucleusAcrossCoda()) return
+
+            // A trailing vowel may follow the vowel that w modifies: "tuoi" + w → "tươi".
+            // Reach back within the current vowel nucleus instead of treating w as a lone ư.
+            if (hornNucleusBeforeTrailingVowel()) return
         }
         // Lone w with nothing to attach to → ư (common Telex shorthand). Arm the escape so
         // a following w turns this ư into a literal w (ww → w).
@@ -375,6 +379,29 @@ class TelexEngine(private val modernStyle: Boolean = true) {
             }
         }
         setCharPreserveCase(v, horn, base.isUpperCase(), tone)
+        return true
+    }
+
+    /** Horn the last eligible vowel before one or more trailing vowels in the same nucleus. */
+    private fun hornNucleusBeforeTrailingVowel(): Boolean {
+        if (buffer.isEmpty() || !isVowel(buffer.last())) return false
+        val target = (buffer.length - 2 downTo 0).firstOrNull { index ->
+            isVowel(buffer[index]) && hornForm(decompose(buffer[index]).first.lowercaseChar()) != null
+        } ?: return false
+        // Do not cross an onset or a previous vowel group: every character after the target must
+        // be part of this contiguous vowel nucleus.
+        if ((target + 1 until buffer.length).any { !isVowel(buffer[it]) }) return false
+
+        val (base, tone) = decompose(buffer[target])
+        val horn = hornForm(base.lowercaseChar()) ?: return false
+        if (base.lowercaseChar() == 'o' && target >= 1) {
+            val (prevBase, prevTone) = decompose(buffer[target - 1])
+            val afterQu = target >= 2 && buffer[target - 2].lowercaseChar() == 'q'
+            if (prevBase.lowercaseChar() == 'u' && !afterQu) {
+                setCharPreserveCase(target - 1, 'ư', prevBase.isUpperCase(), prevTone)
+            }
+        }
+        setCharPreserveCase(target, horn, base.isUpperCase(), tone)
         return true
     }
 
