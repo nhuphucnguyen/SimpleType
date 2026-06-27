@@ -453,8 +453,14 @@ open class SimpleTypeIME : InputMethodService(),
         if (!isTextField || (!capSentences && !capWords && !capChars)) return
 
         val before = currentInputConnection?.getTextBeforeCursor(2, 0)?.toString() ?: ""
-        val atStart = before.isEmpty() || before.endsWith("\n") ||
-            before.trimEnd().let { it.isEmpty() || it.endsWith(".") || it.endsWith("?") || it.endsWith("!") }
+        val trimmed = before.trimEnd()
+        // A period only ends a sentence when followed by whitespace; otherwise it is likely part of
+        // a URL/filename (e.g. "example.com") and the next character must stay lowercase.
+        val hasTrailingSpace = before != trimmed
+        val endsSentence = trimmed.isEmpty() ||
+            trimmed.endsWith("?") || trimmed.endsWith("!") ||
+            (trimmed.endsWith(".") && hasTrailingSpace)
+        val atStart = before.isEmpty() || before.endsWith("\n") || endsSentence
         val newShift = capChars || atStart || (capWords && (before.isEmpty() || before.endsWith(" ")))
         if (newShift != shifted) {
             shifted = newShift
