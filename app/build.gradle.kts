@@ -1,3 +1,4 @@
+import com.android.build.api.artifact.SingleArtifact
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -46,18 +47,31 @@ android {
     }
 }
 
-val apkTimestamp = providers.provider {
-    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
-}
-
 androidComponents {
     onVariants(selector().all()) { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set(
-                apkTimestamp.map { timestamp ->
-                    "SimpleType-${variant.name}-$timestamp.apk"
-                },
-            )
+            output.outputFileName.set("SimpleType-${variant.name}.apk")
+        }
+
+        // Timestamp at execution time so the configuration cache can't freeze a stale value.
+        val name = variant.name
+        val apkDir = variant.artifacts.get(SingleArtifact.APK)
+        val cap = name.replaceFirstChar { it.uppercase() }
+        val stamp = tasks.register("stamp${cap}Apk") {
+            inputs.dir(apkDir)
+            doLast {
+                val ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS"))
+                val dir = apkDir.get().asFile
+                val src = dir.resolve("SimpleType-$name.apk")
+                if (src.exists()) {
+                    val stale = Regex("SimpleType-$name-\\d{8}-\\d{6}-\\d{3}\\.apk")
+                    dir.listFiles { f -> stale.matches(f.name) }?.forEach { it.delete() }
+                    src.copyTo(dir.resolve("SimpleType-$name-$ts.apk"), overwrite = true)
+                }
+            }
+        }
+        afterEvaluate {
+            tasks.named("assemble$cap").configure { finalizedBy(stamp) }
         }
     }
 }
