@@ -8,7 +8,12 @@ import java.io.InputStream
  *
  * Backing file format (one entry per line): `word<TAB>zipf100` where `zipf100` is the
  * Zipf frequency multiplied by 100 (e.g. "hello\t472"). Words are lowercase a-z.
- * Entries are grouped by first letter so the decoder can prune candidates cheaply.
+ * Entries are grouped by first letter so the decoder can prune candidates cheaply;
+ * there is intentionally no trie — the decoder only ever scans first-letter buckets.
+ *
+ * The in-memory structure is parsed from the plain-text asset at IME startup (background
+ * thread, ~50-150 ms for 30k words). To add words or regenerate the asset, see
+ * docs/glide-typing.md and tools/generate_gesture_dictionary.py.
  */
 class GestureDictionary private constructor(
     private val byFirstLetter: Array<List<Entry>>,
