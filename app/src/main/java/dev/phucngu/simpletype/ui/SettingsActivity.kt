@@ -351,6 +351,7 @@ fun SettingsScreen(
     var currentMetrics by remember { mutableStateOf(KeyboardMetrics.load(prefs)) }
 
     var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
+    var glideEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)) }
     var hapticLevel by remember {
         mutableStateOf(
             (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
@@ -619,6 +620,16 @@ fun SettingsScreen(
                     desc = stringResource(R.string.size_dedicated_number_row_desc),
                     checked = currentMetrics.showDedicatedNumberRow,
                     onCheckedChange = { checked -> applyMetrics(showDedicatedNumberRow = checked) },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ToggleRow(
+                    title = stringResource(R.string.glide_typing),
+                    desc = stringResource(R.string.glide_typing_desc),
+                    checked = glideEnabled,
+                    onCheckedChange = { checked ->
+                        glideEnabled = checked
+                        prefs.edit().putBoolean(LatinKeyboardView.PREF_GLIDE, checked).apply()
+                    },
                 )
             }
             Spacer(modifier = Modifier.height(10.dp))

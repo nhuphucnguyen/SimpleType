@@ -50,10 +50,12 @@ private const val NUMBER_HINT_TOP_PADDING_DP = 1f
 private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 private const val GLIDE_TRAIL_POINTS = 48
+private const val HINT_FLICK_MAX_MS = 250L
 
 object LatinKeyboardView {
     const val PREF_HAPTIC = "kb_haptic"
     const val PREF_HAPTIC_STRENGTH = "kb_haptic_strength"
+    const val PREF_GLIDE = "kb_glide"
     const val DEFAULT_HAPTIC_PERCENT = 60
     const val DEFAULT_HAPTIC_STRENGTH = DEFAULT_HAPTIC_PERCENT / 100f
 }
@@ -156,6 +158,7 @@ class TouchState {
     val glideKeys = HashSet<Int>()
     var glidePathLength = 0f
     var glideStartHint: Char? = null
+    var glideDownTimeMs = 0L
 
     fun resetGlide() {
         glideCandidate = false
@@ -164,6 +167,7 @@ class TouchState {
         glideKeys.clear()
         glidePathLength = 0f
         glideStartHint = null
+        glideDownTimeMs = 0L
     }
 }
 
@@ -362,6 +366,7 @@ fun LatinKeyboard(
                                                 touchState.glidePath.add(GesturePoint(pos.x, pos.y))
                                                 touchState.glideKeys.add(p.key.code)
                                                 touchState.glideStartHint = hintFor(p.key)
+                                                touchState.glideDownTimeMs = change.uptimeMillis
                                             }
 
                                             if (touchState.shiftPointerId != null && !touchState.shiftUsedAsModifier) {
@@ -515,6 +520,8 @@ fun LatinKeyboard(
                                                 val isHintFlick = hint != null &&
                                                     netDy >= numberSwipeThreshold &&
                                                     netDy >= abs(netDx) &&
+                                                    abs(netDx) <= keyGeometry.keyWidth * 0.4f &&
+                                                    change.uptimeMillis - touchState.glideDownTimeMs <= HINT_FLICK_MAX_MS &&
                                                     touchState.glidePathLength <= keyGeometry.keyHeight * 1.8f &&
                                                     touchState.glideKeys.size <= 2
                                                 if (isHintFlick) {

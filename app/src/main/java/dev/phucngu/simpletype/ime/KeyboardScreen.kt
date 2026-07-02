@@ -76,6 +76,9 @@ fun KeyboardScreen(
     clipboardItems: List<ClipboardItem>,
     clipboardVisible: Boolean,
     listener: LatinKeyboardListener,
+    glideEnabled: Boolean = false,
+    suggestions: List<String> = emptyList(),
+    onSuggestionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
     onSetupClick: () -> Unit,
     onClipboardClick: () -> Unit,
@@ -165,6 +168,11 @@ fun KeyboardScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                } else if (suggestions.isNotEmpty()) {
+                    SuggestionStrip(
+                        suggestions = suggestions,
+                        onSuggestionClick = onSuggestionClick,
+                    )
                 }
             }
 
@@ -203,7 +211,8 @@ fun KeyboardScreen(
                 shifted = shifted,
                 capsLock = capsLock,
                 listener = listener,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                glideEnabled = glideEnabled,
             )
 
             if (clipboardVisible) {
@@ -215,6 +224,49 @@ fun KeyboardScreen(
                     onPin = onClipboardPin,
                     onDelete = onClipboardDelete,
                     modifier = Modifier.matchParentSize()
+                )
+            }
+        }
+    }
+}
+
+/** Gesture-typing candidates: best word first (bold), alternates separated by dividers. */
+@Composable
+private fun SuggestionStrip(
+    suggestions: List<String>,
+    onSuggestionClick: (String) -> Unit,
+) {
+    val textColor = colorResource(R.color.kb_key_text)
+    val dividerColor = colorResource(R.color.kb_key_hint)
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        suggestions.forEachIndexed { index, word ->
+            if (index > 0) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(20.dp)
+                        .background(dividerColor.copy(alpha = 0.4f))
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { onSuggestionClick(word) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = word,
+                    color = textColor,
+                    fontSize = 15.sp,
+                    fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
                 )
             }
         }
