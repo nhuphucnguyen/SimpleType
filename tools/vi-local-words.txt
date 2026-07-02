@@ -1,9 +1,11 @@
 # Local / dialect words to include in the Vietnamese glide dictionary.
 #
-# One word per line. Optionally add a zipf100 weight after whitespace:
+# One word per line, in one of three forms:
 #
 #   rứa           <- weight auto-derived: max(wordfreq value, 450)
-#   mệ 520        <- explicit weight (wins over auto)
+#   mệ 520        <- explicit zipf100 weight
+#   mệ = mẹ       <- weight copied from the standard word it corresponds to
+#                    (best choice: ranks the dialect word like its national twin)
 #
 # '#' starts a comment. Words are lowercased and NFC-normalized automatically;
 # the swipe key sequence (rứa -> rua) is derived automatically too.
@@ -16,7 +18,7 @@
 # a key path rank purely by this number and only the top 3 fit the suggestion
 # strip — see the note in generate_gesture_dictionary.py before raising values.
 
-rứa           # "vậy/thế" — #2 on the "rua" path
-dồ            # crowded "do" path (đó/độ/do/đồ...); needs ~630 to reach the strip
-mệ 520        # "bà" — #2 on the "me" path
-choa          # "chúng tôi"
+mệ = mẹ         # "bà/mẹ" (Central)
+rứa = vậy       # "vậy/thế" (Central)
+choa = tao      # "chúng tao" (Central)
+dồ             # crowded "do" path (đó/độ/do/đồ...); needs ~630 to reach the strip

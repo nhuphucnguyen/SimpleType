@@ -116,17 +116,19 @@ tuỳ	420	tuy
 competitors.
 
 **Dialect/local words** (e.g. Central Vietnamese rứa, mệ, choa): list them in
-`tools/vi-local-words.txt` — one word per line, frequency optional:
+`tools/vi-local-words.txt` — one word per line, weight optional:
 
 ```
 rứa           # weight auto-derived
 mệ 520        # explicit weight
+mệ = mẹ       # weight copied from the standard equivalent (preferred)
 ```
 
 Then run `python3 tools/generate_gesture_dictionary.py vi`. The script lowercases and
 NFC-normalizes each word, derives the swipe key sequence automatically (rứa → rua), and
-assigns missing weights as `max(wordfreq value, 450)` so dialect words unknown to the
-corpus still get "common in speech" rank. Entries override any wordfreq-generated entry
+picks weights: the `= equivalent` form ranks the dialect word exactly like its national
+twin; bare words get `max(wordfreq value, 450)` so dialect words unknown to the corpus
+still get "common in speech" rank. Entries override any wordfreq-generated entry
 for the same word and survive regeneration. Mind crowded paths: words sharing one key
 path rank purely by `zipf100` and only the top 3 fit the strip, so check where your word
 lands and raise its value just enough (see the note in the generator script).

@@ -105,7 +105,13 @@ def generate_english() -> None:
 
 
 def load_local_words() -> list[tuple[str, int]]:
-    """Parses tools/vi-local-words.txt: one word per line, optional zipf100 column."""
+    """Parses tools/vi-local-words.txt. Each non-comment line is one of:
+
+    word                -> weight auto-derived: max(wordfreq(word), default)
+    word zipf100        -> explicit weight
+    word = equivalent   -> weight copied from the standard word it corresponds to
+                           (e.g. "mệ = mẹ" ranks mệ like mẹ)
+    """
     words: list[tuple[str, int]] = []
     if not VI_LOCAL_WORDS_FILE.exists():
         return words
@@ -113,12 +119,30 @@ def load_local_words() -> list[tuple[str, int]]:
         line = raw.split("#", 1)[0].strip()
         if not line:
             continue
+
+        equivalent = None
+        if "=" in line:
+            head, tail = line.split("=", 1)
+            line = head.strip()
+            equivalent = unicodedata.normalize("NFC", tail.strip().lower())
+
         parts = line.split()
+        if not parts:
+            continue
         word = unicodedata.normalize("NFC", parts[0].lower())
         if not re.fullmatch(r"[a-z]+", fold_diacritics(word)):
             print(f"  skipping invalid local word: {parts[0]!r}")
             continue
-        if len(parts) > 1:
+
+        if equivalent is not None:
+            measured = round(zipf_frequency(equivalent, "vi") * 100)
+            if measured <= 0:
+                print(f"  {word!r}: equivalent {equivalent!r} unknown to wordfreq, "
+                      f"using default {DEFAULT_LOCAL_ZIPF100}")
+                zipf100 = DEFAULT_LOCAL_ZIPF100
+            else:
+                zipf100 = measured
+        elif len(parts) > 1:
             zipf100 = int(parts[1])
         else:
             measured = round(zipf_frequency(word, "vi") * 100)
