@@ -75,7 +75,7 @@
     <string name="size_dedicated_number_row">Dedicated number row</string>
     <string name="size_dedicated_number_row_desc">Add a permanent row of number keys above the QWERTY row.</string>
     <string name="glide_typing">Glide typing</string>
-    <string name="glide_typing_desc">Type words by sliding your finger across the letters (English only).</string>
+    <string name="glide_typing_desc">Type words by sliding your finger across the letters. In Vietnamese, swipe the base letters (nguoi) to get the accented word (người).</string>
     <string name="size_haptic">Haptic feedback</string>
     <string name="size_haptic_desc">Vibrate briefly on each key press.</string>
     <string name="size_haptic_strength">Vibration strength: %1$s</string>
