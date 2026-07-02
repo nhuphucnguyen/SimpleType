@@ -43,7 +43,20 @@ EN_BLOCKLIST = {
 
 VI_CANDIDATE_POOL = 100_000  # wordfreq 'vi' has ~10k usable syllables; take them all
 VI_MAX_KEYS_LENGTH = 12
-VI_EXTRA_WORDS: list[tuple[str, int]] = []
+# Local/dialect words to force-include, overriding wordfreq if already present.
+# zipf100 guide: ~500+ everyday, ~400 common-in-speech, ~250 niche.
+#
+# NOTE on short/crowded key paths: words sharing one path (me -> mẹ/mê/mè/mệ...) rank
+# purely by zipf100, and only the top 3 fit the suggestion strip. Check where your word
+# lands with the sim (or on-device) and raise its value just enough — every notch also
+# pushes a standard word down for that same swipe. Some paths aren't worth winning:
+# "do" has 7 entries above 600 (đó/độ/do/đồ/đô...), so "dồ" stays tap-typed unless you
+# deliberately give it ~630+.
+VI_EXTRA_WORDS: list[tuple[str, int]] = [
+    ("rứa", 450),   # Central dialect: "vậy/thế" — #2 on the "rua" path
+    ("dồ", 450),    # Central dialect — crowded "do" path, see note above
+    ("mệ", 520),    # Central dialect: "bà" — lands #2 on the "me" path
+]
 # Letters absent from the Vietnamese alphabet; folded keys containing them are
 # foreign loanwords/noise from the corpus.
 VI_FOREIGN_LETTERS = set("fjwz")
@@ -112,9 +125,9 @@ def generate_vietnamese() -> None:
 
     for word, zipf100 in VI_EXTRA_WORDS:
         word = unicodedata.normalize("NFC", word)
-        if word not in seen:
-            seen.add(word)
-            entries.append((word, zipf100, fold_diacritics(word)))
+        entries = [e for e in entries if e[0] != word]  # extras override wordfreq
+        seen.add(word)
+        entries.append((word, zipf100, fold_diacritics(word)))
 
     entries.sort(key=lambda e: -e[1])
 

@@ -115,6 +115,14 @@ tuỳ	420	tuy
 ~150 for niche terms. Overshooting inflates the word's ability to beat similar-path
 competitors.
 
+**Dialect/local words** (e.g. Central Vietnamese rứa, mệ): prefer `VI_EXTRA_WORDS` in
+the generator script over manual edits — extras override wordfreq entries and survive
+regeneration. Mind crowded paths: words sharing one key path rank purely by `zipf100`
+and only the top 3 fit the strip, so check where your word lands and raise its value
+just enough (see the note above `VI_EXTRA_WORDS`).
+`VietnameseGlideTest.local_dialect_words_from_extras_reach_the_suggestion_strip`
+pins the bundled extras so a regeneration can't silently drop them.
+
 **Regenerate from scratch** — run the generator (requires `pip install wordfreq`):
 
 ```

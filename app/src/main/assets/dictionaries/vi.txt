@@ -962,6 +962,7 @@ sứ	520	su
 sửa	520	sua
 điển	520	dien
 ương	520	uong
+mệ	520	me
 cường	519	cuong
 họa	519	hoa
 hủy	519	huy
@@ -2017,6 +2018,8 @@ tản	450	tan
 up	450	up
 xà	450	xa
 đới	450	doi
+rứa	450	rua
+dồ	450	do
 bích	449	bich
 chua	449	chua
 chục	449	chuc
