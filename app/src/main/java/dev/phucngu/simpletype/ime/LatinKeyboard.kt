@@ -31,6 +31,8 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.gesture.GesturePoint
+import dev.phucngu.simpletype.gesture.KeyGeometry
 import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 import dev.phucngu.simpletype.ime.keyboard.model.KeyStyle
@@ -47,6 +49,7 @@ private const val LONG_PRESS_MS = 300L
 private const val NUMBER_HINT_TOP_PADDING_DP = 1f
 private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
+private const val GLIDE_TRAIL_POINTS = 48
 
 object LatinKeyboardView {
     const val PREF_HAPTIC = "kb_haptic"
@@ -145,6 +148,23 @@ class TouchState {
     var shiftKey: Key? = null
     var shiftUsedAsModifier = false
     var activePointerId: PointerId? = null
+
+    // Glide (swipe-to-type) tracking
+    var glideCandidate = false
+    var glideActive by mutableStateOf(false)
+    val glidePath = ArrayList<GesturePoint>()
+    val glideKeys = HashSet<Int>()
+    var glidePathLength = 0f
+    var glideStartHint: Char? = null
+
+    fun resetGlide() {
+        glideCandidate = false
+        glideActive = false
+        glidePath.clear()
+        glideKeys.clear()
+        glidePathLength = 0f
+        glideStartHint = null
+    }
 }
 
 interface LatinKeyboardListener {
@@ -152,7 +172,11 @@ interface LatinKeyboardListener {
     fun onKeyRepeat(key: Key)
     fun onSpaceSwipe(direction: Int)
     fun onShiftHold(active: Boolean)
+    /** A completed swipe-to-type gesture over the letter keys. */
+    fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {}
 }
+
+private fun Key.isLetterKey(): Boolean = isPrintable && code in 'a'.code..'z'.code
 
 @Composable
 fun LatinKeyboard(
@@ -162,7 +186,8 @@ fun LatinKeyboard(
     shifted: Boolean,
     capsLock: Boolean,
     listener: LatinKeyboardListener,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    glideEnabled: Boolean = false,
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -246,6 +271,14 @@ fun LatinKeyboard(
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     val touchState = remember { TouchState() }
     var pressedPlacement by remember { mutableStateOf<Placement?>(null) }
+    var glideTrailTick by remember { mutableStateOf(0) }
+    val trailPaint = remember {
+        Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+        }
+    }
 
     val swipeThreshold = 28f * densityFloat
     val numberSwipeThreshold = 22f * densityFloat
@@ -261,6 +294,22 @@ fun LatinKeyboard(
             calculatePlacements(widthPx, keyboard, metrics, densityFloat, vPad)
         }
 
+        val keyGeometry = remember(placements) {
+            val letters = placements.filter { it.key.isLetterKey() }
+            if (letters.isEmpty()) {
+                KeyGeometry(emptyMap(), 0f, 0f)
+            } else {
+                KeyGeometry(
+                    letters.associate {
+                        it.key.code.toChar() to GesturePoint(it.rect.centerX(), it.rect.centerY())
+                    },
+                    letters.map { it.rect.width() }.average().toFloat(),
+                    letters.map { it.rect.height() }.average().toFloat(),
+                )
+            }
+        }
+        val glideActivationThreshold = keyGeometry.keyWidth * 0.75f
+
         fun hintFor(key: Key): Char? = when {
             metrics.numberHintsVisible -> key.numberHint
             metrics.showSymbolHints -> key.symbolHint
@@ -275,7 +324,7 @@ fun LatinKeyboard(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(keyboard, metrics, placements) {
+                .pointerInput(keyboard, metrics, placements, glideEnabled) {
                     try {
                         awaitPointerEventScope {
                             while (true) {
@@ -306,6 +355,14 @@ fun LatinKeyboard(
                                             touchState.swipeOffset = 0f
                                             touchState.numberSwipeFired = false
                                             touchState.longPressFired = false
+
+                                            touchState.resetGlide()
+                                            if (glideEnabled && p.key.isLetterKey() && !keyGeometry.isEmpty) {
+                                                touchState.glideCandidate = true
+                                                touchState.glidePath.add(GesturePoint(pos.x, pos.y))
+                                                touchState.glideKeys.add(p.key.code)
+                                                touchState.glideStartHint = hintFor(p.key)
+                                            }
 
                                             if (touchState.shiftPointerId != null && !touchState.shiftUsedAsModifier) {
                                                 touchState.shiftUsedAsModifier = true
@@ -348,8 +405,37 @@ fun LatinKeyboard(
                                         }
                                         activeChange.consume()
                                     } else {
+                                        if (touchState.glideCandidate) {
+                                            val point = GesturePoint(pos.x, pos.y)
+                                            val last = touchState.glidePath.lastOrNull()
+                                            val step = last?.distanceTo(point) ?: 0f
+                                            if (last == null || step > 0f) {
+                                                touchState.glidePath.add(point)
+                                                touchState.glidePathLength += step
+                                            }
+                                            placements.firstOrNull {
+                                                it.key.isLetterKey() && it.rect.contains(pos.x, pos.y)
+                                            }?.let { touchState.glideKeys.add(it.key.code) }
+
+                                            if (!touchState.glideActive &&
+                                                touchState.glideKeys.size >= 2 &&
+                                                touchState.glidePathLength >= glideActivationThreshold
+                                            ) {
+                                                touchState.glideActive = true
+                                                repeatJob?.cancel()
+                                                longPressJob?.cancel()
+                                                pressedPlacement = null
+                                            }
+                                            if (touchState.glideActive) {
+                                                glideTrailTick++
+                                                activeChange.consume()
+                                            }
+                                        }
+
                                         val hint = pressedPlacement?.key?.let { hintFor(it) }
-                                        if (hint != null && !touchState.numberSwipeFired && !touchState.swipeFired) {
+                                        if (!touchState.glideCandidate && hint != null &&
+                                            !touchState.numberSwipeFired && !touchState.swipeFired
+                                        ) {
                                             val dy = pos.y - touchState.swipeStartY
                                             if (dy >= numberSwipeThreshold && dy >= abs(pos.x - touchState.swipeStartX)) {
                                                 touchState.numberSwipeFired = true
@@ -361,7 +447,7 @@ fun LatinKeyboard(
                                             }
                                         }
 
-                                        if (!touchState.numberSwipeFired) {
+                                        if (!touchState.numberSwipeFired && !touchState.glideActive) {
                                             val p = placements.firstOrNull { it.rect.contains(pos.x, pos.y) }
                                             if (p != pressedPlacement) {
                                                 repeatJob?.cancel()
@@ -416,7 +502,33 @@ fun LatinKeyboard(
                                             touchState.swipeOffset = 0f
                                             val numberFired = touchState.numberSwipeFired
                                             touchState.numberSwipeFired = false
-                                            if (p != null && !p.key.repeatable && !touchState.swipeFired && !touchState.longPressFired && !numberFired) {
+
+                                            // Resolve a glide gesture: either a deferred
+                                            // vertical hint-flick or a swipe-typed word.
+                                            var glideHandled = false
+                                            if (touchState.glideCandidate && touchState.glidePath.size >= 2) {
+                                                val start = touchState.glidePath.first()
+                                                val endPoint = touchState.glidePath.last()
+                                                val netDy = endPoint.y - start.y
+                                                val netDx = endPoint.x - start.x
+                                                val hint = touchState.glideStartHint
+                                                val isHintFlick = hint != null &&
+                                                    netDy >= numberSwipeThreshold &&
+                                                    netDy >= abs(netDx) &&
+                                                    touchState.glidePathLength <= keyGeometry.keyHeight * 1.8f &&
+                                                    touchState.glideKeys.size <= 2
+                                                if (isHintFlick) {
+                                                    glideHandled = true
+                                                    hapticTap()
+                                                    listener.onKey(Key(hint!!.code, hint.toString()))
+                                                } else if (touchState.glideActive) {
+                                                    glideHandled = true
+                                                    listener.onGlideTyped(touchState.glidePath.toList(), keyGeometry)
+                                                }
+                                            }
+                                            touchState.resetGlide()
+
+                                            if (!glideHandled && p != null && !p.key.repeatable && !touchState.swipeFired && !touchState.longPressFired && !numberFired) {
                                                 listener.onKey(p.key)
                                             }
                                             change.consume()
@@ -433,6 +545,7 @@ fun LatinKeyboard(
                         touchState.downOnSpace = false
                         touchState.swipeOffset = 0f
                         touchState.numberSwipeFired = false
+                        touchState.resetGlide()
                         if (touchState.shiftPointerId != null) {
                             if (touchState.shiftUsedAsModifier) listener.onShiftHold(false)
                             touchState.shiftPointerId = null
@@ -573,6 +686,24 @@ fun LatinKeyboard(
                             hintPosition.y,
                             hintPaint,
                         )
+                    }
+                }
+
+                // Glide-typing trail: newest segments opaque, fading toward the tail.
+                if (touchState.glideActive && glideTrailTick >= 0) {
+                    val trail = touchState.glidePath
+                    if (trail.size >= 2) {
+                        val visible = trail.takeLast(GLIDE_TRAIL_POINTS)
+                        trailPaint.color = accentColor.toArgb()
+                        trailPaint.strokeWidth = keyGeometry.keyWidth * 0.14f
+                        for (i in 1 until visible.size) {
+                            trailPaint.alpha = (255f * i / visible.size).toInt().coerceIn(30, 255)
+                            canvas.nativeCanvas.drawLine(
+                                visible[i - 1].x, visible[i - 1].y,
+                                visible[i].x, visible[i].y,
+                                trailPaint,
+                            )
+                        }
                     }
                 }
             }
