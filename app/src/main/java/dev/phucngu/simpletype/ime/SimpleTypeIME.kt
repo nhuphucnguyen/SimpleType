@@ -35,6 +35,11 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.gesture.GestureCommit
+import dev.phucngu.simpletype.gesture.GestureDecoder
+import dev.phucngu.simpletype.gesture.GestureDictionary
+import dev.phucngu.simpletype.gesture.GesturePoint
+import dev.phucngu.simpletype.gesture.KeyGeometry
 import dev.phucngu.simpletype.ime.keyboard.layout.NumericKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.layout.SymbolKeyboardLayout
@@ -52,6 +57,11 @@ import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 open class SimpleTypeIME : InputMethodService(),
     LatinKeyboardListener,
@@ -81,6 +91,13 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeOptionsExpanded by mutableStateOf(false)
     private var composeClipboardItems by mutableStateOf<List<ClipboardItem>>(emptyList())
     private var composeClipboardVisible by mutableStateOf(false)
+    private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
+    private var composeGlideEnabled by mutableStateOf(false)
+
+    private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var glidePrefEnabled = true
+    private var gestureDecoder: GestureDecoder? = null
+    private var lastGlideWord: String? = null
 
     private lateinit var clipboardHistory: ClipboardHistoryManager
 
@@ -117,6 +134,16 @@ open class SimpleTypeIME : InputMethodService(),
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         super.onCreate()
+        imeScope.launch(Dispatchers.IO) {
+            try {
+                val dictionary = assets.open(GLIDE_DICTIONARY_ASSET).use {
+                    GestureDictionary.parse(it)
+                }
+                gestureDecoder = GestureDecoder(dictionary)
+            } catch (e: Exception) {
+                android.util.Log.w("SimpleTypeIME", "Failed to load gesture dictionary", e)
+            }
+        }
         clipboardHistory = ClipboardHistoryManager(this)
         val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
         cm.addPrimaryClipChangedListener {
@@ -167,6 +194,9 @@ open class SimpleTypeIME : InputMethodService(),
                     clipboardItems = composeClipboardItems,
                     clipboardVisible = composeClipboardVisible,
                     listener = this@SimpleTypeIME,
+                    glideEnabled = composeGlideEnabled,
+                    suggestions = composeSuggestions,
+                    onSuggestionClick = { onSuggestionSelected(it) },
                     onMicClick = { handleMic() },
                     onSetupClick = { openSettings() },
                     onClipboardClick = { showClipboard() },
@@ -236,6 +266,8 @@ open class SimpleTypeIME : InputMethodService(),
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
         language = VoiceLanguage.valueOf(langTag ?: VoiceLanguage.ENGLISH.name)
+        glidePrefEnabled = prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)
+        clearGlideSuggestions()
 
         applyKeyboardMetrics()
         chooseLayoutForField(info)
@@ -297,6 +329,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onDestroy() {
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        imeScope.cancel()
         store.clear()
         voice.release()
         engines.values.forEach { it.release() }
@@ -308,6 +341,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onKey(key: Key) {
         val ic = currentInputConnection ?: return
+        clearGlideSuggestions()
         when (key.code) {
             KeyCode.SHIFT -> cycleShift()
             KeyCode.DELETE -> handleDelete(ic)
@@ -327,10 +361,64 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onKeyRepeat(key: Key) {
         val ic = currentInputConnection ?: return
+        clearGlideSuggestions()
         if (key.code == KeyCode.DELETE) handleDelete(ic)
     }
 
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
+
+    // ---- Glide (swipe-to-type) ----
+
+    override fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {
+        val ic = currentInputConnection ?: return
+        val decoder = gestureDecoder ?: return
+        if (!composeGlideEnabled) return
+
+        val candidates = decoder.decode(path, geometry)
+        if (candidates.isEmpty()) return
+
+        finishComposing(ic)
+        val capitalize = shifted || capsLock
+        val before = ic.getTextBeforeCursor(1, 0)
+        val text = GestureCommit.textToCommit(candidates[0].word, before, capitalize)
+        ic.commitText(text, 1)
+
+        lastGlideWord = text.trimStart()
+        composeSuggestions = candidates.map { it.word }
+        consumeShift()
+        updateAutoCapitalize(currentInputEditorInfo)
+    }
+
+    /** Replaces the last glide-committed word with a tapped alternate suggestion. */
+    private fun onSuggestionSelected(word: String) {
+        val ic = currentInputConnection ?: return
+        val last = lastGlideWord ?: return
+        val styled = GestureCommit.matchCapitalization(last, word)
+        if (styled == last) return
+
+        val before = ic.getTextBeforeCursor(last.length, 0)?.toString() ?: return
+        if (!before.endsWith(last)) {
+            clearGlideSuggestions()
+            return
+        }
+        ic.beginBatchEdit()
+        ic.deleteSurroundingText(last.length, 0)
+        ic.commitText(styled, 1)
+        ic.endBatchEdit()
+        lastGlideWord = styled
+    }
+
+    private fun clearGlideSuggestions() {
+        composeSuggestions = emptyList()
+        lastGlideWord = null
+    }
+
+    private fun updateGlideEnabled() {
+        composeGlideEnabled = glidePrefEnabled &&
+            language == VoiceLanguage.ENGLISH &&
+            layout == KeyboardLayoutType.ALPHA &&
+            !passwordField && !directCommit
+    }
 
     override fun onShiftHold(active: Boolean) {
         shiftHeld = active
@@ -498,6 +586,7 @@ open class SimpleTypeIME : InputMethodService(),
         composeKeyboard = targetKeyboard
         composeSpaceLabel = languageLabel()
         syncShiftToView()
+        updateGlideEnabled()
     }
 
     private fun toggleLanguage() {
@@ -514,6 +603,8 @@ open class SimpleTypeIME : InputMethodService(),
             VoiceLanguage.ENGLISH
         }
         composeSpaceLabel = languageLabel()
+        clearGlideSuggestions()
+        updateGlideEnabled()
 
         getSharedPreferences("simpletype_prefs", MODE_PRIVATE).edit()
             .putString("language", language.name)
@@ -527,6 +618,8 @@ open class SimpleTypeIME : InputMethodService(),
             ?: @Suppress("DEPRECATION") newSubtype?.locale ?: ""
         language = if (tag.startsWith("vi")) VoiceLanguage.VIETNAMESE else VoiceLanguage.ENGLISH
         composeSpaceLabel = languageLabel()
+        clearGlideSuggestions()
+        updateGlideEnabled()
     }
 
     private fun languageLabel(): String = when (language) {
@@ -643,5 +736,6 @@ open class SimpleTypeIME : InputMethodService(),
 
     private companion object {
         const val WORD_DELETE_LOOKBEHIND = 64
+        const val GLIDE_DICTIONARY_ASSET = "dictionaries/en.txt"
     }
 }
