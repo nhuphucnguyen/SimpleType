@@ -132,6 +132,11 @@ class VietnameseGlideTest {
             "rua" to "rứa",
             "me" to "mệ",
             "choa" to "choa",
+            // Nghệ An words ranked like their standard equivalents:
+            "man" to "mần",
+            "no" to "nỏ",
+            "cho" to "chộ",
+            "han" to "hấn",
         )
         for ((keys, word) in expectations) {
             val words = decoder.decode(trace(keys), geometry).map { it.word }

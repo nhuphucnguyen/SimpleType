@@ -22,3 +22,34 @@ mệ = mẹ         # "bà/mẹ" (Central)
 rứa = vậy       # "vậy/thế" (Central)
 choa = tao      # "chúng tao" (Central)
 dồ             # crowded "do" path (đó/độ/do/đồ...); needs ~630 to reach the strip
+
+# --- Nghệ An dialect (from dulichhonmat.com "Học tiếng Nghệ An" guide) ---
+# Re-ranked to match their standard equivalents (corpus underrates dialect):
+tau = tao
+hấn = nó
+nỏ = không
+ni = này
+tê = kia
+răng = sao
+hỉ = nhé
+chơ = chứ
+mần = làm
+ngó = nhìn
+ăng = ăn
+rầy = ngại
+# Missing from the corpus entirely:
+nớ = đó
+dừ = giờ         # bây giờ
+chộ = thấy
+quày = rẽ
+ót = gáy
+cảy = sưng
+rèo = nài        # nài nỉ
+dằm = chỗ
+nậy = lớn
+tọng = nhét
+bựt = bật
+rọt = ruột
+hấy = nhé
+hầy = nhỉ
+eng = anh

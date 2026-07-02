@@ -6,10 +6,12 @@ của	710	cua
 một	700	mot
 các	699	cac
 không	695	khong
+nỏ	695	no
 trong	694	trong
 cho	690	cho
 người	684	nguoi
 này	682	nay
+ni	682	ni
 với	679	voi
 đã	676	da
 thể	673	the
@@ -19,6 +21,7 @@ những	663	nhung
 đến	663	den
 khi	661	khi
 làm	661	lam
+mần	661	man
 sẽ	660	se
 từ	660	tu
 ra	659	ra
@@ -28,6 +31,7 @@ tại	657	tai
 về	657	ve
 vào	655	vao
 đó	655	do
+nớ	655	no
 cũng	654	cung
 thành	653	thanh
 lại	652	lai
@@ -71,6 +75,7 @@ anh	634	anh
 con	634	con
 hơn	634	hon
 nước	634	nuoc
+eng	634	eng
 nhất	633	nhat
 sinh	633	sinh
 đây	633	day
@@ -84,6 +89,7 @@ hình	629	hinh
 phát	629	phat
 vì	629	vi
 nó	628	no
+hấn	628	han
 cần	627	can
 nhiều	627	nhieu
 tin	627	tin
@@ -124,6 +130,7 @@ tốt	618	tot
 cách	617	cach
 thấy	617	thay
 văn	617	van
+chộ	617	cho
 chủ	616	chu
 qua	616	qua
 thích	616	thich
@@ -150,11 +157,13 @@ tháng	610	thang
 trình	610	trinh
 ăn	610	an
 điểm	610	diem
+ăng	610	ang
 chức	609	chuc
 lớn	609	lon
 sống	609	song
 thông	609	thong
 thường	609	thuong
+nậy	609	nay
 bình	608	binh
 cuộc	608	cuoc
 nhận	608	nhan
@@ -227,6 +236,7 @@ thức	597	thuc
 tích	597	tich
 xem	597	xem
 xã	597	xa
+dừ	597	du
 hoa	596	hoa
 nguyên	596	nguyen
 phòng	596	phong
@@ -240,6 +250,7 @@ sao	594	sao
 sĩ	594	si
 tư	594	tu
 đạo	594	dao
+răng	594	rang
 bên	593	ben
 bố	593	bo
 hiệu	593	hieu
@@ -301,6 +312,7 @@ thanh	586	thanh
 tinh	586	tinh
 vừa	586	vua
 đưa	586	dua
+ngó	586	ngo
 biệt	585	biet
 chế	585	che
 khoảng	585	khoang
@@ -584,6 +596,8 @@ nhé	555	nhe
 nhớ	555	nho
 trai	555	trai
 đào	555	dao
+hỉ	555	hi
+hấy	555	hay
 chạy	554	chay
 dục	554	duc
 ghi	554	ghi
@@ -628,6 +642,7 @@ phản	550	phan
 vợ	550	vo
 xử	550	xu
 ủy	550	uy
+dằm	550	dam
 buổi	549	buoi
 cáo	549	cao
 cực	549	cuc
@@ -705,6 +720,7 @@ lộ	542	lo
 phi	542	phi
 thưởng	542	thuong
 thấp	542	thap
+tê	542	te
 bánh	541	banh
 huy	541	huy
 khởi	541	khoi
@@ -774,6 +790,7 @@ trắng	536	trang
 đen	536	den
 đốc	536	doc
 ổn	536	on
+chơ	536	cho
 hầu	535	hau
 mạch	535	mach
 sợ	535	so
@@ -1172,6 +1189,7 @@ ngô	503	ngo
 thẩm	503	tham
 vĩ	503	vi
 đáp	503	dap
+bựt	503	but
 cẩn	502	can
 cặp	502	cap
 dao	502	dao
@@ -1270,7 +1288,6 @@ góc	495	goc
 hiến	495	hien
 nhu	495	nhu
 phán	495	phan
-răng	495	rang
 tháp	495	thap
 top	495	top
 trú	495	tru
@@ -1491,6 +1508,7 @@ park	481	park
 say	481	say
 than	481	than
 tuấn	481	tuan
+rầy	481	ray
 chở	480	cho
 cãi	480	cai
 george	480	george
@@ -1627,6 +1645,7 @@ tủ	472	tu
 vây	472	vay
 đặng	472	dang
 choa	472	choa
+tau	472	tau
 chư	471	chu
 chả	471	cha
 dọn	471	don
@@ -1727,6 +1746,7 @@ ruột	466	ruot
 sưu	466	suu
 virus	466	virus
 đẻ	466	de
+rọt	466	rot
 all	465	all
 bốc	465	boc
 bội	465	boi
@@ -1955,6 +1975,7 @@ ray	453	ray
 rào	453	rao
 thô	453	tho
 trừng	453	trung
+hầy	453	hay
 bó	452	bo
 bóp	452	bop
 chén	452	chen
@@ -2043,10 +2064,8 @@ hắc	448	hac
 mỡ	448	mo
 ngoái	448	ngoai
 nh	448	nh
-ni	448	ni
 rộn	448	ron
 tào	448	tao
-tê	448	te
 vở	448	vo
 xí	448	xi
 xưng	448	xung
@@ -2131,6 +2150,7 @@ scott	444	scott
 that	444	that
 tơ	444	to
 điêu	444	dieu
+quày	444	quay
 apple	443	apple
 australia	443	australia
 cúp	443	cup
@@ -2971,7 +2991,6 @@ ian	407	ian
 lờ	407	lo
 milan	407	milan
 ngà	407	nga
-ngó	407	ngo
 nicholas	407	nicholas
 nđ	407	nd
 po	407	po
@@ -3098,6 +3117,7 @@ té	403	te
 tẩm	403	tam
 von	403	von
 vùi	403	vui
+tọng	403	tong
 amin	402	amin
 buồm	402	buom
 bả	402	ba
@@ -3277,6 +3297,7 @@ street	397	street
 sủa	397	sua
 thét	397	thet
 vóc	397	voc
+ót	397	ot
 bass	396	bass
 boris	396	boris
 bít	396	bit
@@ -3318,6 +3339,7 @@ tụt	396	tut
 tỵ	396	ty
 unesco	396	unesco
 vấp	396	vap
+cảy	396	cay
 au	395	au
 bbc	395	bbc
 bin	395	bin
@@ -3819,7 +3841,6 @@ part	382	part
 rap	382	rap
 ronaldo	382	ronaldo
 rùng	382	rung
-rầy	382	ray
 rẩy	382	ray
 sebastian	382	sebastian
 sexy	382	sexy
@@ -4300,7 +4321,6 @@ diệc	371	diec
 drake	371	drake
 hinh	371	hinh
 hú	371	hu
-hỉ	371	hi
 last	371	last
 magic	371	magic
 môt	371	mot
@@ -4545,7 +4565,6 @@ vồng	366	vong
 xix	366	xix
 year	366	year
 ói	366	oi
-ăng	366	ang
 ạt	366	at
 ap	365	ap
 apache	365	apache
@@ -4987,6 +5006,7 @@ url	357	url
 verde	357	verde
 xâu	357	xau
 yeon	357	yeon
+rèo	357	reo
 account	356	account
 barca	356	barca
 board	356	board
@@ -5173,7 +5193,6 @@ gel	353	gel
 gồ	353	go
 holdings	353	holdings
 háng	353	hang
-hấn	353	han
 kenny	353	kenny
 koi	353	koi
 lcd	353	lcd
@@ -6097,7 +6116,6 @@ motorola	338	motorola
 mourinho	338	mourinho
 negan	338	negan
 ngợp	338	ngop
-nỏ	338	no
 oleg	338	oleg
 olsen	338	olsen
 olympus	338	olympus
@@ -6538,7 +6556,6 @@ medical	332	medical
 megan	332	megan
 mussolini	332	mussolini
 mích	332	mich
-mần	332	man
 nhão	332	nhao
 nhìu	332	nhiu
 nhựt	332	nhut
@@ -6876,7 +6893,6 @@ silk	328	silk
 steam	328	steam
 sọt	328	sot
 sởi	328	soi
-tau	328	tau
 tools	328	tools
 trinity	328	trinity
 trườn	328	truon
@@ -8943,7 +8959,6 @@ cheese	304	cheese
 cheyenne	304	cheyenne
 chinook	304	chinook
 choạng	304	choang
-chơ	304	cho
 cod	304	cod
 cologne	304	cologne
 combo	304	combo
