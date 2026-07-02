@@ -2020,6 +2020,7 @@ xà	450	xa
 đới	450	doi
 rứa	450	rua
 dồ	450	do
+choa	450	choa
 bích	449	bich
 chua	449	chua
 chục	449	chuc

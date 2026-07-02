@@ -43,8 +43,10 @@ EN_BLOCKLIST = {
 
 VI_CANDIDATE_POOL = 100_000  # wordfreq 'vi' has ~10k usable syllables; take them all
 VI_MAX_KEYS_LENGTH = 12
-# Local/dialect words to force-include, overriding wordfreq if already present.
-# zipf100 guide: ~500+ everyday, ~400 common-in-speech, ~250 niche.
+# Local/dialect words: maintained in tools/vi-local-words.txt (one word per line,
+# optional zipf100 second column — see that file's header). Loaded automatically and
+# merged as overrides. VI_EXTRA_WORDS below is a programmatic escape hatch for the
+# same thing; the txt file is the recommended place.
 #
 # NOTE on short/crowded key paths: words sharing one path (me -> mẹ/mê/mè/mệ...) rank
 # purely by zipf100, and only the top 3 fit the suggestion strip. Check where your word
@@ -52,11 +54,11 @@ VI_MAX_KEYS_LENGTH = 12
 # pushes a standard word down for that same swipe. Some paths aren't worth winning:
 # "do" has 7 entries above 600 (đó/độ/do/đồ/đô...), so "dồ" stays tap-typed unless you
 # deliberately give it ~630+.
-VI_EXTRA_WORDS: list[tuple[str, int]] = [
-    ("rứa", 450),   # Central dialect: "vậy/thế" — #2 on the "rua" path
-    ("dồ", 450),    # Central dialect — crowded "do" path, see note above
-    ("mệ", 520),    # Central dialect: "bà" — lands #2 on the "me" path
-]
+VI_EXTRA_WORDS: list[tuple[str, int]] = []
+VI_LOCAL_WORDS_FILE = Path(__file__).resolve().parent / "vi-local-words.txt"
+# Words in the local file without an explicit zipf100 get at least this weight
+# ("common in speech"), or their measured wordfreq value if that is higher.
+DEFAULT_LOCAL_ZIPF100 = 450
 # Letters absent from the Vietnamese alphabet; folded keys containing them are
 # foreign loanwords/noise from the corpus.
 VI_FOREIGN_LETTERS = set("fjwz")
@@ -102,6 +104,29 @@ def generate_english() -> None:
     print(f"Wrote {len(entries)} entries to {out}")
 
 
+def load_local_words() -> list[tuple[str, int]]:
+    """Parses tools/vi-local-words.txt: one word per line, optional zipf100 column."""
+    words: list[tuple[str, int]] = []
+    if not VI_LOCAL_WORDS_FILE.exists():
+        return words
+    for raw in VI_LOCAL_WORDS_FILE.read_text(encoding="utf-8").splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        word = unicodedata.normalize("NFC", parts[0].lower())
+        if not re.fullmatch(r"[a-z]+", fold_diacritics(word)):
+            print(f"  skipping invalid local word: {parts[0]!r}")
+            continue
+        if len(parts) > 1:
+            zipf100 = int(parts[1])
+        else:
+            measured = round(zipf_frequency(word, "vi") * 100)
+            zipf100 = max(measured, DEFAULT_LOCAL_ZIPF100)
+        words.append((word, zipf100))
+    return words
+
+
 def generate_vietnamese() -> None:
     entries: list[tuple[str, int, str]] = []
     seen: set[str] = set()
@@ -123,7 +148,7 @@ def generate_vietnamese() -> None:
         seen.add(word)
         entries.append((word, round(zipf * 100), keys))
 
-    for word, zipf100 in VI_EXTRA_WORDS:
+    for word, zipf100 in VI_EXTRA_WORDS + load_local_words():
         word = unicodedata.normalize("NFC", word)
         entries = [e for e in entries if e[0] != word]  # extras override wordfreq
         seen.add(word)

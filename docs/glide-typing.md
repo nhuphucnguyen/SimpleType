@@ -115,13 +115,23 @@ tuỳ	420	tuy
 ~150 for niche terms. Overshooting inflates the word's ability to beat similar-path
 competitors.
 
-**Dialect/local words** (e.g. Central Vietnamese rứa, mệ): prefer `VI_EXTRA_WORDS` in
-the generator script over manual edits — extras override wordfreq entries and survive
-regeneration. Mind crowded paths: words sharing one key path rank purely by `zipf100`
-and only the top 3 fit the strip, so check where your word lands and raise its value
-just enough (see the note above `VI_EXTRA_WORDS`).
+**Dialect/local words** (e.g. Central Vietnamese rứa, mệ, choa): list them in
+`tools/vi-local-words.txt` — one word per line, frequency optional:
+
+```
+rứa           # weight auto-derived
+mệ 520        # explicit weight
+```
+
+Then run `python3 tools/generate_gesture_dictionary.py vi`. The script lowercases and
+NFC-normalizes each word, derives the swipe key sequence automatically (rứa → rua), and
+assigns missing weights as `max(wordfreq value, 450)` so dialect words unknown to the
+corpus still get "common in speech" rank. Entries override any wordfreq-generated entry
+for the same word and survive regeneration. Mind crowded paths: words sharing one key
+path rank purely by `zipf100` and only the top 3 fit the strip, so check where your word
+lands and raise its value just enough (see the note in the generator script).
 `VietnameseGlideTest.local_dialect_words_from_extras_reach_the_suggestion_strip`
-pins the bundled extras so a regeneration can't silently drop them.
+pins the bundled local words so a regeneration can't silently drop them.
 
 **Regenerate from scratch** — run the generator (requires `pip install wordfreq`):
 

@@ -126,11 +126,12 @@ class VietnameseGlideTest {
         val dict = file.inputStream().use { GestureDictionary.parse(it) }
         val decoder = GestureDecoder(dict)
 
-        // Force-included via VI_EXTRA_WORDS in tools/generate_gesture_dictionary.py.
+        // Force-included via tools/vi-local-words.txt (read by the generator script).
         // ("dồ" is intentionally absent: its "do" path is owned by đó/độ/do/đồ/đô.)
         val expectations = mapOf(
             "rua" to "rứa",
             "me" to "mệ",
+            "choa" to "choa",
         )
         for ((keys, word) in expectations) {
             val words = decoder.decode(trace(keys), geometry).map { it.word }
