@@ -96,7 +96,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var glidePrefEnabled = true
-    private var gestureDecoder: GestureDecoder? = null
+    private val gestureDecoders = mutableMapOf<VoiceLanguage, GestureDecoder>()
     private var lastGlideWord: String? = null
 
     private lateinit var clipboardHistory: ClipboardHistoryManager
@@ -135,13 +135,13 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         super.onCreate()
         imeScope.launch(Dispatchers.IO) {
-            try {
-                val dictionary = assets.open(GLIDE_DICTIONARY_ASSET).use {
-                    GestureDictionary.parse(it)
+            for ((lang, asset) in GLIDE_DICTIONARY_ASSETS) {
+                try {
+                    val dictionary = assets.open(asset).use { GestureDictionary.parse(it) }
+                    gestureDecoders[lang] = GestureDecoder(dictionary)
+                } catch (e: Exception) {
+                    android.util.Log.w("SimpleTypeIME", "Failed to load gesture dictionary $asset", e)
                 }
-                gestureDecoder = GestureDecoder(dictionary)
-            } catch (e: Exception) {
-                android.util.Log.w("SimpleTypeIME", "Failed to load gesture dictionary", e)
             }
         }
         clipboardHistory = ClipboardHistoryManager(this)
@@ -371,7 +371,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {
         val ic = currentInputConnection ?: return
-        val decoder = gestureDecoder ?: return
+        val decoder = gestureDecoders[language] ?: return
         if (!composeGlideEnabled) return
 
         val candidates = decoder.decode(path, geometry)
@@ -396,6 +396,13 @@ open class SimpleTypeIME : InputMethodService(),
         val styled = GestureCommit.matchCapitalization(last, word)
         if (styled == last) return
 
+        // In Vietnamese, onUpdateSelection may have picked the committed word back up as
+        // a Telex composing region; release it before editing the surrounding text.
+        if (!telex.isEmpty) {
+            telex.reset()
+            ic.finishComposingText()
+        }
+
         val before = ic.getTextBeforeCursor(last.length, 0)?.toString() ?: return
         if (!before.endsWith(last)) {
             clearGlideSuggestions()
@@ -415,7 +422,6 @@ open class SimpleTypeIME : InputMethodService(),
 
     private fun updateGlideEnabled() {
         composeGlideEnabled = glidePrefEnabled &&
-            language == VoiceLanguage.ENGLISH &&
             layout == KeyboardLayoutType.ALPHA &&
             !passwordField && !directCommit
     }
@@ -736,6 +742,9 @@ open class SimpleTypeIME : InputMethodService(),
 
     private companion object {
         const val WORD_DELETE_LOOKBEHIND = 64
-        const val GLIDE_DICTIONARY_ASSET = "dictionaries/en.txt"
+        val GLIDE_DICTIONARY_ASSETS = mapOf(
+            VoiceLanguage.ENGLISH to "dictionaries/en.txt",
+            VoiceLanguage.VIETNAMESE to "dictionaries/vi.txt",
+        )
     }
 }

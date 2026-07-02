@@ -4,7 +4,8 @@ package dev.phucngu.simpletype.gesture
  * SHARK²-style gesture-typing decoder.
  *
  * A swiped path is matched against the "ideal" path of each candidate word (the polyline
- * through its letters' key centers) using two channels:
+ * through the key centers of its key sequence — for diacritic languages this is the
+ * folded base-letter form, see [GestureDictionary.Entry.keys]) using two channels:
  *  - location: mean point-to-point distance in key-width units, with extra weight on the
  *    endpoints (users are most precise at the start and end of a swipe);
  *  - shape: mean distance after both paths are translated to their centroid and scaled to
@@ -38,11 +39,11 @@ class GestureDecoder(private val dictionary: GestureDictionary) {
         val results = ArrayList<Candidate>()
         for (first in startLetters) {
             for (entry in dictionary.wordsStartingWith(first)) {
-                val word = entry.word
-                if (word.length < 2) continue
-                if (word[word.length - 1] !in endLetters) continue
+                val keys = entry.keys
+                if (keys.length < 2) continue
+                if (keys[keys.length - 1] !in endLetters) continue
 
-                val ideal = idealPath(word, geometry) ?: continue
+                val ideal = idealPath(keys, geometry) ?: continue
                 val idealLength = pathLength(ideal)
                 if (idealLength < gestureLength * MIN_LENGTH_RATIO ||
                     idealLength > gestureLength * MAX_LENGTH_RATIO
@@ -56,7 +57,7 @@ class GestureDecoder(private val dictionary: GestureDictionary) {
                 val score = location * LOCATION_WEIGHT +
                     shape * SHAPE_WEIGHT -
                     entry.zipf100 / 100f * FREQUENCY_WEIGHT
-                results.add(Candidate(word, score))
+                results.add(Candidate(entry.word, score))
             }
         }
 
@@ -64,11 +65,11 @@ class GestureDecoder(private val dictionary: GestureDictionary) {
         return results.take(maxResults)
     }
 
-    /** Key centers for the word's letters with consecutive duplicates collapsed. */
-    private fun idealPath(word: String, geometry: KeyGeometry): List<GesturePoint>? {
-        val points = ArrayList<GesturePoint>(word.length)
+    /** Key centers for the key sequence's letters with consecutive duplicates collapsed. */
+    private fun idealPath(keys: String, geometry: KeyGeometry): List<GesturePoint>? {
+        val points = ArrayList<GesturePoint>(keys.length)
         var previous: Char = 0.toChar()
-        for (c in word) {
+        for (c in keys) {
             if (c == previous) continue
             points.add(geometry.centerOf(c) ?: return null)
             previous = c

@@ -41,23 +41,38 @@ Measured on simulated traces over the bundled dictionary: ~97% top-1 on clean tr
 
 ## Dictionary
 
-### On-disk format (the asset)
+### On-disk format (the assets)
 
-`app/src/main/assets/dictionaries/en.txt` — plain UTF-8 text, one entry per line:
+`app/src/main/assets/dictionaries/{en,vi}.txt` — plain UTF-8 text, one entry per line,
+2 or 3 tab-separated columns:
 
 ```
-word<TAB>zipf100
+word<TAB>zipf100[<TAB>keys]
 ```
 
-- `word`: lowercase `a–z` only (no diacritics, apostrophes, or digits).
+- `word`: the text committed to the editor. English: lowercase `a–z`. Vietnamese: the
+  full diacritic form, NFC-normalized (e.g. `người`).
 - `zipf100`: the word's [Zipf frequency](https://en.wikipedia.org/wiki/Zipf%27s_law)
   multiplied by 100, as an integer. Range in practice: ~100 (very rare) to ~770 ("the").
-- Line order does **not** matter; entries are bucketed at load time.
+- `keys` (optional): the lowercase `a–z` qwerty keys the user actually swipes. Defaults
+  to `word` when omitted (English). Vietnamese entries carry the diacritic-folded form
+  (`người` → `nguoi`): users swipe base letters, the decoder returns the accented word.
+- Line order does **not** matter; entries are bucketed at load time by `keys[0]`.
 - Malformed lines are skipped silently by the parser.
 
-The bundled file holds the ~30,000 most frequent English words (generated from the
-[`wordfreq`](https://pypi.org/project/wordfreq/) dataset, profanity filtered), ~360 KB raw
-and considerably smaller once compressed inside the APK.
+Bundled files (both generated from the
+[`wordfreq`](https://pypi.org/project/wordfreq/) dataset):
+
+- `en.txt` — ~30,000 most frequent English words, profanity filtered, ~360 KB raw.
+- `vi.txt` — ~9,300 Vietnamese syllables (all usable `wordfreq` entries after filtering
+  out foreign tokens containing f/j/w/z), ~145 KB raw. Diacritic folding is
+  NFD-decompose → strip combining marks → `đ`→`d`.
+
+Because many Vietnamese syllables share one key path (`viet` → việt/viết), Vietnamese
+top-1 accuracy is inherently lower (~87% on simulated traces vs ~97% for English), but
+top-3 is ~99.5% — the intended variant is almost always in the suggestion strip. If this
+matters more later, the fix is a previous-word bigram context model, not a bigger
+dictionary.
 
 ### In-memory representation
 
@@ -88,25 +103,29 @@ The internal representation is built **at runtime**, not shipped as a binary:
 
 ## Adding or changing words
 
-**Quick manual edit** — append lines to `en.txt` in any order:
+**Quick manual edit** — append lines to the asset in any order:
 
 ```
 myword	350
+tuỳ	420	tuy
 ```
 
-Pick `zipf100` relative to neighbors: ~500+ for everyday words, ~300 for ordinary
-vocabulary, ~150 for niche terms. Overshooting inflates the word's ability to beat
-similar-path competitors.
+(English can omit the third column; Vietnamese must include the folded keys.) Pick
+`zipf100` relative to neighbors: ~500+ for everyday words, ~300 for ordinary vocabulary,
+~150 for niche terms. Overshooting inflates the word's ability to beat similar-path
+competitors.
 
 **Regenerate from scratch** — run the generator (requires `pip install wordfreq`):
 
 ```
-python3 tools/generate_gesture_dictionary.py
+python3 tools/generate_gesture_dictionary.py        # both languages
+python3 tools/generate_gesture_dictionary.py vi     # one language
 ```
 
-Word count, extra words, and the profanity blocklist are configured at the top of that
-script. After regenerating, run `./gradlew test` — `GestureDecoderTest` includes an
-integration test that decodes common words against the real asset.
+Word counts, extra words (`EN_EXTRA_WORDS` / `VI_EXTRA_WORDS`), and the profanity
+blocklist are configured at the top of that script. After regenerating, run
+`./gradlew test` — `GestureDecoderTest` and `VietnameseGlideTest` include integration
+tests that decode common words against the real assets.
 
 **Future: user dictionary.** The clean seam is `GestureDictionary.parse(InputStream)`:
 load a second, user-writable file (e.g. from internal storage) and merge its buckets, or
@@ -115,9 +134,12 @@ or corrects. Nothing in the decoder assumes a single source.
 
 ## Behavior notes
 
-- Glide is active only for **English + QWERTY layout**, and disabled for password and
-  direct-commit (`TYPE_NULL`) fields. Vietnamese/Telex input is untouched (Vietnamese
-  glide would need diacritic-aware decoding — see product backlog).
+- Glide is active for **English and Vietnamese on the QWERTY layout**, and disabled for
+  password and direct-commit (`TYPE_NULL`) fields.
+- **Vietnamese**: swipe the base letters (Gboard-style) — `n-g-u-o-i` commits `người`.
+  Telex modifier keys are *not* part of the swipe. Tap-typing with Telex is unchanged;
+  a glide first finishes any in-progress Telex composition, and tapping an alternate
+  suggestion releases the Telex context pickup before replacing the word.
 - The swipe-down-for-number/symbol hint still works with glide enabled, but is resolved
   on finger-up: a fast (<250 ms), short, mostly-vertical flick fires the hint; anything
   longer or wider is decoded as a word.
