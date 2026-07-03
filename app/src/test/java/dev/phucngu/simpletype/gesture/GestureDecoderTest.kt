@@ -130,12 +130,12 @@ class GestureDecoderTest {
         assertEquals(listOf("was"), words)
     }
 
-    @Test fun returns_at_most_three_candidates() {
+    @Test fun returns_at_most_max_results_candidates() {
         val dict = dictionary(
             "was" to 650, "war" to 550, "ware" to 400, "wad" to 300, "wax" to 350,
         )
         val decoder = GestureDecoder(dict)
-        assertTrue(decoder.decode(trace("was"), geometry).size <= 3)
+        assertTrue(decoder.decode(trace("was"), geometry).size <= GestureDecoder.MAX_RESULTS)
     }
 
     // ---- Integration with the bundled dictionary ----

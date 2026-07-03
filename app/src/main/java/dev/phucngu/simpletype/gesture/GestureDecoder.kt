@@ -98,7 +98,7 @@ class GestureDecoder(private val dictionary: GestureDictionary) {
     }
 
     companion object {
-        const val MAX_RESULTS = 3
+        const val MAX_RESULTS = 10
         private const val SAMPLE_POINTS = 32
         private const val ANCHOR_RADIUS_KEY_WIDTHS = 1.6f
         private const val MIN_GESTURE_LENGTH_KEY_WIDTHS = 0.8f
