@@ -8,7 +8,9 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -238,8 +240,12 @@ private fun SuggestionStrip(
 ) {
     val textColor = colorResource(R.color.kb_key_text)
     val dividerColor = colorResource(R.color.kb_key_hint)
+    // Horizontally scrollable so all candidates (up to MAX_RESULTS) are reachable
+    // by swiping right, even when they overflow the strip width.
     Row(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .horizontalScroll(rememberScrollState()),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         suggestions.forEachIndexed { index, word ->
@@ -253,10 +259,10 @@ private fun SuggestionStrip(
             }
             Box(
                 modifier = Modifier
-                    .weight(1f)
                     .fillMaxHeight()
                     .clip(RoundedCornerShape(10.dp))
-                    .clickable { onSuggestionClick(word) },
+                    .clickable { onSuggestionClick(word) }
+                    .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
