@@ -232,44 +232,42 @@ fun KeyboardScreen(
     }
 }
 
-/** Gesture-typing candidates: best word first (bold), alternates separated by dividers. */
+/** Gesture-typing candidates: best word first (highlighted chip), alternates as plain chips. */
 @Composable
 private fun SuggestionStrip(
     suggestions: List<String>,
     onSuggestionClick: (String) -> Unit,
 ) {
     val textColor = colorResource(R.color.kb_key_text)
-    val dividerColor = colorResource(R.color.kb_key_hint)
+    val topBg = colorResource(R.color.kb_primary_container)
+    val topTextColor = colorResource(R.color.kb_on_primary_container)
     // Horizontally scrollable so all candidates (up to MAX_RESULTS) are reachable
     // by swiping right, even when they overflow the strip width.
     Row(
         modifier = Modifier
             .fillMaxSize()
-            .horizontalScroll(rememberScrollState()),
+            .horizontalScroll(rememberScrollState())
+            .padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         suggestions.forEachIndexed { index, word ->
-            if (index > 0) {
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(20.dp)
-                        .background(dividerColor.copy(alpha = 0.4f))
-                )
-            }
+            val isTop = index == 0
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .clip(RoundedCornerShape(10.dp))
+                    .defaultMinSize(minWidth = 48.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isTop) topBg else Color.Transparent)
                     .clickable { onSuggestionClick(word) }
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = word,
-                    color = textColor,
-                    fontSize = 15.sp,
-                    fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (isTop) topTextColor else textColor,
+                    fontSize = if (isTop) 19.sp else 17.sp,
+                    fontWeight = if (isTop) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
