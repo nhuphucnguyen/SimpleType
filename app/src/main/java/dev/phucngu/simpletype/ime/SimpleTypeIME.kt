@@ -59,8 +59,10 @@ import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.VoskAsrEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 open class SimpleTypeIME : InputMethodService(),
@@ -95,6 +97,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeGlideEnabled by mutableStateOf(false)
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var selectionSyncJob: Job? = null
     private var glidePrefEnabled = true
     private val gestureDecoders = mutableMapOf<VoiceLanguage, GestureDecoder>()
     private var lastGlideWord: String? = null
@@ -240,6 +243,7 @@ open class SimpleTypeIME : InputMethodService(),
         super.onStartInputView(info, restarting)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        selectionSyncJob?.cancel()
         telex.reset()
         commandHandler.clearHistory()
         layout = KeyboardLayoutType.ALPHA
@@ -279,6 +283,7 @@ open class SimpleTypeIME : InputMethodService(),
         super.onFinishInputView(finishingInput)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
+        selectionSyncJob?.cancel()
         if (voice.isListening) voice.stop()
         telex.reset()
     }
@@ -294,13 +299,21 @@ open class SimpleTypeIME : InputMethodService(),
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
-        val ic = currentInputConnection ?: return
         val cursorAtComposingEnd =
             newSelStart == newSelEnd && candidatesEnd >= 0 && newSelEnd == candidatesEnd
+        if (cursorAtComposingEnd) return
 
-        if (!cursorAtComposingEnd) {
-            val wasComposing = !telex.isEmpty
-            if (wasComposing) {
+        // Every commit echoes back a burst of selection updates (our own
+        // finishComposingText/setComposingRegion writes each trigger another one), and
+        // the re-sync below performs blocking InputConnection reads plus writes that
+        // extend the burst. Handling each update synchronously starves touch events,
+        // which turns the next glide gesture into a sparse, mis-decoded path. Debounce
+        // so a burst collapses into a single re-sync once the updates settle.
+        selectionSyncJob?.cancel()
+        selectionSyncJob = imeScope.launch {
+            delay(SELECTION_SYNC_DEBOUNCE_MS)
+            val ic = currentInputConnection ?: return@launch
+            if (!telex.isEmpty) {
                 ic.finishComposingText()
                 telex.reset()
             }
@@ -742,6 +755,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     private companion object {
         const val WORD_DELETE_LOOKBEHIND = 64
+        const val SELECTION_SYNC_DEBOUNCE_MS = 75L
         val GLIDE_DICTIONARY_ASSETS = mapOf(
             VoiceLanguage.ENGLISH to "dictionaries/en.txt",
             VoiceLanguage.VIETNAMESE to "dictionaries/vi.txt",

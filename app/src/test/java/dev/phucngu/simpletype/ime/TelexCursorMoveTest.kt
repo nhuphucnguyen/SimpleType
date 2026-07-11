@@ -60,6 +60,9 @@ class TelexCursorMoveTest {
 
         // User taps to move the cursor to position 5; composing region is still [0,1].
         ime.onUpdateSelection(1, 1, 5, 5, 0, 1)
+        // The selection re-sync is debounced; advance past the window.
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(200, java.util.concurrent.TimeUnit.MILLISECONDS)
 
         assertTrue("composing must be finished after cursor move", telexEmpty(ime))
         assertTrue("should call finishComposingText", ic.events.contains("finish"))
@@ -73,6 +76,9 @@ class TelexCursorMoveTest {
         ime.onKey(Key('a'.code, "a"))
         // The selection update caused by our own setComposingText: cursor sits at composing end.
         ime.onUpdateSelection(0, 0, 1, 1, 0, 1)
+        // Even after the debounce window, our own update must not reset composing.
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(200, java.util.concurrent.TimeUnit.MILLISECONDS)
 
         assertFalse("engine should still be composing", telexEmpty(ime))
     }
