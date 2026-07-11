@@ -67,11 +67,23 @@ class GestureDecoderTest {
         assertTrue(sampled.last().distanceTo(path.last()) < 1f)
     }
 
-    @Test fun resample_points_are_equidistant() {
-        val sampled = resample(trace("word"), 32)
+    @Test fun resample_points_are_equidistant_along_a_straight_path() {
+        // Resampling is arc-length based, so chord equidistance only holds when the
+        // path never turns; a corner shortens the chord straddling it.
+        val sampled = resample(trace("qp"), 32)
         val distances = (1 until sampled.size).map { sampled[it].distanceTo(sampled[it - 1]) }
-        val expected = pathLength(trace("word")) / 31
-        distances.forEach { assertEquals(expected, it, expected * 0.05f) }
+        val expected = pathLength(trace("qp")) / 31
+        distances.forEach { assertEquals(expected, it, expected * 0.01f) }
+    }
+
+    @Test fun resample_chords_never_exceed_the_interval() {
+        // "word" reverses direction at 'o'; the chord across that corner shrinks
+        // but no chord can ever be longer than the arc-length interval.
+        val sampled = resample(trace("word"), 32)
+        val interval = pathLength(trace("word")) / 31
+        (1 until sampled.size).forEach {
+            assertTrue(sampled[it].distanceTo(sampled[it - 1]) <= interval * 1.01f)
+        }
     }
 
     // ---- Dictionary ----
