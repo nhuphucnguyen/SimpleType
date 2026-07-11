@@ -33,6 +33,7 @@ import androidx.core.content.ContextCompat
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.gesture.GesturePoint
 import dev.phucngu.simpletype.gesture.KeyGeometry
+import dev.phucngu.simpletype.gesture.isVerticalFlick
 import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 import dev.phucngu.simpletype.ime.keyboard.model.KeyStyle
@@ -50,7 +51,6 @@ private const val NUMBER_HINT_TOP_PADDING_DP = 1f
 private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 private const val GLIDE_TRAIL_POINTS = 48
-private const val HINT_FLICK_MAX_MS = 250L
 
 object LatinKeyboardView {
     const val PREF_HAPTIC = "kb_haptic"
@@ -158,7 +158,8 @@ class TouchState {
     val glideKeys = HashSet<Int>()
     var glidePathLength = 0f
     var glideStartHint: Char? = null
-    var glideDownTimeMs = 0L
+    var glideLeftCorridor = false
+    var glideFlickPrimed = false
 
     fun resetGlide() {
         glideCandidate = false
@@ -167,7 +168,8 @@ class TouchState {
         glideKeys.clear()
         glidePathLength = 0f
         glideStartHint = null
-        glideDownTimeMs = 0L
+        glideLeftCorridor = false
+        glideFlickPrimed = false
     }
 }
 
@@ -366,7 +368,6 @@ fun LatinKeyboard(
                                                 touchState.glidePath.add(GesturePoint(pos.x, pos.y))
                                                 touchState.glideKeys.add(p.key.code)
                                                 touchState.glideStartHint = hintFor(p.key)
-                                                touchState.glideDownTimeMs = change.uptimeMillis
                                             }
 
                                             if (touchState.shiftPointerId != null && !touchState.shiftUsedAsModifier) {
@@ -422,7 +423,24 @@ fun LatinKeyboard(
                                                 it.key.isLetterKey() && it.rect.contains(pos.x, pos.y)
                                             }?.let { touchState.glideKeys.add(it.key.code) }
 
+                                            val glideStart = touchState.glidePath.first()
+                                            if (abs(point.x - glideStart.x) > keyGeometry.keyWidth * 0.4f) {
+                                                touchState.glideLeftCorridor = true
+                                            }
+                                            // A downward pull that stays inside the corridor is
+                                            // heading for a hint flick: stop long-press/repeat so
+                                            // the flick can't double-fire on release.
+                                            if (!touchState.glideFlickPrimed && !touchState.glideLeftCorridor &&
+                                                touchState.glideStartHint != null &&
+                                                point.y - glideStart.y >= numberSwipeThreshold
+                                            ) {
+                                                touchState.glideFlickPrimed = true
+                                                repeatJob?.cancel()
+                                                longPressJob?.cancel()
+                                            }
+
                                             if (!touchState.glideActive &&
+                                                touchState.glideLeftCorridor &&
                                                 touchState.glideKeys.size >= 2 &&
                                                 touchState.glidePathLength >= glideActivationThreshold
                                             ) {
@@ -512,18 +530,14 @@ fun LatinKeyboard(
                                             // vertical hint-flick or a swipe-typed word.
                                             var glideHandled = false
                                             if (touchState.glideCandidate && touchState.glidePath.size >= 2) {
-                                                val start = touchState.glidePath.first()
-                                                val endPoint = touchState.glidePath.last()
-                                                val netDy = endPoint.y - start.y
-                                                val netDx = endPoint.x - start.x
                                                 val hint = touchState.glideStartHint
                                                 val isHintFlick = hint != null &&
-                                                    netDy >= numberSwipeThreshold &&
-                                                    netDy >= abs(netDx) &&
-                                                    abs(netDx) <= keyGeometry.keyWidth * 0.4f &&
-                                                    change.uptimeMillis - touchState.glideDownTimeMs <= HINT_FLICK_MAX_MS &&
-                                                    touchState.glidePathLength <= keyGeometry.keyHeight * 1.8f &&
-                                                    touchState.glideKeys.size <= 2
+                                                    !touchState.longPressFired &&
+                                                    isVerticalFlick(
+                                                        touchState.glidePath,
+                                                        keyGeometry.keyWidth,
+                                                        numberSwipeThreshold,
+                                                    )
                                                 if (isHintFlick) {
                                                     glideHandled = true
                                                     hapticTap()

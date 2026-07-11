@@ -21,6 +21,21 @@ class KeyGeometry(
     val isEmpty: Boolean get() = centers.isEmpty() || keyWidth <= 0f
 }
 
+/**
+ * True when [path] reads as a downward hint flick rather than a glide word: the whole
+ * path stays inside a narrow vertical corridor (±0.4 key widths of the touch-down x)
+ * while travelling at least [minTravel] downward. Deliberately has no speed, key-count,
+ * or path-length limits — a glide word must leave the corridor to reach its next letter,
+ * so the corridor alone discriminates.
+ */
+fun isVerticalFlick(path: List<GesturePoint>, keyWidth: Float, minTravel: Float): Boolean {
+    if (path.size < 2) return false
+    val startX = path.first().x
+    if (path.last().y - path.first().y < minTravel) return false
+    val corridor = keyWidth * 0.4f
+    return path.all { kotlin.math.abs(it.x - startX) <= corridor }
+}
+
 internal fun pathLength(points: List<GesturePoint>): Float {
     var total = 0f
     for (i in 1 until points.size) total += points[i].distanceTo(points[i - 1])
