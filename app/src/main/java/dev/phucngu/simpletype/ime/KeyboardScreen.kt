@@ -80,6 +80,7 @@ fun KeyboardScreen(
     listener: LatinKeyboardListener,
     glideEnabled: Boolean = false,
     suggestions: List<String> = emptyList(),
+    selectedSuggestion: String? = null,
     onSuggestionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
     onSetupClick: () -> Unit,
@@ -173,6 +174,7 @@ fun KeyboardScreen(
                 } else if (suggestions.isNotEmpty()) {
                     SuggestionStrip(
                         suggestions = suggestions,
+                        selectedSuggestion = selectedSuggestion,
                         onSuggestionClick = onSuggestionClick,
                     )
                 }
@@ -232,10 +234,11 @@ fun KeyboardScreen(
     }
 }
 
-/** Gesture-typing candidates: best word first (highlighted chip), alternates as plain chips. */
+/** Gesture-typing candidates: the applied word gets the highlighted chip, others are plain. */
 @Composable
 private fun SuggestionStrip(
     suggestions: List<String>,
+    selectedSuggestion: String?,
     onSuggestionClick: (String) -> Unit,
 ) {
     val textColor = colorResource(R.color.kb_key_text)
@@ -252,7 +255,7 @@ private fun SuggestionStrip(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         suggestions.forEachIndexed { index, word ->
-            val isTop = index == 0
+            val isTop = if (selectedSuggestion != null) word == selectedSuggestion else index == 0
             Box(
                 modifier = Modifier
                     .fillMaxHeight()

@@ -94,6 +94,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeClipboardItems by mutableStateOf<List<ClipboardItem>>(emptyList())
     private var composeClipboardVisible by mutableStateOf(false)
     private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
+    private var composeSelectedSuggestion by mutableStateOf<String?>(null)
     private var composeGlideEnabled by mutableStateOf(false)
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -199,6 +200,7 @@ open class SimpleTypeIME : InputMethodService(),
                     listener = this@SimpleTypeIME,
                     glideEnabled = composeGlideEnabled,
                     suggestions = composeSuggestions,
+                    selectedSuggestion = composeSelectedSuggestion,
                     onSuggestionClick = { onSuggestionSelected(it) },
                     onMicClick = { handleMic() },
                     onSetupClick = { openSettings() },
@@ -398,6 +400,7 @@ open class SimpleTypeIME : InputMethodService(),
 
         lastGlideWord = text.trimStart()
         composeSuggestions = candidates.map { it.word }
+        composeSelectedSuggestion = candidates[0].word
         consumeShift()
         updateAutoCapitalize(currentInputEditorInfo)
     }
@@ -426,10 +429,12 @@ open class SimpleTypeIME : InputMethodService(),
         ic.commitText(styled, 1)
         ic.endBatchEdit()
         lastGlideWord = styled
+        composeSelectedSuggestion = word
     }
 
     private fun clearGlideSuggestions() {
         composeSuggestions = emptyList()
+        composeSelectedSuggestion = null
         lastGlideWord = null
     }
 
