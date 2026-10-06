@@ -57,7 +57,7 @@ import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.SherpaAsrEngine
-import dev.phucngu.simpletype.voice.VoskAsrEngine
+import dev.phucngu.simpletype.voice.SherpaModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -124,20 +124,10 @@ open class SimpleTypeIME : InputMethodService(),
     private val engines = mutableMapOf<VoiceLanguage, AsrEngine>()
 
     private fun engineFor(lang: VoiceLanguage): AsrEngine = engines.getOrPut(lang) {
-        when (lang) {
-            // Vietnamese: prefer the sherpa-onnx Zipformer (VAD-gated) when its model is
-            // installed; otherwise fall back to the bundled Vosk streaming model.
-            VoiceLanguage.VIETNAMESE -> {
-                // Populate the model dir from bundled assets if this build embeds it (local
-                // test builds); no-op otherwise. One-time copy, then isAvailable sees the files.
-                modelManager.installSherpaViFromAssetsIfBundled()
-                val sherpa = SherpaAsrEngine(modelManager.sherpaViDir().path, "sherpa-vi")
-                if (sherpa.isAvailable) sherpa
-                else VoskAsrEngine(modelManager.modelDir(lang).path, "vosk-vi")
-            }
-            VoiceLanguage.ENGLISH ->
-                VoskAsrEngine(modelManager.modelDir(lang).path, "vosk-en")
-        }
+        // Populate the model dir from bundled assets if this build embeds it (local test
+        // builds); no-op otherwise. One-time copy, then isAvailable sees the files.
+        modelManager.installFromAssetsIfBundled(lang)
+        SherpaAsrEngine(SherpaModel.forLanguage(lang), modelManager.modelDir(lang), modelManager.vadFile())
     }
 
     private val commandMatcher = CommandMatcher()

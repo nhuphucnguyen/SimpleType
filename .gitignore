@@ -25,6 +25,6 @@ local.properties
 # Prebuilt sherpa-onnx AAR (large native libs) — fetched via scripts/fetch-sherpa-onnx-aar.sh
 /app/libs/sherpa-onnx-*.aar
 
-# Bundled sherpa-vi model (CC-BY-NC-ND-4.0) — local non-commercial test builds only, kept
-# out of git for licensing + size. Provision via scripts/fetch-sherpa-vi-model.sh --bundle.
-/app/src/main/assets/models/sherpa-vi/
+# Optionally bundled sherpa-onnx models + VAD — local test builds only, kept out of git for
+# size (and licensing: the vi model is CC-BY-NC-ND-4.0). Normally downloaded in-app instead.
+/app/src/main/assets/models/

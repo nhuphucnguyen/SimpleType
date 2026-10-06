@@ -24,7 +24,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Vosk ships prebuilt native libs for 4 ABIs; keep only modern phones (arm64-v8a)
+        // sherpa-onnx ships prebuilt native libs; keep only modern phones (arm64-v8a)
         // and the common emulator ABI (x86_64) to stay near the APK size target.
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -84,14 +84,13 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
     implementation(libs.kotlinx.coroutines.android)
-    // On-device streaming ASR (Apache-2.0). Ships prebuilt native libs in its AAR — no NDK.
-    implementation(libs.vosk.android)
-    implementation(libs.jna) { artifact { type = "aar" } }
+    // Unpacks the sherpa-onnx model archives (.tar.bz2) downloaded from Settings (Apache-2.0).
+    implementation(libs.commons.compress)
 
     // sherpa-onnx (Apache-2.0): on-device ASR via onnxruntime. The prebuilt .aar bundles the
     // com.k2fsa.sherpa.onnx Kotlin API and native libs (sherpa-onnx-jni, onnxruntime) for
     // arm64-v8a + x86_64. Drop the .aar into app/libs/ via scripts/fetch-sherpa-onnx-aar.sh.
-    // Not on Maven Central, hence the file dependency. Used for Vietnamese voice typing.
+    // Not on Maven Central, hence the file dependency. Powers voice typing for both languages.
     implementation(files("libs/sherpa-onnx-$sherpaOnnxVersion.aar"))
 
     // Jetpack Compose

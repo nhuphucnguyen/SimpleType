@@ -3,8 +3,8 @@
 # Provisions the Vietnamese Zipformer model + Silero VAD for SherpaAsrEngine and pushes them
 # into the app's internal storage on a connected device/emulator.
 #
-# Why adb push instead of an in-app download: the model is distributed as a .tar.bz2, which
-# the JDK can't unpack without extra dependencies, and bundling ~80 MB in the APK is wasteful.
+# Normally not needed: Settings → Voice typing models downloads and unpacks the same files
+# in-app (ModelManager). This script is a dev shortcut that skips the in-app download.
 # The debug app is `debuggable`, so `run-as` lets us write straight into its files dir.
 #
 # Prerequisites:
@@ -19,7 +19,8 @@ set -euo pipefail
 PKG="dev.phucngu.simpletype"
 MODEL="sherpa-onnx-zipformer-vi-30M-int8-2026-02-09"
 BASE_URL="https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models"
-DEST_SUBDIR="files/models/sherpa-vi"   # relative to the app's data dir (run-as cwd)
+MODELS_DIR="files/models"              # relative to the app's data dir (run-as cwd)
+DEST_SUBDIR="$MODELS_DIR/sherpa-vi"     # SherpaModel.VIETNAMESE.dirName; the VAD sits in MODELS_DIR
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -38,16 +39,15 @@ curl -fL --progress-bar "https://github.com/snakers4/silero-vad/raw/$SILERO_VAD_
 echo "==> Extracting"
 tar xf model.tar.bz2
 
-# Files SherpaAsrEngine.REQUIRED_FILES expects (flattened into one dir).
+# Files SherpaModel.VIETNAMESE.files expects (flattened into one dir).
 FILES=(
   "$MODEL/encoder.int8.onnx"
   "$MODEL/decoder.onnx"
   "$MODEL/joiner.int8.onnx"
   "$MODEL/tokens.txt"
-  "silero_vad.onnx"
 )
 
-for f in "${FILES[@]}"; do
+for f in "${FILES[@]}" silero_vad.onnx; do
   [[ -f "$f" ]] || { echo "ERROR: expected file missing after extract: $f" >&2; exit 1; }
 done
 
@@ -58,16 +58,20 @@ adb shell "run-as $PKG true" 2>/dev/null || {
   exit 1
 }
 
+# Stage in a world-readable tmp dir, then copy in via run-as (app's private storage).
+push() {
+  local src="$1" dest_dir="$2" name
+  name="$(basename "$src")"
+  adb push "$src" "/data/local/tmp/$name" >/dev/null
+  adb shell "run-as $PKG cp /data/local/tmp/$name $dest_dir/$name"
+  adb shell "rm -f /data/local/tmp/$name"
+  echo "    ✓ $dest_dir/$name"
+}
+
 echo "==> Pushing model into $PKG/$DEST_SUBDIR"
 adb shell "run-as $PKG mkdir -p $DEST_SUBDIR"
-for f in "${FILES[@]}"; do
-  name="$(basename "$f")"
-  # Stage in a world-readable tmp dir, then copy in via run-as (app's private storage).
-  adb push "$f" "/data/local/tmp/$name" >/dev/null
-  adb shell "run-as $PKG cp /data/local/tmp/$name $DEST_SUBDIR/$name"
-  adb shell "rm -f /data/local/tmp/$name"
-  echo "    ✓ $name"
-done
+for f in "${FILES[@]}"; do push "$f" "$DEST_SUBDIR"; done
+push silero_vad.onnx "$MODELS_DIR"
 
 echo "==> Done. Installed files:"
-adb shell "run-as $PKG ls -la $DEST_SUBDIR"
+adb shell "run-as $PKG ls -la $DEST_SUBDIR $MODELS_DIR/silero_vad.onnx"

@@ -19,13 +19,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  *   AudioRecord (16 kHz mono PCM) → [AsrEngine] → [AsrListener]
  *
  * Capture runs on a dedicated thread; the engine is fed raw PCM and pushes partial/final
- * results, which this controller marshals back to the main thread for the IME. Streaming
- * engines (Vosk) endpoint utterances internally; [stop] flushes a final via
+ * results, which this controller marshals back to the main thread for the IME. Engines
+ * endpoint utterances internally (sherpa-onnx via Silero VAD); [stop] flushes a final via
  * [AsrEngine.endOfUtterance]. Media playback is ducked while listening, per the spec's
  * audio-focus requirement.
  *
- * The active [AsrEngine] is injected via [setEngine] so the same controller serves Vosk,
- * Whisper (EN) or PhoWhisper (VI). When the engine is unavailable (no model yet), [start]
+ * The active [AsrEngine] is injected via [setEngine] so the same controller serves any
+ * engine (currently sherpa-onnx for both languages). When the engine is unavailable (no model yet), [start]
  * reports an error instead of capturing audio.
  */
 class VoiceInputController(
@@ -146,6 +146,6 @@ class VoiceInputController(
         private const val SAMPLE_RATE = 16_000
         private const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
         private const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
-        private const val FRAME_SAMPLES = 1600 // 100 ms at 16 kHz — Vosk-friendly chunk
+        private const val FRAME_SAMPLES = 1600 // 100 ms at 16 kHz
     }
 }
