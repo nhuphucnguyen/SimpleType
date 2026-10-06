@@ -6,7 +6,7 @@ SimpleType is an Android Input Method Editor (IME) focused on on-device voice ty
 - **Language:** Kotlin (primary), Java, C++ (JNI for whisper.cpp)
 - **UI:** Custom View-based keyboard (deprecated `KeyboardView` is NOT used)
 - **Concurrency:** Coroutines for ASR and background tasks
-- **ASR:** Whisper.cpp (via JNI), Vosk (current fallback/lightweight engine)
+- **ASR:** sherpa-onnx (onnxruntime) — Zipformer for Vietnamese, Parakeet TDT for English; see `SHERPA_ONNX.md`. Whisper.cpp (via JNI) explored on a separate branch.
 - **VAD:** Silero VAD
 - **Input Logic:** Custom Telex engine for Vietnamese input
 

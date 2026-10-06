@@ -4,22 +4,22 @@ package dev.phucngu.simpletype.voice
  * Abstraction over an on-device speech-to-text engine.
  *
  * Per the product spec, recognition runs fully on-device and the active model is swapped
- * by language subtype (Whisper/PhoWhisper via whisper.cpp, with Vosk as a streaming
- * fallback). Hiding each behind this interface lets the IME stay engine-agnostic and lets
+ * by language subtype (currently sherpa-onnx: Zipformer for VI, Parakeet for EN). Hiding each behind this interface lets the IME stay engine-agnostic and lets
  * models be upgraded or swapped per language without touching the input pipeline.
  *
  * Lifecycle: [load] once (binding the [AsrListener] results are pushed to), [feed] 16 kHz
  * mono PCM frames while the user speaks, [endOfUtterance] to flush a final result when the
  * user stops, and [release] to free native memory.
  *
- * Results are pushed to the bound listener — streaming engines (Vosk) emit
+ * Results are pushed to the bound listener — streaming engines emit
  * [AsrListener.onPartial] as audio arrives and [AsrListener.onFinal] on internal endpoints;
- * utterance engines (Whisper) emit a single final from [endOfUtterance]. The listener is
+ * VAD-gated engines (sherpa-onnx) emit one final per speech segment, flushing the last one
+ * from [endOfUtterance]. The listener is
  * invoked on the audio thread, so the caller marshals to the main thread.
  */
 interface AsrEngine {
 
-    /** Identifier for diagnostics / model selection (e.g. "vosk-en", "whisper-base.en"). */
+    /** Identifier for diagnostics / model selection (e.g. "sherpa-en", "sherpa-vi"). */
     val name: String
 
     /** Whether the model backing this engine is present and ready to [load]. */

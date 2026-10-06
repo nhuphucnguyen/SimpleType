@@ -1,33 +1,37 @@
-# Vietnamese voice typing with sherpa-onnx
+# Voice typing with sherpa-onnx
 
-This branch (`voice/sherpa-onnx`) adds an on-device ASR engine backed by
-[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) running a Vietnamese Zipformer
-transducer, gated by Silero VAD. It plugs in behind the existing `VoiceInputController`
-as a drop-in `AsrEngine`, selected for Vietnamese when its model is installed (otherwise the
-build falls back to the bundled Vosk model).
+This branch (`voice/sherpa-onnx`) runs all voice typing on
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx): one offline transducer per language,
+gated by Silero VAD, behind the existing `VoiceInputController` as an `AsrEngine`. It replaces
+Vosk, which has been removed.
+
+| Language | Model (`SherpaModel`) | Download | Output | Licence |
+| --- | --- | --- | --- | --- |
+| Vietnamese | `sherpa-onnx-zipformer-vi-30M-int8-2026-02-09` ([hynt/Zipformer-30M-RNNT-6000h](https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h)) | ~26 MB | UPPERCASE, no punctuation | CC-BY-NC-ND-4.0 |
+| English | `sherpa-onnx-nemo-parakeet_tdt_transducer_110m-en-36000-int8` (NVIDIA Parakeet TDT 110M) | ~108 MB | Cased + punctuated | CC-BY-4.0 |
 
 ## How it works
 
-The Vietnamese model (`sherpa-onnx-zipformer-vi-30M-int8-2026-02-09`, from
-[hynt/Zipformer-30M-RNNT-6000h](https://huggingface.co/hynt/Zipformer-30M-RNNT-6000h)) is an
-**offline / non-causal** Zipformer — not a true streaming model. So instead of feeding it
+Both models are **offline / non-causal**, not true streaming models. So instead of feeding them
 continuously, `SherpaAsrEngine` pushes mic PCM into Silero VAD and, each time the VAD reports
-a completed speech segment, decodes that segment and emits one `onFinal`. On CPU the model
-runs ~10x faster than real time, so each phrase is transcribed within a fraction of a second
-of the user pausing. This is "VAD-gated near-real-time", not word-by-word streaming.
+a completed speech segment, decodes that segment and emits one `onFinal`. On CPU the models
+run many times faster than real time, so each phrase is transcribed within a fraction of a
+second of the user pausing. This is "VAD-gated near-real-time", not word-by-word streaming.
 
 ```
 AudioRecord (16 kHz mono PCM) → SherpaAsrEngine.feed()
     → Silero VAD (segments speech)
-        → OfflineRecognizer (zipformer-vi transducer) → formatUtterance() → onFinal(text)
+        → OfflineRecognizer (SherpaModel for the language) → SherpaText.format() → onFinal(text)
 ```
 
-The Zipformer emits **uppercase, punctuation-free** words. `SherpaAsrEngine.formatUtterance()`
-lowercases (Unicode-aware, so Vietnamese diacritics map correctly), capitalizes the first
-letter, and appends a terminal period — a heuristic that works because each VAD segment is a
-pause-delimited phrase ≈ one sentence. There is no on-device Vietnamese punctuation-restoration
-model (sherpa-onnx only ships English and Chinese+English ones), so commas / `?` / `!` are not
-produced.
+`SherpaText.format()` normalises each segment (≈ one pause-delimited sentence):
+
+- **Vietnamese:** the Zipformer emits uppercase, punctuation-free words, so they are lowercased
+  (Unicode-aware, so diacritics map correctly), the first letter capitalised and a period
+  appended. There is no on-device Vietnamese punctuation-restoration model, so commas / `?` /
+  `!` are not produced.
+- **English:** Parakeet already emits casing and punctuation, which is kept as-is (only a
+  missing first capital / terminal period is added).
 
 ## sherpa-onnx version
 
@@ -39,9 +43,10 @@ avoid an onnxruntime KleidiAI/SME2 illegal-instruction crash on Snapdragon 8 Eli
 
 The project uses the official Silero VAD model from
 [snakers4/silero-vad](https://github.com/snakers4/silero-vad) (3-in/2-out), pinned to release
-tag **v6.2.3** in `fetch-sherpa-vi-model.sh` (override with `SILERO_VAD_TAG`). v5 and v6 share
-the same interface, so sherpa-onnx loads either without code changes
-([k2-fsa/sherpa-onnx#3528](https://github.com/k2-fsa/sherpa-onnx/issues/3528)).
+tag **v6.2.3** (`ModelManager.VAD_URL`, and `SILERO_VAD_TAG` in `fetch-sherpa-vi-model.sh`).
+v5 and v6 share the same interface, so sherpa-onnx loads either without code changes
+([k2-fsa/sherpa-onnx#3528](https://github.com/k2-fsa/sherpa-onnx/issues/3528)). One copy at
+`files/models/silero_vad.onnx` is shared by both languages.
 
 Don't use the `silero_vad.onnx` from the k2-fsa `asr-models` release: it's a 3-in/3-out variant
 that an older pinned runtime rejected with `Unsupported silero vad model` → a silent `exit(-1)`
@@ -49,17 +54,16 @@ that an older pinned runtime rejected with `Unsupported silero vad model` → a 
 
 ## ⚠️ Licensing
 
-The Vietnamese model is **CC-BY-NC-ND-4.0**: non-commercial and no-derivatives. It's fine for
-research / personal builds, but **not** for a commercial release, and you may not fine-tune or
-modify it under that licence. Revisit the model choice before shipping. (sherpa-onnx itself is
-Apache-2.0.)
+- The **Vietnamese** model is **CC-BY-NC-ND-4.0**: non-commercial and no-derivatives. It's fine
+  for research / personal builds, but **not** for a commercial release, and you may not
+  fine-tune or modify it under that licence. Revisit the model choice before shipping.
+- The **English** Parakeet model is **CC-BY-4.0**: commercial use is fine, but a release must
+  credit NVIDIA (e.g. an about/licences screen).
+- sherpa-onnx and commons-compress are Apache-2.0; Silero VAD is MIT.
 
 ## Setup
 
-The native AAR and the model are both large and kept out of git. There are two ways to get the
-model onto a device.
-
-### 1. Native library (build-time, required either way)
+### 1. Native library (build-time, required)
 
 ```bash
 ./scripts/fetch-sherpa-onnx-aar.sh
@@ -71,45 +75,35 @@ for `arm64-v8a` and `x86_64`. Keep the version in sync between the script and `s
 in `app/build.gradle.kts`. Compiling the app requires this AAR (the engine imports
 `com.k2fsa.sherpa.onnx.*`), so run it before building.
 
-### 2a. Model bundled in the APK (recommended for local testing)
+### 2. Models
 
-Place the five model files under `app/src/main/assets/models/sherpa-vi/` (gitignored — the
-NC-ND model must not be committed):
+**In-app (default):** open SimpleType → *Voice typing models* → *Download*. `ModelManager`
+fetches the `.tar.bz2` from the k2-fsa `asr-models` release, unpacks the four model files
+(`ModelArchive`, via commons-compress) into `files/models/sherpa-<lang>/`, and fetches the
+pinned VAD once. Voice input picks the model up immediately — no keyboard restart needed.
+
+**Bundled in the APK (local testing):** place the model files under
+`app/src/main/assets/models/<dirName>/` and the VAD at `app/src/main/assets/models/silero_vad.onnx`
+(all gitignored). `ModelManager.installFromAssetsIfBundled()` copies them into private storage
+on first voice use. A clean CI/release build has no such assets, so this is a no-op.
 
 ```
-encoder.int8.onnx   decoder.onnx   joiner.int8.onnx   tokens.txt   silero_vad.onnx (v6.2.3)
+assets/models/sherpa-vi/   encoder.int8.onnx  decoder.onnx       joiner.int8.onnx  tokens.txt
+assets/models/sherpa-en/   encoder.int8.onnx  decoder.int8.onnx  joiner.int8.onnx  tokens.txt
+assets/models/silero_vad.onnx
 ```
 
-`ModelManager.installSherpaViFromAssetsIfBundled()` copies them into the app's private storage
-(`files/models/sherpa-vi/`) on first Vietnamese voice use — **no adb/device push needed**, the
-phone never has to download anything. A clean CI/release build (no assets) makes this a no-op,
-so the app falls back to Vosk. Build & install the debug APK and it works offline:
+**Pushed via adb (Vietnamese, dev shortcut):** with the debug app installed and one device
+connected, `./scripts/fetch-sherpa-vi-model.sh` downloads the model + VAD and
+`adb run-as`-copies them into place.
 
-```bash
-./gradlew installDebug
-```
-
-To re-provision after changing a bundled file, clear the stale copy so the app re-copies:
-`adb shell run-as dev.phucngu.simpletype rm -rf files/models/sherpa-vi`.
-
-### 2b. Model pushed via adb (no bundling)
-
-With the debug app installed and one device connected:
-
-```bash
-./scripts/fetch-sherpa-vi-model.sh
-```
-
-Downloads the model `.tar.bz2` + the pinned `silero_vad.onnx` (v6.2.3) and `adb run-as`-copies the five
-files into `files/models/sherpa-vi/`. Use this if you don't want to embed the model in the APK.
-
-`SherpaAsrEngine.isAvailable` checks for exactly these five files; once present, Vietnamese
-voice input uses sherpa-onnx automatically (restart the keyboard if it was already running).
+To force a re-install, clear the installed copy:
+`adb shell run-as dev.phucngu.simpletype rm -rf files/models`.
 
 ## Build & test
 
 ```bash
-./gradlew test              # runs SherpaAudioTest (pure JVM, no native libs needed)
+./gradlew test              # SherpaAudioTest, SherpaTextTest, ModelArchiveTest (pure JVM)
 ./gradlew assembleDebug     # requires app/libs/sherpa-onnx-1.13.8.aar present
 ```
 
@@ -117,24 +111,25 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 
 | File | Purpose |
 | --- | --- |
-| `voice/SherpaAsrEngine.kt` | `AsrEngine` impl: OfflineRecognizer + Silero VAD; `formatUtterance()` casing/period |
+| `voice/SherpaModel.kt` | Per-language model spec: archive URL, file names, `modelType` |
+| `voice/SherpaAsrEngine.kt` | `AsrEngine` impl: OfflineRecognizer + Silero VAD |
+| `voice/SherpaText.kt` | Per-model casing / terminal period (unit-tested) |
 | `voice/SherpaAudio.kt` | Pure PCM→float helper (unit-tested) |
-| `voice/ModelManager.kt` | `sherpaViDir()` + `installSherpaViFromAssetsIfBundled()` |
-| `ime/SimpleTypeIME.kt` | `engineFor()` selects sherpa for Vietnamese |
+| `voice/ModelArchive.kt` | Unpacks the `.tar.bz2` model archives (unit-tested) |
+| `voice/ModelManager.kt` | Download / install models + VAD; `installFromAssetsIfBundled()` |
+| `ime/SimpleTypeIME.kt` | `engineFor()` builds the sherpa engine for the active language |
 | `scripts/fetch-sherpa-onnx-aar.sh` | Fetch the native AAR (1.13.8) |
-| `scripts/fetch-sherpa-vi-model.sh` | Fetch + adb-push the model (+ Silero VAD v6.2.3) to the device |
+| `scripts/fetch-sherpa-vi-model.sh` | Fetch + adb-push the vi model (+ Silero VAD v6.2.3) to the device |
 
 ## Known limitations / next steps
 
 - **Not word-by-word streaming.** Partials aren't emitted mid-utterance; text appears per
-  phrase on VAD endpoint. A truly streaming experience needs a causal/cache-aware model.
-- **Heuristic punctuation only.** Sentence-case + a period per VAD segment; no commas / `?` /
-  `!`, and a mid-thought pause produces a period. No Vietnamese punctuation model exists
-  on-device.
+  phrase on VAD endpoint. A truly streaming experience needs a causal/cache-aware model
+  (e.g. `hynt/Zipformer-30M-RNNT-Streaming-6000h` for Vietnamese).
+- **Heuristic Vietnamese punctuation only.** Sentence-case + a period per VAD segment; no
+  commas / `?` / `!`, and a mid-thought pause produces a period.
 - **Decoding runs on the audio thread.** Segments are short so this is fine for a POC, but a
   dedicated decode thread would avoid any chance of dropping mic frames on long segments.
-- **Engine is cached per language for the process.** If you install the model after first
-  using voice input, restart the keyboard so `engineFor` re-evaluates `isAvailable`.
 
 ## Debugging on Honor/Huawei devices
 

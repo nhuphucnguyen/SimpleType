@@ -5,85 +5,97 @@ import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.zip.ZipInputStream
 
 /**
- * Locates and installs the per-language Vosk models under the app's private storage
- * (`filesDir/models/<lang>`). Models are downloaded once as on-demand packs (spec §6) from
- * the official Vosk model host, rather than bloating the APK.
+ * Locates and installs the per-language sherpa-onnx models ([SherpaModel]) under the app's
+ * private storage (`filesDir/models/<dirName>`), plus the Silero VAD model shared by both
+ * (`filesDir/models/silero_vad.onnx`). Models are downloaded once as on-demand packs (spec §6)
+ * from the k2-fsa `asr-models` release, rather than bloating the APK.
  *
- * A model is considered installed once its `am`/`conf` subfolders exist. Download + unzip
- * run on a background thread; progress and completion are delivered via [DownloadCallback].
+ * A language is installed once all of its [SherpaModel.files] and the VAD exist. Download +
+ * unpack run on a background thread; progress is reported through the `progress` callback.
  */
 class ModelManager(context: Context) {
 
     private val modelsRoot = File(context.filesDir, "models")
     private val assets = context.assets
 
-    /** Directory the [VoskAsrEngine] for [language] loads from. */
+    /** Directory the [SherpaAsrEngine] for [language] loads its model from. */
     fun modelDir(language: VoiceLanguage): File =
-        File(modelsRoot, dirName(language))
+        File(modelsRoot, SherpaModel.forLanguage(language).dirName)
+
+    /** Silero VAD model shared by every language. */
+    fun vadFile(): File = File(modelsRoot, VAD_FILE)
+
+    fun isInstalled(language: VoiceLanguage): Boolean {
+        val dir = modelDir(language)
+        return vadFile().exists() && SherpaModel.forLanguage(language).files.all { File(dir, it).exists() }
+    }
 
     /**
-     * Directory the [SherpaAsrEngine] (Vietnamese Zipformer) loads from. Provisioned
-     * out-of-band via scripts/fetch-sherpa-vi-model.sh (adb push), not the in-app downloader,
-     * since the model ships as a .tar.bz2 the JDK can't unpack without extra deps.
+     * Local test convenience: if this build bundles the model under
+     * `assets/models/<dirName>/` (+ `assets/models/silero_vad.onnx`), copy it into private
+     * storage on first use. This is the no-download alternative used by
+     * scripts/fetch-sherpa-vi-model.sh --bundle. The bundled assets are gitignored, so this is
+     * a no-op on release/CI builds and when the model is already installed.
      */
-    fun sherpaViDir(): File = File(modelsRoot, "sherpa-vi")
-
-    /**
-     * Local non-commercial test convenience: if the sherpa-vi model was bundled into the APK
-     * under `assets/models/sherpa-vi/`, copy it into [sherpaViDir] (where [SherpaAsrEngine]
-     * loads from) on first use. This is the no-adb alternative to scripts/fetch-sherpa-vi-model.sh.
-     *
-     * No-op when the model is already installed, or when the assets aren't present (e.g. a
-     * release/CI build, since the bundled model is gitignored) — in which case the caller falls
-     * back to Vosk. Copy is one-time and guarded; call before checking [SherpaAsrEngine.isAvailable].
-     */
-    fun installSherpaViFromAssetsIfBundled() {
-        val dir = sherpaViDir()
-        if (SherpaAsrEngine.REQUIRED_FILES.all { File(dir, it).exists() }) return
-
-        val assetDir = "models/sherpa-vi"
+    fun installFromAssetsIfBundled(language: VoiceLanguage) {
+        if (isInstalled(language)) return
+        val model = SherpaModel.forLanguage(language)
+        val assetDir = "models/${model.dirName}"
         val bundled = try {
             assets.list(assetDir)?.toSet().orEmpty()
         } catch (e: IOException) {
             emptySet()
         }
-        if (!bundled.containsAll(SherpaAsrEngine.REQUIRED_FILES)) return // not bundled in this build
+        if (!bundled.containsAll(model.files)) return // not bundled in this build
 
-        dir.mkdirs()
-        for (name in SherpaAsrEngine.REQUIRED_FILES) {
-            val out = File(dir, name)
-            assets.open("$assetDir/$name").use { input ->
-                out.outputStream().buffered().use { input.copyTo(it) }
-            }
-        }
+        val dir = modelDir(language).apply { mkdirs() }
+        for (name in model.files) copyAsset("$assetDir/$name", File(dir, name))
+        if (!vadFile().exists()) copyAsset("models/$VAD_FILE", vadFile())
     }
 
-    fun isInstalled(language: VoiceLanguage): Boolean {
-        val dir = modelDir(language)
-        return File(dir, "am").exists() || File(dir, "conf").exists()
+    private fun copyAsset(path: String, out: File) {
+        assets.open(path).use { input -> out.outputStream().buffered().use { input.copyTo(it) } }
     }
 
     /** Synchronously download and unpack the model for [language]. Call off the main thread. */
     @Throws(IOException::class)
     fun download(language: VoiceLanguage, progress: (Int) -> Unit = {}) {
-        val dest = modelDir(language)
         if (isInstalled(language)) return
-        val tmpZip = File(modelsRoot, "${dirName(language)}.zip")
+        val model = SherpaModel.forLanguage(language)
         modelsRoot.mkdirs()
 
-        val url = URL(modelUrl(language))
-        val conn = (url.openConnection() as HttpURLConnection).apply {
+        if (!vadFile().exists()) {
+            val tmpVad = File(modelsRoot, "$VAD_FILE.part")
+            fetch(VAD_URL, tmpVad) {}
+            if (!tmpVad.renameTo(vadFile())) throw IOException("Could not install $VAD_FILE")
+        }
+
+        val tmpArchive = File(modelsRoot, "${model.dirName}.tar.bz2")
+        try {
+            fetch(model.downloadUrl, tmpArchive, progress)
+            val dest = modelDir(language)
+            dest.deleteRecursively()
+            tmpArchive.inputStream().use { ModelArchive.extract(it, dest, model.files) }
+        } finally {
+            tmpArchive.delete()
+        }
+    }
+
+    /** Download [url] to [dest], following GitHub's redirect to its release CDN. */
+    private fun fetch(url: String, dest: File, progress: (Int) -> Unit) {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 30_000
             readTimeout = 60_000
+            instanceFollowRedirects = true
         }
         try {
-            val total = conn.contentLength.toLong()
+            if (conn.responseCode !in 200..299) throw IOException("HTTP ${conn.responseCode} for $url")
+            val total = conn.contentLengthLong
             var read = 0L
             conn.inputStream.buffered().use { input ->
-                tmpZip.outputStream().buffered().use { out ->
+                dest.outputStream().buffered().use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         val n = input.read(buf)
@@ -97,63 +109,14 @@ class ModelManager(context: Context) {
         } finally {
             conn.disconnect()
         }
-
-        unzipStrippingTopDir(tmpZip, dest)
-        tmpZip.delete()
-        if (!isInstalled(language)) {
-            dest.deleteRecursively()
-            throw IOException("Downloaded archive did not contain a valid Vosk model")
-        }
-    }
-
-    /**
-     * Vosk archives wrap everything in a single top folder (e.g.
-     * `vosk-model-small-en-us-0.15/...`). Strip that segment so files land directly in [dest].
-     */
-    private fun unzipStrippingTopDir(zip: File, dest: File) {
-        dest.deleteRecursively()
-        dest.mkdirs()
-        ZipInputStream(zip.inputStream().buffered()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val stripped = entry.name.substringAfter('/', "")
-                if (stripped.isNotEmpty()) {
-                    val outFile = File(dest, stripped)
-                    if (entry.isDirectory) {
-                        outFile.mkdirs()
-                    } else {
-                        outFile.parentFile?.mkdirs()
-                        outFile.outputStream().buffered().use { zis.copyTo(it) }
-                    }
-                }
-                zis.closeEntry()
-                entry = zis.nextEntry
-            }
-        }
-    }
-
-    private fun dirName(language: VoiceLanguage) = when (language) {
-        VoiceLanguage.ENGLISH -> "vosk-en"
-        VoiceLanguage.VIETNAMESE -> "vosk-vi"
-    }
-
-    private fun modelUrl(language: VoiceLanguage) = when (language) {
-        VoiceLanguage.ENGLISH -> EN_MODEL_URL
-        VoiceLanguage.VIETNAMESE -> VI_MODEL_URL
-    }
-
-    /** Callback for UI-driven downloads. */
-    interface DownloadCallback {
-        fun onProgress(percent: Int)
-        fun onComplete()
-        fun onError(message: String)
     }
 
     companion object {
-        // Small (~40–50 MB) Vosk models — fast, low memory, suitable for keyboards.
-        const val EN_MODEL_URL =
-            "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
-        const val VI_MODEL_URL =
-            "https://alphacephei.com/vosk/models/vosk-model-small-vn-0.4.zip"
+        const val VAD_FILE = "silero_vad.onnx"
+
+        // Official snakers4 Silero VAD (v5/v6 share the 3-in/2-out interface sherpa-onnx loads),
+        // pinned to a release tag. Not the k2-fsa asr-models copy, which is a 3-in/3-out variant.
+        const val VAD_URL =
+            "https://github.com/snakers4/silero-vad/raw/v6.2.3/src/silero_vad/data/silero_vad.onnx"
     }
 }
