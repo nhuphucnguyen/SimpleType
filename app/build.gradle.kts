@@ -23,16 +23,36 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
 
-        // sherpa-onnx ships prebuilt native libs; keep only modern phones (arm64-v8a)
-        // and the common emulator ABI (x86_64) to stay near the APK size target.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+    // Release signing comes from Gradle properties (e.g. ~/.gradle/gradle.properties), never the
+    // repo: SIMPLETYPE_STORE_FILE, SIMPLETYPE_STORE_PASSWORD, SIMPLETYPE_KEY_ALIAS,
+    // SIMPLETYPE_KEY_PASSWORD. Without them the release APK is built unsigned.
+    val releaseStoreFile = providers.gradleProperty("SIMPLETYPE_STORE_FILE").orNull
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = providers.gradleProperty("SIMPLETYPE_STORE_PASSWORD").orNull
+                keyAlias = providers.gradleProperty("SIMPLETYPE_KEY_ALIAS").orNull
+                keyPassword = providers.gradleProperty("SIMPLETYPE_KEY_PASSWORD").orNull
+            }
         }
     }
 
+    // sherpa-onnx ships prebuilt native libs per ABI. Release targets real phones only
+    // (arm64-v8a); debug also keeps the common emulator ABI (x86_64).
     buildTypes {
+        debug {
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+        }
         release {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
+            signingConfig = signingConfigs.findByName("release")
             optimization {
                 enable = false
             }
