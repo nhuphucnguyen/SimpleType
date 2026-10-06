@@ -31,18 +31,21 @@ produced.
 
 ## sherpa-onnx version
 
-`app/build.gradle.kts` uses sherpa-onnx **1.13.3**. The project previously pinned 1.10.46 to
+`app/build.gradle.kts` uses sherpa-onnx **1.13.8**. The project previously pinned 1.10.46 to
 avoid an onnxruntime KleidiAI/SME2 illegal-instruction crash on Snapdragon 8 Elite Gen 5
-(SM8850). That upstream issue is fixed in the newer runtime, so the project now follows 1.13.3.
+(SM8850). That upstream issue is fixed in the newer runtime, so the project now follows 1.13.8.
 
-### Silero VAD must be v5
+### Silero VAD: use the official snakers4 model
 
-The project uses a Silero **v5** (3-in/2-out) VAD model. The `silero_vad.onnx` published in the
-k2-fsa `asr-models` release is a 3-in/3-out variant that the previously pinned runtime rejected
-with `Unsupported silero vad model` → a silent `exit(-1)` (the keyboard just vanished, with no
-crash log). Continue using the known-good **v5** model from
-[snakers4/silero-vad](https://github.com/snakers4/silero-vad) — `fetch-sherpa-vi-model.sh`
-already points there.
+The project uses the official Silero VAD model from
+[snakers4/silero-vad](https://github.com/snakers4/silero-vad) (3-in/2-out), pinned to release
+tag **v6.2.3** in `fetch-sherpa-vi-model.sh` (override with `SILERO_VAD_TAG`). v5 and v6 share
+the same interface, so sherpa-onnx loads either without code changes
+([k2-fsa/sherpa-onnx#3528](https://github.com/k2-fsa/sherpa-onnx/issues/3528)).
+
+Don't use the `silero_vad.onnx` from the k2-fsa `asr-models` release: it's a 3-in/3-out variant
+that an older pinned runtime rejected with `Unsupported silero vad model` → a silent `exit(-1)`
+(the keyboard just vanished, with no crash log).
 
 ## ⚠️ Licensing
 
@@ -62,7 +65,7 @@ model onto a device.
 ./scripts/fetch-sherpa-onnx-aar.sh
 ```
 
-Downloads the prebuilt `sherpa-onnx-1.13.3.aar` into `app/libs/` (gitignored). The AAR bundles
+Downloads the prebuilt `sherpa-onnx-1.13.8.aar` into `app/libs/` (gitignored). The AAR bundles
 the `com.k2fsa.sherpa.onnx` Kotlin API and native libs (`sherpa-onnx-jni`, `onnxruntime`, …)
 for `arm64-v8a` and `x86_64`. Keep the version in sync between the script and `sherpaOnnxVersion`
 in `app/build.gradle.kts`. Compiling the app requires this AAR (the engine imports
@@ -74,7 +77,7 @@ Place the five model files under `app/src/main/assets/models/sherpa-vi/` (gitign
 NC-ND model must not be committed):
 
 ```
-encoder.int8.onnx   decoder.onnx   joiner.int8.onnx   tokens.txt   silero_vad.onnx (v5)
+encoder.int8.onnx   decoder.onnx   joiner.int8.onnx   tokens.txt   silero_vad.onnx (v6.2.3)
 ```
 
 `ModelManager.installSherpaViFromAssetsIfBundled()` copies them into the app's private storage
@@ -97,7 +100,7 @@ With the debug app installed and one device connected:
 ./scripts/fetch-sherpa-vi-model.sh
 ```
 
-Downloads the model `.tar.bz2` + the **v5** `silero_vad.onnx` and `adb run-as`-copies the five
+Downloads the model `.tar.bz2` + the pinned `silero_vad.onnx` (v6.2.3) and `adb run-as`-copies the five
 files into `files/models/sherpa-vi/`. Use this if you don't want to embed the model in the APK.
 
 `SherpaAsrEngine.isAvailable` checks for exactly these five files; once present, Vietnamese
@@ -107,7 +110,7 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 
 ```bash
 ./gradlew test              # runs SherpaAudioTest (pure JVM, no native libs needed)
-./gradlew assembleDebug     # requires app/libs/sherpa-onnx-1.13.3.aar present
+./gradlew assembleDebug     # requires app/libs/sherpa-onnx-1.13.8.aar present
 ```
 
 ## Files
@@ -118,8 +121,8 @@ voice input uses sherpa-onnx automatically (restart the keyboard if it was alrea
 | `voice/SherpaAudio.kt` | Pure PCM→float helper (unit-tested) |
 | `voice/ModelManager.kt` | `sherpaViDir()` + `installSherpaViFromAssetsIfBundled()` |
 | `ime/SimpleTypeIME.kt` | `engineFor()` selects sherpa for Vietnamese |
-| `scripts/fetch-sherpa-onnx-aar.sh` | Fetch the native AAR (1.13.3) |
-| `scripts/fetch-sherpa-vi-model.sh` | Fetch + adb-push the model (+ v5 VAD) to the device |
+| `scripts/fetch-sherpa-onnx-aar.sh` | Fetch the native AAR (1.13.8) |
+| `scripts/fetch-sherpa-vi-model.sh` | Fetch + adb-push the model (+ Silero VAD v6.2.3) to the device |
 
 ## Known limitations / next steps
 

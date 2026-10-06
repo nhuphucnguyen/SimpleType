@@ -9,7 +9,7 @@ plugins {
 }
 
 // Prebuilt sherpa-onnx AAR version. Keep in sync with scripts/fetch-sherpa-onnx-aar.sh.
-val sherpaOnnxVersion = "1.13.3"
+val sherpaOnnxVersion = "1.13.8"
 
 android {
     namespace = "dev.phucngu.simpletype"
