@@ -20,6 +20,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.Constraints
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -225,6 +230,28 @@ private fun M3Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
             }
         } else null
     )
+}
+
+/**
+ * Lays [content] out at [targetWidth] (e.g. the real screen width) and draws it uniformly scaled
+ * down to the available width, so a miniature keeps the true width/height ratio. Touches are
+ * mapped through the scale by the graphics layer.
+ */
+@Composable
+private fun ScaledToWidth(targetWidth: Dp, content: @Composable () -> Unit) {
+    Layout(content = content) { measurables, constraints ->
+        val target = targetWidth.roundToPx()
+        val scale = (constraints.maxWidth.toFloat() / target).coerceAtMost(1f)
+        val placeable = measurables.first().measure(Constraints.fixedWidth(target))
+        val x = ((constraints.maxWidth - target * scale) / 2f).roundToInt()
+        layout(constraints.maxWidth, (placeable.height * scale).roundToInt()) {
+            placeable.placeWithLayer(x, 0) {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(0f, 0f)
+            }
+        }
+    }
 }
 
 @Composable
@@ -569,20 +596,24 @@ fun SettingsScreen(
                     .background(colorResource(R.color.kb_background))
                     .padding(8.dp)
             ) {
-                LatinKeyboard(
-                    keyboard = QwertyKeyboardLayout.create(currentMetrics.showDedicatedNumberRow),
-                    metrics = currentMetrics,
-                    spaceLabel = stringResource(R.string.subtype_en),
-                    shifted = false,
-                    capsLock = false,
-                    listener = object : LatinKeyboardListener {
-                        override fun onKey(key: Key) {}
-                        override fun onKeyRepeat(key: Key) {}
-                        override fun onSpaceSwipe(direction: Int) {}
-                        override fun onShiftHold(active: Boolean) {}
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                // The real keyboard spans the full screen width; render at that width and scale
+                // down, otherwise the fixed-dp key height makes preview keys look too narrow.
+                ScaledToWidth(LocalConfiguration.current.screenWidthDp.dp) {
+                    LatinKeyboard(
+                        keyboard = QwertyKeyboardLayout.create(currentMetrics.showDedicatedNumberRow),
+                        metrics = currentMetrics,
+                        spaceLabel = stringResource(R.string.subtype_en),
+                        shifted = false,
+                        capsLock = false,
+                        listener = object : LatinKeyboardListener {
+                            override fun onKey(key: Key) {}
+                            override fun onKeyRepeat(key: Key) {}
+                            override fun onSpaceSwipe(direction: Int) {}
+                            override fun onShiftHold(active: Boolean) {}
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
 
