@@ -6,7 +6,14 @@ import android.os.Bundle
 import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -16,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,8 +62,8 @@ class SettingsActivity : ComponentActivity() {
     private val models by lazy { ModelManager(this) }
     private val haptics by lazy { HapticPlayer(this) }
 
-    private val imeEnabledStatus = mutableStateOf("")
     private val imeEnabled = mutableStateOf(false)
+    private val imeSelected = mutableStateOf(false)
     private val enModelText = mutableStateOf("")
     private val enModelEnabled = mutableStateOf(true)
     private val viModelText = mutableStateOf("")
@@ -70,8 +78,8 @@ class SettingsActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     SettingsScreen(
-                        imeEnabledStatus = imeEnabledStatus.value,
                         imeEnabled = imeEnabled.value,
+                        imeSelected = imeSelected.value,
                         enModelText = enModelText.value,
                         enModelEnabled = enModelEnabled.value,
                         viModelText = viModelText.value,
@@ -97,13 +105,18 @@ class SettingsActivity : ComponentActivity() {
         updateModelStatus()
     }
 
+    // The input-method picker is a dialog, so the activity isn't resumed after choosing a
+    // keyboard there; refresh when focus returns instead.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) updateImeStatus()
+    }
+
     private fun updateImeStatus() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-        val isEnabled = imm.enabledInputMethodList.any { it.packageName == packageName }
-        imeEnabled.value = isEnabled
-        imeEnabledStatus.value = getString(
-            if (isEnabled) R.string.status_enabled else R.string.status_not_enabled
-        )
+        imeEnabled.value = imm.enabledInputMethodList.any { it.packageName == packageName }
+        val current = Settings.Secure.getString(contentResolver, Settings.Secure.DEFAULT_INPUT_METHOD)
+        imeSelected.value = current?.startsWith("$packageName/") == true
     }
 
     private fun updateModelStatus() {
@@ -360,11 +373,110 @@ private fun VoiceModelChip(
 
 // ----- Settings screen ----------------------------------------------------------------------
 
+private enum class SettingsPage { HOME, LAYOUT, TYPING, VOICE }
+
+/** Which hint (if any) is drawn in the corner of letter keys; maps onto two [KeyboardMetrics] flags. */
+private enum class KeyHints { NONE, NUMBERS, SYMBOLS }
+
+/** Tappable home-screen row that opens a settings sub-page. */
+@Composable
+private fun NavRow(iconRes: Int, title: String, summary: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 16.5.sp, fontWeight = FontWeight.Bold)
+            Text(
+                summary,
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        Icon(
+            painter = painterResource(R.drawable.ic_chevron_right),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+/**
+ * Sub-page frame: back button + title, an optional [pinned] area that stays put (e.g. the
+ * keyboard preview), then the scrolling [content].
+ */
+@Composable
+private fun SubPage(
+    title: String,
+    onBack: () -> Unit,
+    pinned: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = stringResource(R.string.settings_back)
+                )
+            }
+            Text(title, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp))
+        }
+        if (pinned != null) {
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+                content = pinned
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = {
+                content()
+                Spacer(modifier = Modifier.height(24.dp))
+            }
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    imeEnabledStatus: String,
     imeEnabled: Boolean,
+    imeSelected: Boolean,
     enModelText: String,
     enModelEnabled: Boolean,
     viModelText: String,
@@ -391,6 +503,9 @@ fun SettingsScreen(
     }
     val installedText = stringResource(R.string.model_installed)
 
+    var page by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
+    BackHandler(enabled = page != SettingsPage.HOME) { page = SettingsPage.HOME }
+
     fun applyMetrics(
         rowHeightDp: Float = currentMetrics.rowHeightDp,
         gapHorizontalDp: Float = currentMetrics.gapHorizontalDp,
@@ -408,6 +523,293 @@ fun SettingsScreen(
         KeyboardMetrics.save(prefs, m)
     }
 
+    AnimatedContent(
+        targetState = page,
+        transitionSpec = {
+            // Sub-pages slide in from the right; going back slides home in from the left.
+            val forward = targetState != SettingsPage.HOME
+            (slideInHorizontally { w -> if (forward) w / 4 else -w / 4 } + fadeIn()) togetherWith
+                (slideOutHorizontally { w -> if (forward) -w / 4 else w / 4 } + fadeOut())
+        },
+        label = "settings page",
+    ) { current ->
+        when (current) {
+            SettingsPage.HOME -> HomePage(
+                imeEnabled = imeEnabled,
+                imeSelected = imeSelected,
+                enInstalled = enModelText == installedText,
+                viInstalled = viModelText == installedText,
+                onEnableClick = onEnableClick,
+                onSelectClick = onSelectClick,
+                onOpen = { page = it },
+            )
+
+            SettingsPage.LAYOUT -> SubPage(
+                title = stringResource(R.string.settings_page_layout),
+                onBack = { page = SettingsPage.HOME },
+                pinned = { KeyboardPreview(currentMetrics) },
+            ) {
+                SettingsCard {
+                    LabeledSlider(
+                        label = stringResource(R.string.size_label_key_height),
+                        valueLabel = stringResource(R.string.size_value_dp, currentMetrics.rowHeightDp.toInt()),
+                        value = currentMetrics.rowHeightDp,
+                        onValueChange = { applyMetrics(rowHeightDp = it) },
+                        valueRange = KeyboardMetrics.ROW_HEIGHT_MIN..KeyboardMetrics.ROW_HEIGHT_MAX,
+                    )
+                    LabeledSlider(
+                        label = stringResource(R.string.size_label_gap_v),
+                        valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapVerticalDp.toInt()),
+                        value = currentMetrics.gapVerticalDp,
+                        onValueChange = { applyMetrics(gapVerticalDp = it) },
+                        valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+                    )
+                    LabeledSlider(
+                        label = stringResource(R.string.size_label_gap_h),
+                        valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapHorizontalDp.toInt()),
+                        value = currentMetrics.gapHorizontalDp,
+                        onValueChange = { applyMetrics(gapHorizontalDp = it) },
+                        valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
+                    )
+                    LabeledSlider(
+                        label = stringResource(R.string.size_label_lift),
+                        valueLabel = stringResource(R.string.size_value_dp, currentMetrics.bottomPaddingDp.toInt()),
+                        value = currentMetrics.bottomPaddingDp,
+                        onValueChange = { applyMetrics(bottomPaddingDp = it) },
+                        valueRange = KeyboardMetrics.BOTTOM_PAD_MIN..KeyboardMetrics.BOTTOM_PAD_MAX,
+                    )
+                }
+
+                SettingsCard {
+                    Column {
+                        Text(stringResource(R.string.key_hints_title), fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.key_hints_desc),
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    val hints = when {
+                        currentMetrics.showSymbolHints -> KeyHints.SYMBOLS
+                        currentMetrics.showNumberRow -> KeyHints.NUMBERS
+                        else -> KeyHints.NONE
+                    }
+                    val hintLabels = listOf(
+                        KeyHints.NONE to stringResource(R.string.key_hints_none),
+                        KeyHints.NUMBERS to stringResource(R.string.key_hints_numbers),
+                        KeyHints.SYMBOLS to stringResource(R.string.key_hints_symbols),
+                    )
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        hintLabels.forEachIndexed { index, (option, label) ->
+                            SegmentedButton(
+                                selected = hints == option,
+                                onClick = {
+                                    applyMetrics(
+                                        showNumberRow = option == KeyHints.NUMBERS,
+                                        showSymbolHints = option == KeyHints.SYMBOLS,
+                                    )
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, hintLabels.size),
+                            ) { Text(label) }
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ToggleRow(
+                        title = stringResource(R.string.size_dedicated_number_row),
+                        desc = stringResource(R.string.size_dedicated_number_row_desc),
+                        checked = currentMetrics.showDedicatedNumberRow,
+                        onCheckedChange = { checked -> applyMetrics(showDedicatedNumberRow = checked) },
+                    )
+                }
+
+                PillButton(
+                    text = stringResource(R.string.reset_layout),
+                    onClick = {
+                        applyMetrics(
+                            rowHeightDp = KeyboardMetrics.DEFAULT.rowHeightDp,
+                            gapHorizontalDp = KeyboardMetrics.DEFAULT.gapHorizontalDp,
+                            gapVerticalDp = KeyboardMetrics.DEFAULT.gapVerticalDp,
+                            bottomPaddingDp = KeyboardMetrics.DEFAULT.bottomPaddingDp,
+                            showNumberRow = KeyboardMetrics.DEFAULT.showNumberRow,
+                            showDedicatedNumberRow = KeyboardMetrics.DEFAULT.showDedicatedNumberRow,
+                            showSymbolHints = KeyboardMetrics.DEFAULT.showSymbolHints,
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            SettingsPage.TYPING -> SubPage(
+                title = stringResource(R.string.settings_page_typing),
+                onBack = { page = SettingsPage.HOME },
+            ) {
+                SettingsCard {
+                    ToggleRow(
+                        title = stringResource(R.string.glide_typing),
+                        desc = stringResource(R.string.glide_typing_desc),
+                        checked = glideEnabled,
+                        onCheckedChange = { checked ->
+                            glideEnabled = checked
+                            prefs.edit().putBoolean(LatinKeyboardView.PREF_GLIDE, checked).apply()
+                        },
+                    )
+                }
+
+                SettingsCard {
+                    Column {
+                        Text(stringResource(R.string.cursor_speed_title), fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.cursor_speed_desc),
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    LabeledSlider(
+                        label = stringResource(R.string.cursor_speed_label),
+                        valueLabel = stringResource(
+                            R.string.cursor_speed_value,
+                            // Quarter steps are exact in Float: show "1", "1.5", "2.25" (no trailing zeros).
+                            if (cursorSpeed % 1f == 0f) cursorSpeed.toInt().toString() else cursorSpeed.toString(),
+                        ),
+                        value = cursorSpeed,
+                        onValueChange = {
+                            // Snap to the slider's increments so stored values stay tidy (e.g. 1.25, not 1.2499).
+                            val snapped = Math.round(it / CursorSpeed.INCREMENT) * CursorSpeed.INCREMENT
+                            cursorSpeed = snapped
+                            prefs.edit().putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, snapped).apply()
+                        },
+                        valueRange = CursorSpeed.MIN..CursorSpeed.MAX,
+                        steps = ((CursorSpeed.MAX - CursorSpeed.MIN) / CursorSpeed.INCREMENT).toInt() - 1,
+                    )
+                }
+
+                SettingsCard {
+                    ToggleRow(
+                        title = stringResource(R.string.size_haptic),
+                        desc = stringResource(R.string.size_haptic_desc),
+                        checked = hapticEnabled,
+                        onCheckedChange = { checked ->
+                            hapticEnabled = checked
+                            prefs.edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
+                            if (checked) haptics.tap((hapticLevel + 1) * 100 / 5 / 100f)
+                        },
+                    )
+                    if (hapticEnabled) {
+                        val strengthName = hapticLevels.getOrNull(hapticLevel) ?: stringResource(R.string.haptic_level_mid)
+                        LabeledSlider(
+                            label = stringResource(R.string.vibration_strength),
+                            valueLabel = strengthName,
+                            value = hapticLevel.toFloat(),
+                            onValueChange = {
+                                val newLevel = it.toInt()
+                                hapticLevel = newLevel
+                                val percent = (newLevel + 1) * 100 / 5
+                                prefs.edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, percent).apply()
+                                haptics.tap(percent / 100f)
+                            },
+                            valueRange = 0f..4f,
+                            steps = 3,
+                        )
+                    }
+                }
+
+                PillButton(
+                    text = stringResource(R.string.reset_typing),
+                    onClick = {
+                        glideEnabled = true
+                        hapticEnabled = true
+                        hapticLevel = 2
+                        cursorSpeed = CursorSpeed.DEFAULT
+                        prefs.edit()
+                            .putBoolean(LatinKeyboardView.PREF_GLIDE, true)
+                            .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
+                            .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
+                            .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
+                            .apply()
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            SettingsPage.VOICE -> SubPage(
+                title = stringResource(R.string.settings_page_voice),
+                onBack = { page = SettingsPage.HOME },
+            ) {
+                SettingsCard {
+                    Column {
+                        Text(stringResource(R.string.voice_models_title), fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(
+                            stringResource(R.string.voice_models_intro),
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        VoiceModelChip(
+                            label = stringResource(R.string.subtype_en),
+                            statusText = enModelText,
+                            installed = enModelText == installedText,
+                            enabled = enModelEnabled,
+                            onClick = { onDownloadClick(VoiceLanguage.ENGLISH) }
+                        )
+                        VoiceModelChip(
+                            label = stringResource(R.string.subtype_vi),
+                            statusText = viModelText,
+                            installed = viModelText == installedText,
+                            enabled = viModelEnabled,
+                            onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Live keyboard miniature, rendered at true screen width and scaled down to keep its proportions. */
+@Composable
+private fun KeyboardPreview(metrics: KeyboardMetrics) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(colorResource(R.color.kb_background))
+            .padding(8.dp)
+    ) {
+        // The real keyboard spans the full screen width; render at that width and scale
+        // down, otherwise the fixed-dp key height makes preview keys look too narrow.
+        ScaledToWidth(LocalConfiguration.current.screenWidthDp.dp) {
+            LatinKeyboard(
+                keyboard = QwertyKeyboardLayout.create(metrics.showDedicatedNumberRow),
+                metrics = metrics,
+                spaceLabel = stringResource(R.string.subtype_en),
+                shifted = false,
+                capsLock = false,
+                listener = object : LatinKeyboardListener {
+                    override fun onKey(key: Key) {}
+                    override fun onKeyRepeat(key: Key) {}
+                    override fun onSpaceSwipe(direction: Int) {}
+                    override fun onShiftHold(active: Boolean) {}
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomePage(
+    imeEnabled: Boolean,
+    imeSelected: Boolean,
+    enInstalled: Boolean,
+    viInstalled: Boolean,
+    onEnableClick: () -> Unit,
+    onSelectClick: () -> Unit,
+    onOpen: (SettingsPage) -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -453,324 +855,47 @@ fun SettingsScreen(
             }
         }
 
-        // Status + setup card
-        SettingsCard {
-            // Active banner
-            val bannerBg = if (imeEnabled) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerHigh
-            val bannerFg = if (imeEnabled) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(bannerBg)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
+        // Setup banner: only until SimpleType is both enabled and the active keyboard.
+        if (!imeEnabled || !imeSelected) {
+            SettingsCard {
+                Column(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary),
-                    contentAlignment = Alignment.Center
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 16.dp, vertical = 14.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_check),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(22.dp)
+                    Text(
+                        stringResource(if (imeEnabled) R.string.status_not_selected else R.string.status_not_enabled),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(imeEnabledStatus, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = bannerFg)
                     Text(
                         stringResource(
-                            if (imeEnabled) R.string.settings_status_active_sub
+                            if (imeEnabled) R.string.settings_status_not_selected_sub
                             else R.string.settings_status_inactive_sub
                         ),
                         fontSize = 13.sp,
-                        color = bannerFg.copy(alpha = 0.85f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 1.dp)
                     )
                 }
-            }
-
-            // Action pills
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                PillButton(
-                    text = stringResource(R.string.settings_input_settings),
-                    onClick = onEnableClick,
-                    modifier = Modifier.weight(1f)
-                )
-                PillButton(
-                    text = stringResource(R.string.action_select),
-                    onClick = onSelectClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            // Voice models
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    stringResource(R.string.voice_models_offline),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(start = 2.dp)
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    VoiceModelChip(
-                        label = stringResource(R.string.subtype_en),
-                        statusText = enModelText,
-                        installed = enModelText == installedText,
-                        enabled = enModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.ENGLISH) }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PillButton(
+                        text = stringResource(R.string.settings_input_settings),
+                        onClick = onEnableClick,
+                        modifier = Modifier.weight(1f)
                     )
-                    VoiceModelChip(
-                        label = stringResource(R.string.subtype_vi),
-                        statusText = viModelText,
-                        installed = viModelText == installedText,
-                        enabled = viModelEnabled,
-                        onClick = { onDownloadClick(VoiceLanguage.VIETNAMESE) }
+                    PillButton(
+                        text = stringResource(R.string.action_select),
+                        onClick = onSelectClick,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
         }
 
-        // Keyboard size card
-        SettingsCard {
-            Column {
-                Text(stringResource(R.string.size_title), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    stringResource(R.string.size_intro),
-                    fontSize = 13.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 3.dp)
-                )
-            }
-            LabeledSlider(
-                label = stringResource(R.string.size_label_key_height),
-                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.rowHeightDp.toInt()),
-                value = currentMetrics.rowHeightDp,
-                onValueChange = { applyMetrics(rowHeightDp = it) },
-                valueRange = KeyboardMetrics.ROW_HEIGHT_MIN..KeyboardMetrics.ROW_HEIGHT_MAX,
-            )
-            LabeledSlider(
-                label = stringResource(R.string.size_label_lift),
-                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.bottomPaddingDp.toInt()),
-                value = currentMetrics.bottomPaddingDp,
-                onValueChange = { applyMetrics(bottomPaddingDp = it) },
-                valueRange = KeyboardMetrics.BOTTOM_PAD_MIN..KeyboardMetrics.BOTTOM_PAD_MAX,
-            )
-            LabeledSlider(
-                label = stringResource(R.string.size_label_gap_h),
-                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapHorizontalDp.toInt()),
-                value = currentMetrics.gapHorizontalDp,
-                onValueChange = { applyMetrics(gapHorizontalDp = it) },
-                valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
-            )
-            LabeledSlider(
-                label = stringResource(R.string.size_label_gap_v),
-                valueLabel = stringResource(R.string.size_value_dp, currentMetrics.gapVerticalDp.toInt()),
-                value = currentMetrics.gapVerticalDp,
-                onValueChange = { applyMetrics(gapVerticalDp = it) },
-                valueRange = KeyboardMetrics.GAP_MIN..KeyboardMetrics.GAP_MAX,
-            )
-        }
-
-        // Live preview card
-        SettingsCard(spacing = 12.dp, padding = PaddingValues(16.dp)) {
-            Text(
-                stringResource(R.string.size_live_preview),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 2.dp)
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(colorResource(R.color.kb_background))
-                    .padding(8.dp)
-            ) {
-                // The real keyboard spans the full screen width; render at that width and scale
-                // down, otherwise the fixed-dp key height makes preview keys look too narrow.
-                ScaledToWidth(LocalConfiguration.current.screenWidthDp.dp) {
-                    LatinKeyboard(
-                        keyboard = QwertyKeyboardLayout.create(currentMetrics.showDedicatedNumberRow),
-                        metrics = currentMetrics,
-                        spaceLabel = stringResource(R.string.subtype_en),
-                        shifted = false,
-                        capsLock = false,
-                        listener = object : LatinKeyboardListener {
-                            override fun onKey(key: Key) {}
-                            override fun onKeyRepeat(key: Key) {}
-                            override fun onSpaceSwipe(direction: Int) {}
-                            override fun onShiftHold(active: Boolean) {}
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
-        }
-
-        // Typing options card
-        SettingsCard(spacing = 0.dp, padding = PaddingValues(horizontal = 18.dp, vertical = 4.dp)) {
-            Text(
-                stringResource(R.string.size_typing_options),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)
-            )
-            Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                ToggleRow(
-                    title = stringResource(R.string.size_number_row),
-                    desc = stringResource(R.string.size_number_row_desc),
-                    checked = currentMetrics.showNumberRow,
-                    onCheckedChange = { checked ->
-                        applyMetrics(
-                            showNumberRow = checked,
-                            showSymbolHints = if (checked) false else currentMetrics.showSymbolHints
-                        )
-                    },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ToggleRow(
-                    title = stringResource(R.string.size_symbol_hints),
-                    desc = stringResource(R.string.size_symbol_hints_desc),
-                    checked = currentMetrics.showSymbolHints,
-                    onCheckedChange = { checked ->
-                        applyMetrics(
-                            showNumberRow = if (checked) false else currentMetrics.showNumberRow,
-                            showSymbolHints = checked
-                        )
-                    },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ToggleRow(
-                    title = stringResource(R.string.size_dedicated_number_row),
-                    desc = stringResource(R.string.size_dedicated_number_row_desc),
-                    checked = currentMetrics.showDedicatedNumberRow,
-                    onCheckedChange = { checked -> applyMetrics(showDedicatedNumberRow = checked) },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ToggleRow(
-                    title = stringResource(R.string.glide_typing),
-                    desc = stringResource(R.string.glide_typing_desc),
-                    checked = glideEnabled,
-                    onCheckedChange = { checked ->
-                        glideEnabled = checked
-                        prefs.edit().putBoolean(LatinKeyboardView.PREF_GLIDE, checked).apply()
-                    },
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Haptics card
-        SettingsCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.size_haptic), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        stringResource(R.string.size_haptic_desc),
-                        fontSize = 12.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp)
-                    )
-                }
-                M3Switch(
-                    checked = hapticEnabled,
-                    onCheckedChange = { checked ->
-                        hapticEnabled = checked
-                        prefs.edit().putBoolean(LatinKeyboardView.PREF_HAPTIC, checked).apply()
-                        if (checked) haptics.tap((hapticLevel + 1) * 100 / 5 / 100f)
-                    }
-                )
-            }
-
-            if (hapticEnabled) {
-                val strengthName = hapticLevels.getOrNull(hapticLevel) ?: stringResource(R.string.haptic_level_mid)
-                LabeledSlider(
-                    label = stringResource(R.string.vibration_strength),
-                    valueLabel = strengthName,
-                    value = hapticLevel.toFloat(),
-                    onValueChange = {
-                        val newLevel = it.toInt()
-                        hapticLevel = newLevel
-                        val percent = (newLevel + 1) * 100 / 5
-                        prefs.edit().putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, percent).apply()
-                        haptics.tap(percent / 100f)
-                    },
-                    valueRange = 0f..4f,
-                    steps = 3,
-                )
-            }
-        }
-
-        // Cursor speed card
-        SettingsCard {
-            Column {
-                Text(stringResource(R.string.cursor_speed_title), fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    stringResource(R.string.cursor_speed_desc),
-                    fontSize = 12.5.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-            LabeledSlider(
-                label = stringResource(R.string.cursor_speed_label),
-                valueLabel = stringResource(
-                    R.string.cursor_speed_value,
-                    // Quarter steps are exact in Float: show "1", "1.5", "2.25" (no trailing zeros).
-                    if (cursorSpeed % 1f == 0f) cursorSpeed.toInt().toString() else cursorSpeed.toString(),
-                ),
-                value = cursorSpeed,
-                onValueChange = {
-                    // Snap to the slider's increments so stored values stay tidy (e.g. 1.25, not 1.2499).
-                    val snapped = Math.round(it / CursorSpeed.INCREMENT) * CursorSpeed.INCREMENT
-                    cursorSpeed = snapped
-                    prefs.edit().putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, snapped).apply()
-                },
-                valueRange = CursorSpeed.MIN..CursorSpeed.MAX,
-                steps = ((CursorSpeed.MAX - CursorSpeed.MIN) / CursorSpeed.INCREMENT).toInt() - 1,
-            )
-        }
-
-        // Reset
-        PillButton(
-            text = stringResource(R.string.size_reset),
-            onClick = {
-                applyMetrics(
-                    rowHeightDp = KeyboardMetrics.DEFAULT.rowHeightDp,
-                    gapHorizontalDp = KeyboardMetrics.DEFAULT.gapHorizontalDp,
-                    gapVerticalDp = KeyboardMetrics.DEFAULT.gapVerticalDp,
-                    bottomPaddingDp = KeyboardMetrics.DEFAULT.bottomPaddingDp,
-                    showNumberRow = KeyboardMetrics.DEFAULT.showNumberRow,
-                    showDedicatedNumberRow = KeyboardMetrics.DEFAULT.showDedicatedNumberRow,
-                    showSymbolHints = KeyboardMetrics.DEFAULT.showSymbolHints,
-                )
-                hapticEnabled = true
-                hapticLevel = 2
-                cursorSpeed = CursorSpeed.DEFAULT
-                prefs.edit()
-                    .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
-                    .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, 60)
-                    .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
-                    .apply()
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Try it out
+        // Try it out: at the top so the keyboard opens below it, not over it.
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 stringResource(R.string.action_try),
@@ -779,7 +904,7 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(start = 4.dp)
             )
-            var tryText by remember { mutableStateOf("") }
+            var tryText by rememberSaveable { mutableStateOf("") }
             TextField(
                 value = tryText,
                 onValueChange = { tryText = it },
@@ -793,6 +918,30 @@ fun SettingsScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        NavRow(
+            iconRes = R.drawable.ic_keyboard,
+            title = stringResource(R.string.settings_page_layout),
+            summary = stringResource(R.string.settings_page_layout_sub),
+            onClick = { onOpen(SettingsPage.LAYOUT) },
+        )
+        NavRow(
+            iconRes = R.drawable.ic_touch,
+            title = stringResource(R.string.settings_page_typing),
+            summary = stringResource(R.string.settings_page_typing_sub),
+            onClick = { onOpen(SettingsPage.TYPING) },
+        )
+        val installed = listOfNotNull(
+            stringResource(R.string.subtype_en).takeIf { enInstalled },
+            stringResource(R.string.subtype_vi).takeIf { viInstalled },
+        )
+        NavRow(
+            iconRes = R.drawable.ic_kb_mic,
+            title = stringResource(R.string.settings_page_voice),
+            summary = if (installed.isEmpty()) stringResource(R.string.voice_summary_none)
+            else stringResource(R.string.voice_summary_installed, installed.joinToString(", ")),
+            onClick = { onOpen(SettingsPage.VOICE) },
+        )
 
         Spacer(modifier = Modifier.height(24.dp))
     }

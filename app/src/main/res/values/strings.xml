@@ -14,6 +14,24 @@
     <string name="settings_status_inactive_sub">Enable it in Input settings to start typing</string>
     <string name="settings_input_settings">Input settings</string>
     <string name="voice_models_offline">Voice models · offline</string>
+    <!-- Settings home: navigation rows to the sub-pages. -->
+    <string name="settings_back">Back</string>
+    <string name="settings_page_layout">Layout &amp; size</string>
+    <string name="settings_page_layout_sub">Key size, spacing, number row, key hints</string>
+    <string name="settings_page_typing">Typing</string>
+    <string name="settings_page_typing_sub">Glide typing, cursor speed, vibration</string>
+    <string name="settings_page_voice">Voice</string>
+    <string name="voice_summary_none">No voice models downloaded yet</string>
+    <string name="voice_summary_installed">Installed: %1$s</string>
+    <string name="status_not_selected">SimpleType is enabled but not in use</string>
+    <string name="settings_status_not_selected_sub">Tap Switch keyboard to start typing with it</string>
+    <string name="key_hints_title">Key hints</string>
+    <string name="key_hints_desc">A small character on each key. Swipe down on the key to type it.</string>
+    <string name="key_hints_none">None</string>
+    <string name="key_hints_numbers">Numbers</string>
+    <string name="key_hints_symbols">Symbols</string>
+    <string name="reset_layout">Reset layout</string>
+    <string name="reset_typing">Reset typing</string>
     <string name="size_typing_options">Typing options</string>
     <string name="vibration_strength">Vibration strength</string>
     <string name="size_label_key_height">Key height</string>
