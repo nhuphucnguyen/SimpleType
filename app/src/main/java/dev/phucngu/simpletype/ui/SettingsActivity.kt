@@ -34,6 +34,7 @@ import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.HapticPlayer
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.model.Key
+import dev.phucngu.simpletype.ime.CursorSpeed
 import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboard
 import dev.phucngu.simpletype.ime.LatinKeyboardListener
@@ -358,6 +359,9 @@ fun SettingsScreen(
         )
     }
     val hapticLevels = stringArrayResource(R.array.haptic_levels)
+    var cursorSpeed by remember {
+        mutableStateOf(prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT))
+    }
     val installedText = stringResource(R.string.model_installed)
 
     fun applyMetrics(
@@ -680,6 +684,36 @@ fun SettingsScreen(
             }
         }
 
+        // Cursor speed card
+        SettingsCard {
+            Column {
+                Text(stringResource(R.string.cursor_speed_title), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.cursor_speed_desc),
+                    fontSize = 12.5.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            LabeledSlider(
+                label = stringResource(R.string.cursor_speed_label),
+                valueLabel = stringResource(
+                    R.string.cursor_speed_value,
+                    // Quarter steps are exact in Float: show "1", "1.5", "2.25" (no trailing zeros).
+                    if (cursorSpeed % 1f == 0f) cursorSpeed.toInt().toString() else cursorSpeed.toString(),
+                ),
+                value = cursorSpeed,
+                onValueChange = {
+                    // Snap to the slider's increments so stored values stay tidy (e.g. 1.25, not 1.2499).
+                    val snapped = Math.round(it / CursorSpeed.INCREMENT) * CursorSpeed.INCREMENT
+                    cursorSpeed = snapped
+                    prefs.edit().putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, snapped).apply()
+                },
+                valueRange = CursorSpeed.MIN..CursorSpeed.MAX,
+                steps = ((CursorSpeed.MAX - CursorSpeed.MIN) / CursorSpeed.INCREMENT).toInt() - 1,
+            )
+        }
+
         // Reset
         PillButton(
             text = stringResource(R.string.size_reset),
@@ -695,9 +729,11 @@ fun SettingsScreen(
                 )
                 hapticEnabled = true
                 hapticLevel = 2
+                cursorSpeed = CursorSpeed.DEFAULT
                 prefs.edit()
                     .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
                     .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, 60)
+                    .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
                     .apply()
             },
             modifier = Modifier.fillMaxWidth()
