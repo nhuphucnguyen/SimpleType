@@ -94,7 +94,7 @@ fun KeyboardScreen(
 ) {
     val bgColor = colorResource(R.color.kb_background)
     val chromeIconColor = colorResource(R.color.kb_chrome_icon)
-    val chromeButtonBg = colorResource(R.color.kb_key_special)
+    val chromeButtonBg = colorResource(R.color.kb_chrome_button)
     val statusTextColor = colorResource(R.color.kb_status_text)
     val micActiveColor = colorResource(R.color.kb_mic_active)
     val primaryContainerColor = colorResource(R.color.kb_primary_container)
@@ -313,7 +313,7 @@ private fun ClipboardPanel(
 ) {
     val keyTextColor = colorResource(R.color.kb_key_text)
     val chromeIconColor = colorResource(R.color.kb_chrome_icon)
-    val chromeButtonBg = colorResource(R.color.kb_key_special)
+    val chromeButtonBg = colorResource(R.color.kb_chrome_button)
     val accentColor = colorResource(R.color.kb_accent)
 
     val pinned = items.filter { it.isPinned }
@@ -414,7 +414,7 @@ private fun ClipboardCard(
 ) {
     val keyTextColor = colorResource(R.color.kb_key_text)
     val chromeIconColor = colorResource(R.color.kb_chrome_icon)
-    val chromeButtonBg = colorResource(R.color.kb_key_special)
+    val chromeButtonBg = colorResource(R.color.kb_chrome_button)
     val surfaceColor = colorResource(R.color.kb_surface)
     val primaryContainerColor = colorResource(R.color.kb_primary_container)
     val onPrimaryContainerColor = colorResource(R.color.kb_on_primary_container)

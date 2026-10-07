@@ -223,6 +223,8 @@ fun LatinKeyboard(
     val keyTextColor = colorResource(R.color.kb_key_text)
     val keySpecialTextColor = colorResource(R.color.kb_key_special_text)
     val keyHintColor = colorResource(R.color.kb_key_hint)
+    val keyShadowColor = colorResource(R.color.kb_key_shadow)
+    val keyShadowOffsetPx = 1f * densityFloat
 
     // Load Haptic player and preferences reactively
     val haptics = remember(context) { HapticPlayer(context) }
@@ -331,6 +333,7 @@ fun LatinKeyboard(
 
         fun iconResFor(key: Key): Int? = when {
             key.code == KeyCode.SHIFT && capsLock -> R.drawable.ic_kb_shift_lock
+            key.code == KeyCode.SHIFT && !shifted -> R.drawable.ic_kb_shift_off
             else -> key.iconRes
         }
 
@@ -615,12 +618,11 @@ fun LatinKeyboard(
                     val r = p.rect
                     val isPressed = p == pressedPlacement || (key.code == KeyCode.SHIFT && touchState.shiftPointerId != null)
                     val active = key.code == KeyCode.SHIFT && (shifted || capsLock)
-                    val isShift = key.code == KeyCode.SHIFT
                     val isEnter = key.code == KeyCode.ENTER
 
                     keyPaint.color = when {
                         isPressed -> keyPressedColor.toArgb()
-                        isShift || active -> accentColor.toArgb()
+                        active -> accentColor.toArgb()
                         isEnter -> enterColor.toArgb()
                         key.style == KeyStyle.SPECIAL -> keySpecialColor.toArgb()
                         else -> keyColor.toArgb()
@@ -628,7 +630,7 @@ fun LatinKeyboard(
 
                     // Foreground (glyph/text) color matching the key's role.
                     val fg = when {
-                        isShift || active -> accentTextColor.toArgb()
+                        active -> accentTextColor.toArgb()
                         isEnter -> enterTextColor.toArgb()
                         key.style == KeyStyle.SPECIAL -> keySpecialTextColor.toArgb()
                         else -> keyTextColor.toArgb()
@@ -637,6 +639,13 @@ fun LatinKeyboard(
                     val insetH = gapHorizontalPx / 2f
                     val insetV = gapVerticalPx / 2f
                     val rr = RectF(r.left + insetH, r.top + insetV, r.right - insetH, r.bottom - insetV)
+                    // 1dp shadow peeking out under the key gives it a crisp tile edge.
+                    val keyColorArgb = keyPaint.color
+                    keyPaint.color = keyShadowColor.toArgb()
+                    rr.offset(0f, keyShadowOffsetPx)
+                    canvas.nativeCanvas.drawRoundRect(rr, keyRadius, keyRadius, keyPaint)
+                    rr.offset(0f, -keyShadowOffsetPx)
+                    keyPaint.color = keyColorArgb
                     canvas.nativeCanvas.drawRoundRect(rr, keyRadius, keyRadius, keyPaint)
 
                     val cx = rr.centerX()

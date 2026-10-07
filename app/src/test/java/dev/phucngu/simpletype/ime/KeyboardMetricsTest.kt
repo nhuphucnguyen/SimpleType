@@ -12,9 +12,9 @@ class KeyboardMetricsTest {
     }
 
     @Test fun defaults_match_current_dimens() {
-        assertEquals(48f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
-        assertEquals(4f, KeyboardMetrics.DEFAULT.gapHorizontalDp, 0f)
-        assertEquals(4f, KeyboardMetrics.DEFAULT.gapVerticalDp, 0f)
+        assertEquals(54f, KeyboardMetrics.DEFAULT.rowHeightDp, 0f)
+        assertEquals(6f, KeyboardMetrics.DEFAULT.gapHorizontalDp, 0f)
+        assertEquals(11f, KeyboardMetrics.DEFAULT.gapVerticalDp, 0f)
         assertEquals(30f, KeyboardMetrics.DEFAULT.bottomPaddingDp, 0f)
         assertEquals(true, KeyboardMetrics.DEFAULT.showNumberRow)
         assertEquals(false, KeyboardMetrics.DEFAULT.showDedicatedNumberRow)

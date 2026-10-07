@@ -10,12 +10,17 @@
 
     <!-- Keyboard palette (light) — Material 3 Expressive tonal surfaces. -->
     <!-- Panel the keys sit on (M3 surfaceContainerHigh). -->
-    <color name="kb_background">#FFECE6F0</color>
+    <color name="kb_background">#FFE9E6EE</color>
     <!-- Letter keys (M3 surface). -->
     <color name="kb_key">#FFFFFFFF</color>
     <color name="kb_key_pressed">#FFD9D3E8</color>
-    <!-- Special keys (?123, comma, dot, space) recede into the panel. -->
-    <color name="kb_key_special">#FFE6E0E9</color>
+    <!-- Special keys (shift, delete, ?123, comma, dot): a clearly darker tone than the panel so
+         their edges stay visible, like the gray modifier keys on iOS. -->
+    <color name="kb_key_special">#FFCDC8D4</color>
+    <!-- 1dp drop shadow under every key, gives keys a crisp tile edge. -->
+    <color name="kb_key_shadow">#FFAEAAB5</color>
+    <!-- Round toolbar/chrome buttons (menu, settings, clipboard). -->
+    <color name="kb_chrome_button">#FFE1DCE6</color>
     <color name="kb_key_text">#FF1D1B20</color>
     <color name="kb_key_special_text">#FF49454F</color>
     <!-- Corner number/symbol hint. -->

@@ -6,6 +6,8 @@
     <color name="kb_key">#FF36343B</color>
     <color name="kb_key_pressed">#FF4A4458</color>
     <color name="kb_key_special">#FF2B2930</color>
+    <color name="kb_key_shadow">#FF0E0D10</color>
+    <color name="kb_chrome_button">#FF2B2930</color>
     <color name="kb_key_text">#FFE6E0E9</color>
     <color name="kb_key_special_text">#FFCAC4D0</color>
     <color name="kb_key_hint">#FF938F99</color>

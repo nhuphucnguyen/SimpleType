@@ -31,9 +31,9 @@ data class KeyboardMetrics(
     val numberHintsVisible: Boolean get() = showNumberRow && !showDedicatedNumberRow
 
     companion object {
-        /** Defaults mirror the original res/values/dimens.xml values. */
+        /** iOS-like proportions: row gap roughly twice the key gap so rows read as distinct strips. */
         val DEFAULT = KeyboardMetrics(
-            rowHeightDp = 48f, gapHorizontalDp = 4f, gapVerticalDp = 4f,
+            rowHeightDp = 54f, gapHorizontalDp = 6f, gapVerticalDp = 11f,
             bottomPaddingDp = 30f, showNumberRow = true, showDedicatedNumberRow = false,
             showSymbolHints = false,
         )
