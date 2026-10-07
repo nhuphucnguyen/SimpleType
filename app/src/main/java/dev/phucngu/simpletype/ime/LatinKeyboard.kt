@@ -47,6 +47,7 @@ import kotlin.math.abs
 private const val REPEAT_INITIAL_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 55L
 private const val LONG_PRESS_MS = 300L
+private const val SPACE_CURSOR_STEP_DP = 12f
 private const val NUMBER_HINT_TOP_PADDING_DP = 1f
 private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
@@ -144,6 +145,7 @@ class TouchState {
     var swipeStartY = 0f
     var swipeFired by mutableStateOf(false)
     var swipeOffset by mutableStateOf(0f)
+    var spaceCursorMode by mutableStateOf(false)
     var numberSwipeFired = false
     var longPressFired = false
     var shiftPointerId by mutableStateOf<PointerId?>(null)
@@ -177,6 +179,8 @@ interface LatinKeyboardListener {
     fun onKey(key: Key)
     fun onKeyRepeat(key: Key)
     fun onSpaceSwipe(direction: Int)
+    /** Hold-then-drag on space: move the cursor by [steps] characters (negative = left). */
+    fun onSpaceCursorMove(steps: Int) {}
     fun onShiftHold(active: Boolean)
     /** A completed swipe-to-type gesture over the letter keys. */
     fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {}
@@ -288,6 +292,9 @@ fun LatinKeyboard(
 
     val swipeThreshold = 28f * densityFloat
     val numberSwipeThreshold = 22f * densityFloat
+    val spaceDrag = remember(densityFloat) {
+        SpaceDragTracker(swipeThreshold, cursorStep = SPACE_CURSOR_STEP_DP * densityFloat)
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -361,6 +368,7 @@ fun LatinKeyboard(
                                             touchState.swipeOffset = 0f
                                             touchState.numberSwipeFired = false
                                             touchState.longPressFired = false
+                                            touchState.spaceCursorMode = false
 
                                             touchState.resetGlide()
                                             if (glideEnabled && p.key.isLetterKey() && !keyGeometry.isEmpty) {
@@ -375,7 +383,17 @@ fun LatinKeyboard(
                                                 listener.onShiftHold(true)
                                             }
 
-                                            if (p.key.repeatable) {
+                                            if (touchState.downOnSpace) {
+                                                spaceDrag.down(pos.x)
+                                                longPressJob = scope.launch {
+                                                    delay(LONG_PRESS_MS)
+                                                    if (spaceDrag.onHoldElapsed()) {
+                                                        touchState.spaceCursorMode = true
+                                                        touchState.swipeOffset = 0f
+                                                        if (hapticEnabled) haptics.longPress(hapticStrength)
+                                                    }
+                                                }
+                                            } else if (p.key.repeatable) {
                                                 listener.onKeyRepeat(p.key)
                                                 repeatJob = scope.launch {
                                                     delay(REPEAT_INITIAL_DELAY_MS)
@@ -403,11 +421,21 @@ fun LatinKeyboard(
                                 if (activeChange != null && activeChange.pressed) {
                                     val pos = activeChange.position
                                     if (touchState.downOnSpace) {
-                                        touchState.swipeOffset = pos.x - touchState.swipeStartX
-                                        if (!touchState.swipeFired && abs(touchState.swipeOffset) >= swipeThreshold) {
-                                            touchState.swipeFired = true
-                                            hapticTap()
-                                            listener.onSpaceSwipe(if (touchState.swipeOffset > 0) 1 else -1)
+                                        if (!touchState.spaceCursorMode) {
+                                            touchState.swipeOffset = pos.x - touchState.swipeStartX
+                                        }
+                                        when (val action = spaceDrag.move(pos.x)) {
+                                            is SpaceAction.LanguageSwipe -> {
+                                                longPressJob?.cancel()
+                                                touchState.swipeFired = true
+                                                hapticTap()
+                                                listener.onSpaceSwipe(action.direction)
+                                            }
+                                            is SpaceAction.CursorMove -> {
+                                                hapticTap()
+                                                listener.onSpaceCursorMove(action.steps)
+                                            }
+                                            null -> {}
                                         }
                                         activeChange.consume()
                                     } else {
@@ -521,7 +549,9 @@ fun LatinKeyboard(
                                             val p = pressedPlacement
                                             pressedPlacement = null
                                             touchState.activePointerId = null
+                                            val wasOnSpace = touchState.downOnSpace
                                             touchState.downOnSpace = false
+                                            touchState.spaceCursorMode = false
                                             touchState.swipeOffset = 0f
                                             val numberFired = touchState.numberSwipeFired
                                             touchState.numberSwipeFired = false
@@ -549,7 +579,8 @@ fun LatinKeyboard(
                                             }
                                             touchState.resetGlide()
 
-                                            if (!glideHandled && p != null && !p.key.repeatable && !touchState.swipeFired && !touchState.longPressFired && !numberFired) {
+                                            val spaceSuppressed = wasOnSpace && !spaceDrag.shouldTypeSpace()
+                                            if (!glideHandled && p != null && !p.key.repeatable && !spaceSuppressed && !touchState.swipeFired && !touchState.longPressFired && !numberFired) {
                                                 listener.onKey(p.key)
                                             }
                                             change.consume()
@@ -640,7 +671,7 @@ fun LatinKeyboard(
                             val gap = 9f * densityFloat
                             val baseAlpha = 110
                             chevronPaint.color = keySpecialTextColor.toArgb()
-                            chevronPaint.alpha = if (touchState.swipeFired || (touchState.downOnSpace && abs(touchState.swipeOffset) > 8f * densityFloat)) {
+                            chevronPaint.alpha = if (touchState.swipeFired || touchState.spaceCursorMode || (touchState.downOnSpace && abs(touchState.swipeOffset) > 8f * densityFloat)) {
                                 255
                             } else {
                                 baseAlpha

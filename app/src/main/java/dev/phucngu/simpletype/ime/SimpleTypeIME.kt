@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
+import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
@@ -65,6 +66,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 open class SimpleTypeIME : InputMethodService(),
     LatinKeyboardListener,
@@ -384,6 +386,14 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
+
+    override fun onSpaceCursorMove(steps: Int) {
+        val ic = currentInputConnection ?: return
+        clearGlideSuggestions()
+        finishComposing(ic)
+        val keyCode = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        repeat(abs(steps)) { sendDownUpKeyEvents(keyCode) }
+    }
 
     // ---- Glide (swipe-to-type) ----
 
