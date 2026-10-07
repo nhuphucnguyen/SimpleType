@@ -57,3 +57,18 @@ class SpaceDragTracker(private val swipeThreshold: Float, private val cursorStep
 
     fun shouldTypeSpace(): Boolean = !swiped && !cursorMoved
 }
+
+/**
+ * User-adjustable cursor travel speed for space-drag, as a multiplier on [BASE_STEP_DP]: at 2x
+ * every 5dp of drag moves one character. Stored in prefs under [LatinKeyboardView.PREF_CURSOR_SPEED].
+ */
+object CursorSpeed {
+    const val BASE_STEP_DP = 10f
+    const val MIN = 0.5f
+    const val MAX = 3f
+    const val DEFAULT = 1f
+    /** Slider increment; the range MIN..MAX splits into whole multiples of this. */
+    const val INCREMENT = 0.25f
+
+    fun stepDp(speed: Float): Float = BASE_STEP_DP / speed.coerceIn(MIN, MAX)
+}

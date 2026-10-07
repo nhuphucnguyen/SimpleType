@@ -5,6 +5,8 @@ import android.graphics.Paint
 import android.graphics.PointF
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerId
@@ -47,16 +50,19 @@ import kotlin.math.abs
 private const val REPEAT_INITIAL_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 55L
 private const val LONG_PRESS_MS = 300L
-private const val SPACE_CURSOR_STEP_DP = 12f
 private const val NUMBER_HINT_TOP_PADDING_DP = 1f
 private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 private const val GLIDE_TRAIL_POINTS = 48
+private const val CURSOR_MODE_FADE_MS = 120
+/** Opacity of key labels while space-drag cursor mode is active (keyboard reads as a trackpad). */
+private const val CURSOR_MODE_LABEL_ALPHA = 0.15f
 
 object LatinKeyboardView {
     const val PREF_HAPTIC = "kb_haptic"
     const val PREF_HAPTIC_STRENGTH = "kb_haptic_strength"
     const val PREF_GLIDE = "kb_glide"
+    const val PREF_CURSOR_SPEED = "kb_cursor_speed"
     const val DEFAULT_HAPTIC_PERCENT = 60
     const val DEFAULT_HAPTIC_STRENGTH = DEFAULT_HAPTIC_PERCENT / 100f
 }
@@ -231,6 +237,7 @@ fun LatinKeyboard(
     val prefs = remember(context) { context.getSharedPreferences("simpletype_prefs", Context.MODE_PRIVATE) }
     var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
     var hapticPercent by remember { mutableStateOf(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)) }
+    var cursorSpeed by remember { mutableStateOf(prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)) }
 
     DisposableEffect(prefs) {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -238,6 +245,8 @@ fun LatinKeyboard(
                 hapticEnabled = prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)
             } else if (key == LatinKeyboardView.PREF_HAPTIC_STRENGTH) {
                 hapticPercent = prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
+            } else if (key == LatinKeyboardView.PREF_CURSOR_SPEED) {
+                cursorSpeed = prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -294,9 +303,15 @@ fun LatinKeyboard(
 
     val swipeThreshold = 28f * densityFloat
     val numberSwipeThreshold = 22f * densityFloat
-    val spaceDrag = remember(densityFloat) {
-        SpaceDragTracker(swipeThreshold, cursorStep = SPACE_CURSOR_STEP_DP * densityFloat)
+    val spaceDrag = remember(densityFloat, cursorSpeed) {
+        SpaceDragTracker(swipeThreshold, cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat)
     }
+    // 0 = normal typing, 1 = cursor mode: labels fade out and the space bar turns accent.
+    val cursorModeProgress by animateFloatAsState(
+        targetValue = if (touchState.spaceCursorMode) 1f else 0f,
+        animationSpec = tween(CURSOR_MODE_FADE_MS),
+        label = "cursor mode",
+    )
 
     BoxWithConstraints(
         modifier = modifier
@@ -340,7 +355,7 @@ fun LatinKeyboard(
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
-                .pointerInput(keyboard, metrics, placements, glideEnabled) {
+                .pointerInput(keyboard, metrics, placements, glideEnabled, spaceDrag) {
                     try {
                         awaitPointerEventScope {
                             while (true) {
@@ -611,7 +626,7 @@ fun LatinKeyboard(
         ) {
             drawIntoCanvas { canvas ->
                 val fm = textPaint.fontMetrics
-
+                val labelAlpha = (255 * (1f - (1f - CURSOR_MODE_LABEL_ALPHA) * cursorModeProgress)).toInt()
 
                 for (p in placements) {
                     val key = p.key
@@ -620,7 +635,10 @@ fun LatinKeyboard(
                     val active = key.code == KeyCode.SHIFT && (shifted || capsLock)
                     val isEnter = key.code == KeyCode.ENTER
 
+                    val isSpace = key.code == KeyCode.SPACE
                     keyPaint.color = when {
+                        isSpace && cursorModeProgress > 0f ->
+                            lerp(if (isPressed) keyPressedColor else keyColor, accentColor, cursorModeProgress).toArgb()
                         isPressed -> keyPressedColor.toArgb()
                         active -> accentColor.toArgb()
                         isEnter -> enterColor.toArgb()
@@ -664,22 +682,37 @@ fun LatinKeyboard(
 
                     val special = key.style == KeyStyle.SPECIAL
                     when {
-                        key.code == KeyCode.SPACE -> {
+                        isSpace -> {
                             val shiftedCx = cx + touchState.swipeOffset
-                            labelPaint.color = keySpecialTextColor.toArgb()
+                            val spaceFg = lerp(keySpecialTextColor, accentTextColor, cursorModeProgress).toArgb()
+                            val spaceCy = rr.centerY()
+                            // Language label cross-fades into an I-beam cursor glyph.
+                            labelPaint.color = spaceFg
+                            labelPaint.alpha = (255 * (1f - cursorModeProgress)).toInt()
                             canvas.nativeCanvas.drawText(
                                 spaceLabel,
                                 shiftedCx,
-                                rr.centerY() - (labelPaint.fontMetrics.ascent + labelPaint.fontMetrics.descent) / 2f,
+                                spaceCy - (labelPaint.fontMetrics.ascent + labelPaint.fontMetrics.descent) / 2f,
                                 labelPaint
                             )
-                            // Draw arrows
-                            val labelHalf = labelPaint.measureText(spaceLabel) / 2f
-                            val spaceCy = rr.centerY()
+                            val beamHalfHeight = 7f * densityFloat
+                            val serif = 3f * densityFloat
+                            if (cursorModeProgress > 0f) {
+                                chevronPaint.color = spaceFg
+                                chevronPaint.alpha = (255 * cursorModeProgress).toInt()
+                                val top = spaceCy - beamHalfHeight
+                                val bottom = spaceCy + beamHalfHeight
+                                canvas.nativeCanvas.drawLine(shiftedCx, top, shiftedCx, bottom, chevronPaint)
+                                canvas.nativeCanvas.drawLine(shiftedCx - serif, top, shiftedCx + serif, top, chevronPaint)
+                                canvas.nativeCanvas.drawLine(shiftedCx - serif, bottom, shiftedCx + serif, bottom, chevronPaint)
+                            }
+                            // Draw arrows, hugging the I-beam in cursor mode.
+                            val textHalf = labelPaint.measureText(spaceLabel) / 2f
+                            val labelHalf = textHalf + (serif - textHalf) * cursorModeProgress
                             val s = 4f * densityFloat
                             val gap = 9f * densityFloat
                             val baseAlpha = 110
-                            chevronPaint.color = keySpecialTextColor.toArgb()
+                            chevronPaint.color = spaceFg
                             chevronPaint.alpha = if (touchState.swipeFired || touchState.spaceCursorMode || (touchState.downOnSpace && abs(touchState.swipeOffset) > 8f * densityFloat)) {
                                 255
                             } else {
@@ -698,6 +731,7 @@ fun LatinKeyboard(
                             val res = iconResFor(key)!!
                             val d = iconCache.getOrPut(res) { ContextCompat.getDrawable(context, res)!!.mutate() }
                             d.setTint(tint)
+                            d.alpha = labelAlpha
                             val half = iconSizePx / 2f
                             val l = (rr.centerX() - half).toInt()
                             val t = (rr.centerY() - half).toInt()
@@ -706,6 +740,7 @@ fun LatinKeyboard(
                         }
                         !key.isPrintable -> {
                             labelPaint.color = fg
+                            labelPaint.alpha = labelAlpha
                             canvas.nativeCanvas.drawText(
                                 key.label,
                                 cx,
@@ -715,6 +750,7 @@ fun LatinKeyboard(
                         }
                         else -> {
                             textPaint.color = fg
+                            textPaint.alpha = labelAlpha
                             canvas.nativeCanvas.drawText(
                                 displayLabel(key, shifted, capsLock),
                                 cx,
@@ -741,6 +777,7 @@ fun LatinKeyboard(
                             )
                         }
                         hintPaint.color = keyHintColor.toArgb()
+                        hintPaint.alpha = labelAlpha
                         canvas.nativeCanvas.drawText(
                             hint.toString(),
                             hintPosition.x,
