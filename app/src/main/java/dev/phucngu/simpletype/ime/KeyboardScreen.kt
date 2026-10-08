@@ -45,8 +45,8 @@ private fun CircleIconButton(
     tint: Color,
     background: Color,
     modifier: Modifier = Modifier,
-    size: Dp = 40.dp,
-    iconSize: Dp = 20.dp,
+    size: Dp = 32.dp,
+    iconSize: Dp = 17.dp,
 ) {
     Box(
         modifier = modifier
@@ -110,8 +110,8 @@ fun KeyboardScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .padding(start = 12.dp, end = 12.dp),
+                .height(40.dp)
+                .padding(start = 10.dp, end = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left options cluster
@@ -126,7 +126,7 @@ fun KeyboardScreen(
 
                 AnimatedVisibility(visible = optionsExpanded) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         CircleIconButton(
                             iconRes = R.drawable.ic_kb_settings,
                             contentDescription = stringResource(R.string.settings_title),
@@ -134,7 +134,7 @@ fun KeyboardScreen(
                             tint = chromeIconColor,
                             background = chromeButtonBg
                         )
-                        Spacer(modifier = Modifier.width(10.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         CircleIconButton(
                             iconRes = R.drawable.ic_kb_clipboard,
                             contentDescription = stringResource(R.string.key_clipboard),
@@ -183,8 +183,8 @@ fun KeyboardScreen(
             // Prominent mic button (M3 filled, primaryContainer).
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(11.dp))
                     .background(if (micActive) micActiveColor else primaryContainerColor)
                     .clickable(onClick = onMicClick),
                 contentAlignment = Alignment.Center
@@ -197,7 +197,7 @@ fun KeyboardScreen(
                         if (micActive) R.string.toolbar_stop_mic else R.string.toolbar_mic
                     ),
                     tint = if (micActive) Color.White else onPrimaryContainerColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(17.dp)
                 )
             }
         }
@@ -250,7 +250,7 @@ private fun SuggestionStrip(
         modifier = Modifier
             .fillMaxSize()
             .horizontalScroll(rememberScrollState())
-            .padding(vertical = 4.dp),
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -260,7 +260,7 @@ private fun SuggestionStrip(
                 modifier = Modifier
                     .fillMaxHeight()
                     .defaultMinSize(minWidth = 48.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .background(if (isTop) topBg else Color.Transparent)
                     .clickable { onSuggestionClick(word) }
                     .padding(horizontal = 16.dp),
@@ -269,7 +269,7 @@ private fun SuggestionStrip(
                 Text(
                     text = word,
                     color = if (isTop) topTextColor else textColor,
-                    fontSize = if (isTop) 19.sp else 17.sp,
+                    fontSize = if (isTop) 17.sp else 15.sp,
                     fontWeight = if (isTop) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -345,6 +345,7 @@ private fun ClipboardPanel(
                 tint = chromeIconColor,
                 background = chromeButtonBg,
                 modifier = Modifier.rotate(180f),
+                size = 40.dp,
                 iconSize = 18.dp
             )
         }
