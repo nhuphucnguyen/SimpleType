@@ -39,7 +39,11 @@ object SymbolKeyboardLayout {
 
     private fun bottomRow(alternate: Boolean): KeyboardRow {
         val left = if (alternate) letter('<').copy(style = KeyStyle.SPECIAL)
-        else letter(',').copy(style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI)
+        else letter(',').copy(
+            style = KeyStyle.SPECIAL,
+            longPressCode = KeyCode.EMOJI,
+            hintIconRes = R.drawable.ic_kb_emoji_hint,
+        )
         val right = if (alternate) letter('>').copy(style = KeyStyle.SPECIAL)
         else letter('.').copy(style = KeyStyle.SPECIAL)
         return row(

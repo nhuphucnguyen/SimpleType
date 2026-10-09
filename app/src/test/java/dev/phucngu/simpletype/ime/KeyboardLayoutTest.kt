@@ -1,6 +1,7 @@
 package dev.phucngu.simpletype.ime
 
 import android.text.InputType
+import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.keyboard.layout.NumericKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.layout.SymbolKeyboardLayout
@@ -14,6 +15,23 @@ import org.junit.Test
 
 /** Geometry checks for the static layouts. Pure data, no Android runtime needed. */
 class KeyboardLayoutTest {
+
+    @Test fun keys_that_open_the_emoji_picker_show_the_emoji_hint_icon() {
+        val layouts = listOf(
+            QwertyKeyboardLayout.create(showDedicatedNumberRow = false),
+            QwertyKeyboardLayout.create(showDedicatedNumberRow = true),
+            SymbolKeyboardLayout.primary(),
+            SymbolKeyboardLayout.alternate(),
+        )
+        val keys = layouts.flatMap { layout -> layout.rows.flatMap { it.keys } }
+        val emojiKeys = keys.filter { it.longPressCode == KeyCode.EMOJI }
+
+        assertTrue(emojiKeys.isNotEmpty())
+        for (key in keys) {
+            val expected = if (key.longPressCode == KeyCode.EMOJI) R.drawable.ic_kb_emoji_hint else null
+            assertEquals("hint icon on '${key.label}'", expected, key.hintIconRes)
+        }
+    }
 
     @Test fun number_input_uses_numeric_layout() {
         assertEquals(KeyboardLayoutType.NUMERIC,
