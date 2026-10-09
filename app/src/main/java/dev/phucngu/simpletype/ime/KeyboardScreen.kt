@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ime.emoji.EmojiPanel
 import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 
 /** A round tonal icon button used throughout the keyboard chrome (M3 Expressive). */
@@ -90,6 +91,11 @@ fun KeyboardScreen(
     onClipboardSelect: (String) -> Unit,
     onClipboardPin: (String) -> Unit,
     onClipboardDelete: (String) -> Unit,
+    emojiVisible: Boolean = false,
+    emojiRecents: List<String> = emptyList(),
+    onEmojiSelect: (String) -> Unit = {},
+    onEmojiDelete: () -> Unit = {},
+    onEmojiClose: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val bgColor = colorResource(R.color.kb_background)
@@ -202,7 +208,7 @@ fun KeyboardScreen(
             }
         }
 
-        // Keyboard / Clipboard Box Area
+        // Keyboard / Clipboard / Emoji Box Area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -227,6 +233,17 @@ fun KeyboardScreen(
                     onSelect = onClipboardSelect,
                     onPin = onClipboardPin,
                     onDelete = onClipboardDelete,
+                    modifier = Modifier.matchParentSize()
+                )
+            }
+
+            if (emojiVisible) {
+                EmojiPanel(
+                    recents = emojiRecents,
+                    bgColor = bgColor,
+                    onSelect = onEmojiSelect,
+                    onDelete = onEmojiDelete,
+                    onClose = onEmojiClose,
                     modifier = Modifier.matchParentSize()
                 )
             }

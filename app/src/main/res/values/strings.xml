@@ -56,6 +56,20 @@
     <string name="clipboard_delete">Delete item</string>
     <string name="clipboard_section_pinned">Pinned</string>
     <string name="clipboard_section_recent">Recent</string>
+    <string name="emoji_back_to_keyboard">ABC</string>
+    <string name="emoji_back_to_keyboard_desc">Back to keyboard</string>
+    <string name="emoji_delete">Delete</string>
+    <string name="emoji_category_recent">Recently used</string>
+    <string name="emoji_category_smileys">Smileys and emotion</string>
+    <string name="emoji_category_people">People and body</string>
+    <string name="emoji_category_animals">Animals and nature</string>
+    <string name="emoji_category_food">Food and drink</string>
+    <string name="emoji_category_activities">Activities</string>
+    <string name="emoji_category_travel">Travel and places</string>
+    <string name="emoji_category_objects">Objects</string>
+    <string name="emoji_category_symbols">Symbols</string>
+    <string name="emoji_category_flags">Flags</string>
+    <string name="emoji_recent_empty">Emoji you use will show up here</string>
 
     <!-- Toolbar chrome -->
     <string name="toolbar_menu">Keyboard menu</string>
