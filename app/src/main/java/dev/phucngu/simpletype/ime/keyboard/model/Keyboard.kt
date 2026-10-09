@@ -27,6 +27,8 @@ data class Key(
     val longPressCode: Int? = null,
     val numberHint: Char? = null,
     val symbolHint: Char? = null,
+    /** Small grey icon drawn in the hint slot, advertising what holding the key does. */
+    @param:DrawableRes val hintIconRes: Int? = null,
     /** Number of rows occupied by this key in a fixed-column keyboard. */
     val rowSpan: Int = 1,
 ) {

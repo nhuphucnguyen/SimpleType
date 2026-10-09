@@ -3,6 +3,7 @@ package dev.phucngu.simpletype.ime
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.PointF
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import androidx.compose.animation.core.animateFloatAsState
@@ -53,6 +54,8 @@ private const val LONG_PRESS_MS = 300L
 private const val HINT_LONG_PRESS_MS = 250L
 private const val HINT_TOP_PADDING_DP = 1f
 private const val HINTED_TEXT_OFFSET_DP = 2f
+/** Hint icons are drawn on a 24-unit grid with a ~18-unit glyph, so this gives a ~9dp smiley. */
+private const val HINT_ICON_SIZE_DP = 12f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 private const val GLIDE_TRAIL_POINTS = 48
 private const val CURSOR_MODE_FADE_MS = 120
@@ -291,6 +294,9 @@ fun LatinKeyboard(
     chevronPaint.strokeWidth = 1.5f * densityFloat
 
     val iconCache = remember { HashMap<Int, Drawable>() }
+    // Digit bounds let hint icons sit at the same height as the number/symbol hints.
+    val hintDigitBounds = remember { Rect() }
+    hintPaint.getTextBounds("0", 0, 1, hintDigitBounds)
 
     // Touch and Timer State
     val scope = rememberCoroutineScope()
@@ -632,7 +638,8 @@ fun LatinKeyboard(
                     val hint = hintFor(key)
                     // Once a hold has fired, the key previews the hint it just typed.
                     val showingHint = hint != null && isPressed && touchState.longPressFired
-                    val printableTextBaseline = if (hint != null && !showingHint) {
+                    val hintIconRes = if (showingHint) null else key.hintIconRes
+                    val printableTextBaseline = if ((hint != null && !showingHint) || hintIconRes != null) {
                         calculateHintedTextBaseline(
                             centeredBaseline = cy,
                             keyBottom = rr.bottom,
@@ -724,12 +731,26 @@ fun LatinKeyboard(
                     }
 
                     // Number/symbol hint, centered above the letter on a shared baseline.
-                    if (hint != null && !showingHint) {
-                        val hintPosition = calculateHintPosition(
-                            keyRect = rr,
-                            densityFloat = densityFloat,
-                            fontAscent = hintPaint.fontMetrics.ascent,
+                    val hintPosition = calculateHintPosition(
+                        keyRect = rr,
+                        densityFloat = densityFloat,
+                        fontAscent = hintPaint.fontMetrics.ascent,
+                    )
+                    if (hintIconRes != null) {
+                        val d = iconCache.getOrPut(hintIconRes) { ContextCompat.getDrawable(context, hintIconRes)!!.mutate() }
+                        d.setTint(keyHintColor.toArgb())
+                        d.alpha = labelAlpha
+                        val half = HINT_ICON_SIZE_DP * densityFloat / 2f
+                        val iconCy = hintPosition.y + hintDigitBounds.exactCenterY()
+                        d.setBounds(
+                            (hintPosition.x - half).toInt(),
+                            (iconCy - half).toInt(),
+                            (hintPosition.x + half).toInt(),
+                            (iconCy + half).toInt(),
                         )
+                        d.draw(canvas.nativeCanvas)
+                    }
+                    if (hint != null && !showingHint) {
                         hintPaint.color = keyHintColor.toArgb()
                         hintPaint.alpha = labelAlpha
                         canvas.nativeCanvas.drawText(

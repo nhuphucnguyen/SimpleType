@@ -42,7 +42,8 @@ object QwertyKeyboardLayout {
 
     private fun bottomRow() = row(
         Key(KeyCode.SYMBOLS, "?123", weight = 1.5f, style = KeyStyle.SPECIAL),
-        Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI),
+        Key(','.code, ",", style = KeyStyle.SPECIAL, longPressCode = KeyCode.EMOJI,
+            hintIconRes = R.drawable.ic_kb_emoji_hint),
         Key(KeyCode.SPACE, "", weight = 5f),
         Key('.'.code, ".", style = KeyStyle.SPECIAL),
         Key(KeyCode.ENTER, "Enter", weight = 1.5f, style = KeyStyle.SPECIAL,
