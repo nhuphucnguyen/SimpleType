@@ -48,7 +48,9 @@ import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutSelector
 import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutType
+import dev.phucngu.simpletype.ime.emoji.EmojiRecents
 import dev.phucngu.simpletype.text.TelexEngine
+import dev.phucngu.simpletype.text.lastGraphemeLength
 import dev.phucngu.simpletype.ui.MicPermissionActivity
 import dev.phucngu.simpletype.voice.AsrEngine
 import dev.phucngu.simpletype.voice.AsrListener
@@ -96,6 +98,8 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeOptionsExpanded by mutableStateOf(false)
     private var composeClipboardItems by mutableStateOf<List<ClipboardItem>>(emptyList())
     private var composeClipboardVisible by mutableStateOf(false)
+    private var composeEmojiVisible by mutableStateOf(false)
+    private var composeEmojiRecents by mutableStateOf<List<String>>(emptyList())
     private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
     private var composeSelectedSuggestion by mutableStateOf<String?>(null)
     private var composeGlideEnabled by mutableStateOf(false)
@@ -223,7 +227,12 @@ open class SimpleTypeIME : InputMethodService(),
                     onClipboardDelete = { id ->
                         clipboardHistory.deleteItem(id)
                         composeClipboardItems = clipboardHistory.getItems()
-                    }
+                    },
+                    emojiVisible = composeEmojiVisible,
+                    emojiRecents = composeEmojiRecents,
+                    onEmojiSelect = { commitEmoji(it) },
+                    onEmojiDelete = { currentInputConnection?.let { handleDelete(it) } },
+                    onEmojiClose = { hideEmoji() },
                 )
             }
         }
@@ -254,6 +263,7 @@ open class SimpleTypeIME : InputMethodService(),
         telex.reset()
         commandHandler.clearHistory()
         layout = KeyboardLayoutType.ALPHA
+        composeEmojiVisible = false
         capsLock = false
         passwordField = isPasswordField(info)
         directCommit = info.inputType == InputType.TYPE_NULL
@@ -508,7 +518,8 @@ open class SimpleTypeIME : InputMethodService(),
             deleteWordBeforeCursor(ic)
             return
         }
-        ic.deleteSurroundingText(1, 0)
+        val before = ic.getTextBeforeCursor(GRAPHEME_LOOKBEHIND, 0) ?: ""
+        ic.deleteSurroundingText(lastGraphemeLength(before).coerceAtLeast(1), 0)
         updateAutoCapitalize(currentInputEditorInfo)
     }
 
@@ -530,7 +541,25 @@ open class SimpleTypeIME : InputMethodService(),
 
     private fun handleEmoji(ic: InputConnection) {
         finishComposing(ic)
-        ic.commitText("🙂", 1)
+        clearGlideSuggestions()
+        composeOptionsExpanded = false
+        composeClipboardVisible = false
+        composeEmojiRecents = EmojiRecents.load(prefs())
+        composeEmojiVisible = true
+    }
+
+    private fun prefs() = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
+
+    private fun hideEmoji() {
+        composeEmojiVisible = false
+    }
+
+    private fun commitEmoji(emoji: String) {
+        val ic = currentInputConnection ?: return
+        finishComposing(ic)
+        ic.commitText(emoji, 1)
+        composeEmojiRecents = EmojiRecents.record(composeEmojiRecents, emoji)
+        EmojiRecents.save(prefs(), composeEmojiRecents)
     }
 
     private fun handleEnter(ic: InputConnection) {
@@ -759,6 +788,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     private fun showClipboard() {
         composeOptionsExpanded = false
+        composeEmojiVisible = false
         composeClipboardVisible = true
         composeClipboardItems = clipboardHistory.getItems()
     }
@@ -773,6 +803,8 @@ open class SimpleTypeIME : InputMethodService(),
 
     private companion object {
         const val WORD_DELETE_LOOKBEHIND = 64
+        /** Long enough for the longest ZWJ emoji sequences (family/flag tags run ~14 chars). */
+        const val GRAPHEME_LOOKBEHIND = 32
         const val SELECTION_SYNC_DEBOUNCE_MS = 75L
         val GLIDE_DICTIONARY_ASSETS = mapOf(
             VoiceLanguage.ENGLISH to "dictionaries/en.txt",
