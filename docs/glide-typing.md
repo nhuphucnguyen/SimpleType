@@ -7,7 +7,7 @@ extend it.
 
 ```
 LatinKeyboard.kt (Compose UI)
-  └─ captures the touch path, draws the trail, distinguishes tap / hint-flick / glide
+  └─ captures the touch path, draws the trail, distinguishes tap / hint long-press / glide
        └─ LatinKeyboardListener.onGlideTyped(path, keyGeometry)
             └─ SimpleTypeIME
                  ├─ GestureDecoder.decode(path, geometry)  → ranked candidates
@@ -140,8 +140,7 @@ or corrects. Nothing in the decoder assumes a single source.
   Telex modifier keys are *not* part of the swipe. Tap-typing with Telex is unchanged;
   a glide first finishes any in-progress Telex composition, and tapping an alternate
   suggestion releases the Telex context pickup before replacing the word.
-- The swipe-down-for-number/symbol hint still works with glide enabled, but is resolved
-  on finger-up: a fast (<250 ms), short, mostly-vertical flick fires the hint; anything
-  longer or wider is decoded as a word.
+- Number/symbol hints are typed by holding the key (250 ms), which doesn't conflict with
+  glide: starting a glide cancels the hold, and a fired hold cancels the glide.
 - Settings → Typing options → **Glide typing** toggles the feature
   (`kb_glide` in `simpletype_prefs`, default on).

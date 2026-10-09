@@ -2,6 +2,7 @@ package dev.phucngu.simpletype.ime
 
 import dev.phucngu.simpletype.ime.keyboard.layout.NumericKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
+import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 
 import android.graphics.RectF
@@ -16,9 +17,9 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class KeyboardViewMetricsTest {
 
-    @Test fun number_hint_is_centered_and_one_dp_from_key_top() {
+    @Test fun hint_is_centered_and_one_dp_from_key_top() {
         val keyRect = RectF(10f, 20f, 50f, 80f)
-        val position = calculateNumberHintPosition(
+        val position = calculateHintPosition(
             keyRect = keyRect,
             densityFloat = 2f,
             fontAscent = -8f,
@@ -28,8 +29,8 @@ class KeyboardViewMetricsTest {
         assertEquals(22f, position.y + -8f, 0f)
     }
 
-    @Test fun letter_moves_down_two_dp_when_number_hint_is_visible() {
-        val baseline = calculateNumberHintedTextBaseline(
+    @Test fun letter_moves_down_two_dp_when_hint_is_visible() {
+        val baseline = calculateHintedTextBaseline(
             centeredBaseline = 40f,
             keyBottom = 80f,
             densityFloat = 2f,
@@ -37,6 +38,28 @@ class KeyboardViewMetricsTest {
         )
 
         assertEquals(44f, baseline, 0f)
+    }
+
+    @Test fun long_press_on_a_hinted_key_types_the_hint() {
+        val key = Key('q'.code, "q", numberHint = '1', symbolHint = '%')
+
+        assertEquals(Key('%'.code, "%"), longPressTarget(key, hint = '%'))
+        assertEquals(Key('1'.code, "1"), longPressTarget(key, hint = '1'))
+    }
+
+    @Test fun long_press_falls_back_to_the_key_long_press_code() {
+        val comma = Key(','.code, ",", longPressCode = KeyCode.EMOJI)
+
+        assertEquals(KeyCode.EMOJI, longPressTarget(comma, hint = null)?.code)
+    }
+
+    @Test fun plain_key_has_no_long_press_target() {
+        assertEquals(null, longPressTarget(Key('a'.code, "a"), hint = null))
+    }
+
+    @Test fun hint_long_press_is_quicker_than_a_regular_long_press() {
+        assertTrue(longPressDelayMs(hinted = true) < longPressDelayMs(hinted = false))
+        assertTrue(longPressDelayMs(hinted = true) in 200L..280L)
     }
 
     private fun placementsBottom(metrics: KeyboardMetrics): Float {
