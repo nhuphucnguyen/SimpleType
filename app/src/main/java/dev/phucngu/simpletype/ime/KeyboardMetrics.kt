@@ -13,12 +13,12 @@ data class KeyboardMetrics(
     val gapVerticalDp: Float,
     /** Extra space below the bottom row (on top of the nav-bar inset) to lift keys into reach. */
     val bottomPaddingDp: Float,
-    /** Show the corner digit hint on the top QWERTY row and enable swipe-down-to-type-a-number. */
+    /** Show the corner digit hint on the top QWERTY row and enable hold-to-type-a-number. */
     val showNumberRow: Boolean,
     /** Show a dedicated row of number keys (1-0) above the main QWERTY layout. */
     val showDedicatedNumberRow: Boolean,
     /**
-     * Show a common-symbol hint in the corner of every letter key, swipe-down to type it. Mutually
+     * Show a common-symbol hint above every letter, hold the key to type it. Mutually
      * exclusive with [showNumberRow]: enabling this forces the number hints off (see [of]).
      */
     val showSymbolHints: Boolean,
@@ -59,7 +59,7 @@ data class KeyboardMetrics(
             gapHorizontalDp.coerceIn(GAP_MIN, GAP_MAX),
             gapVerticalDp.coerceIn(GAP_MIN, GAP_MAX),
             bottomPaddingDp.coerceIn(BOTTOM_PAD_MIN, BOTTOM_PAD_MAX),
-            // Symbol hints take over the corner/swipe slot, so they force the number row off.
+            // Symbol hints take over the hint/hold slot, so they force the number row off.
             showNumberRow = showNumberRow && !showSymbolHints,
             showDedicatedNumberRow = showDedicatedNumberRow,
             showSymbolHints = showSymbolHints,

@@ -36,7 +36,6 @@ import androidx.core.content.ContextCompat
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.gesture.GesturePoint
 import dev.phucngu.simpletype.gesture.KeyGeometry
-import dev.phucngu.simpletype.gesture.isVerticalFlick
 import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 import dev.phucngu.simpletype.ime.keyboard.model.KeyStyle
@@ -50,8 +49,10 @@ import kotlin.math.abs
 private const val REPEAT_INITIAL_DELAY_MS = 400L
 private const val REPEAT_INTERVAL_MS = 55L
 private const val LONG_PRESS_MS = 300L
-private const val NUMBER_HINT_TOP_PADDING_DP = 1f
-private const val NUMBER_HINTED_TEXT_OFFSET_DP = 2f
+/** Hold time to type a key's number/symbol hint: short enough to feel snappy, long enough not to misfire while typing. */
+private const val HINT_LONG_PRESS_MS = 250L
+private const val HINT_TOP_PADDING_DP = 1f
+private const val HINTED_TEXT_OFFSET_DP = 2f
 private const val KEY_TEXT_BOTTOM_PADDING_DP = 1f
 private const val GLIDE_TRAIL_POINTS = 48
 private const val CURSOR_MODE_FADE_MS = 120
@@ -118,24 +119,35 @@ fun calculatePlacements(
     return list
 }
 
-internal fun calculateNumberHintPosition(
+/** Baseline of a number/symbol hint: horizontally centered, sitting just under the key's top edge. */
+internal fun calculateHintPosition(
     keyRect: RectF,
     densityFloat: Float,
     fontAscent: Float,
 ): PointF = PointF(
     keyRect.centerX(),
-    keyRect.top + NUMBER_HINT_TOP_PADDING_DP * densityFloat - fontAscent,
+    keyRect.top + HINT_TOP_PADDING_DP * densityFloat - fontAscent,
 )
 
-internal fun calculateNumberHintedTextBaseline(
+/** Baseline of the main label on a hinted key, nudged down to make room for the hint above it. */
+internal fun calculateHintedTextBaseline(
     centeredBaseline: Float,
     keyBottom: Float,
     densityFloat: Float,
     fontDescent: Float,
 ): Float = minOf(
-    centeredBaseline + NUMBER_HINTED_TEXT_OFFSET_DP * densityFloat,
+    centeredBaseline + HINTED_TEXT_OFFSET_DP * densityFloat,
     keyBottom - KEY_TEXT_BOTTOM_PADDING_DP * densityFloat - fontDescent,
 )
+
+/** The key typed when [key] is held: its visible [hint] if any, otherwise its long-press code. */
+internal fun longPressTarget(key: Key, hint: Char?): Key? = when {
+    hint != null -> Key(hint.code, hint.toString())
+    key.longPressCode != null -> Key(key.longPressCode, "")
+    else -> null
+}
+
+internal fun longPressDelayMs(hinted: Boolean): Long = if (hinted) HINT_LONG_PRESS_MS else LONG_PRESS_MS
 
 internal fun displayLabel(key: Key, shifted: Boolean, capsLock: Boolean): String {
     if (key.isPrintable && (shifted || capsLock)) {
@@ -152,8 +164,7 @@ class TouchState {
     var swipeFired by mutableStateOf(false)
     var swipeOffset by mutableStateOf(0f)
     var spaceCursorMode by mutableStateOf(false)
-    var numberSwipeFired = false
-    var longPressFired = false
+    var longPressFired by mutableStateOf(false)
     var shiftPointerId by mutableStateOf<PointerId?>(null)
     var shiftKey: Key? = null
     var shiftUsedAsModifier = false
@@ -165,9 +176,7 @@ class TouchState {
     val glidePath = ArrayList<GesturePoint>()
     val glideKeys = HashSet<Int>()
     var glidePathLength = 0f
-    var glideStartHint: Char? = null
     var glideLeftCorridor = false
-    var glideFlickPrimed = false
 
     fun resetGlide() {
         glideCandidate = false
@@ -175,9 +184,7 @@ class TouchState {
         glidePath.clear()
         glideKeys.clear()
         glidePathLength = 0f
-        glideStartHint = null
         glideLeftCorridor = false
-        glideFlickPrimed = false
     }
 }
 
@@ -281,7 +288,6 @@ fun LatinKeyboard(
     textPaint.textSize = with(density) { keyTextSize.toPx() }
     labelPaint.textSize = with(density) { keyLabelTextSize.toPx() }
     hintPaint.textSize = with(density) { keyTextSize.toPx() } * 0.5f
-    hintPaint.alpha = 170
     chevronPaint.strokeWidth = 1.5f * densityFloat
 
     val iconCache = remember { HashMap<Int, Drawable>() }
@@ -302,7 +308,6 @@ fun LatinKeyboard(
     }
 
     val swipeThreshold = 28f * densityFloat
-    val numberSwipeThreshold = 22f * densityFloat
     val spaceDrag = remember(densityFloat, cursorSpeed) {
         SpaceDragTracker(swipeThreshold, cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat)
     }
@@ -352,6 +357,19 @@ fun LatinKeyboard(
             else -> key.iconRes
         }
 
+        // Hold a key to type its hint (or long-press code); the release then types nothing.
+        fun startLongPress(key: Key) {
+            val hint = hintFor(key)
+            val target = longPressTarget(key, hint) ?: return
+            longPressJob = scope.launch {
+                delay(longPressDelayMs(hinted = hint != null))
+                touchState.longPressFired = true
+                touchState.resetGlide()
+                if (hapticEnabled) haptics.longPress(hapticStrength)
+                listener.onKey(target)
+            }
+        }
+
         Canvas(
             modifier = Modifier
                 .fillMaxSize()
@@ -384,7 +402,6 @@ fun LatinKeyboard(
                                             touchState.swipeStartY = pos.y
                                             touchState.swipeFired = false
                                             touchState.swipeOffset = 0f
-                                            touchState.numberSwipeFired = false
                                             touchState.longPressFired = false
                                             touchState.spaceCursorMode = false
 
@@ -393,7 +410,6 @@ fun LatinKeyboard(
                                                 touchState.glideCandidate = true
                                                 touchState.glidePath.add(GesturePoint(pos.x, pos.y))
                                                 touchState.glideKeys.add(p.key.code)
-                                                touchState.glideStartHint = hintFor(p.key)
                                             }
 
                                             if (touchState.shiftPointerId != null && !touchState.shiftUsedAsModifier) {
@@ -421,13 +437,8 @@ fun LatinKeyboard(
                                                         delay(REPEAT_INTERVAL_MS)
                                                     }
                                                 }
-                                            } else if (p.key.longPressCode != null) {
-                                                longPressJob = scope.launch {
-                                                    delay(LONG_PRESS_MS)
-                                                    touchState.longPressFired = true
-                                                    if (hapticEnabled) haptics.longPress(hapticStrength)
-                                                    listener.onKey(Key(p.key.longPressCode, ""))
-                                                }
+                                            } else {
+                                                startLongPress(p.key)
                                             }
                                             change.consume()
                                         }
@@ -473,17 +484,6 @@ fun LatinKeyboard(
                                             if (abs(point.x - glideStart.x) > keyGeometry.keyWidth * 0.4f) {
                                                 touchState.glideLeftCorridor = true
                                             }
-                                            // A downward pull that stays inside the corridor is
-                                            // heading for a hint flick: stop long-press/repeat so
-                                            // the flick can't double-fire on release.
-                                            if (!touchState.glideFlickPrimed && !touchState.glideLeftCorridor &&
-                                                touchState.glideStartHint != null &&
-                                                point.y - glideStart.y >= numberSwipeThreshold
-                                            ) {
-                                                touchState.glideFlickPrimed = true
-                                                repeatJob?.cancel()
-                                                longPressJob?.cancel()
-                                            }
 
                                             if (!touchState.glideActive &&
                                                 touchState.glideLeftCorridor &&
@@ -501,22 +501,7 @@ fun LatinKeyboard(
                                             }
                                         }
 
-                                        val hint = pressedPlacement?.key?.let { hintFor(it) }
-                                        if (!touchState.glideCandidate && hint != null &&
-                                            !touchState.numberSwipeFired && !touchState.swipeFired
-                                        ) {
-                                            val dy = pos.y - touchState.swipeStartY
-                                            if (dy >= numberSwipeThreshold && dy >= abs(pos.x - touchState.swipeStartX)) {
-                                                touchState.numberSwipeFired = true
-                                                repeatJob?.cancel()
-                                                longPressJob?.cancel()
-                                                hapticTap()
-                                                listener.onKey(Key(hint.code, hint.toString()))
-                                                activeChange.consume()
-                                            }
-                                        }
-
-                                        if (!touchState.numberSwipeFired && !touchState.glideActive) {
+                                        if (!touchState.longPressFired && !touchState.glideActive) {
                                             val p = placements.firstOrNull { it.rect.contains(pos.x, pos.y) }
                                             if (p != pressedPlacement) {
                                                 repeatJob?.cancel()
@@ -531,13 +516,8 @@ fun LatinKeyboard(
                                                             delay(REPEAT_INTERVAL_MS)
                                                         }
                                                     }
-                                                } else if (p != null && p.key.longPressCode != null) {
-                                                    longPressJob = scope.launch {
-                                                        delay(LONG_PRESS_MS)
-                                                        touchState.longPressFired = true
-                                                        if (hapticEnabled) haptics.longPress(hapticStrength)
-                                                        listener.onKey(Key(p.key.longPressCode, ""))
-                                                    }
+                                                } else if (p != null) {
+                                                    startLongPress(p.key)
                                                 }
                                             }
                                             activeChange.consume()
@@ -571,34 +551,15 @@ fun LatinKeyboard(
                                             touchState.downOnSpace = false
                                             touchState.spaceCursorMode = false
                                             touchState.swipeOffset = 0f
-                                            val numberFired = touchState.numberSwipeFired
-                                            touchState.numberSwipeFired = false
 
-                                            // Resolve a glide gesture: either a deferred
-                                            // vertical hint-flick or a swipe-typed word.
-                                            var glideHandled = false
-                                            if (touchState.glideCandidate && touchState.glidePath.size >= 2) {
-                                                val hint = touchState.glideStartHint
-                                                val isHintFlick = hint != null &&
-                                                    !touchState.longPressFired &&
-                                                    isVerticalFlick(
-                                                        touchState.glidePath,
-                                                        keyGeometry.keyWidth,
-                                                        numberSwipeThreshold,
-                                                    )
-                                                if (isHintFlick) {
-                                                    glideHandled = true
-                                                    hapticTap()
-                                                    listener.onKey(Key(hint!!.code, hint.toString()))
-                                                } else if (touchState.glideActive) {
-                                                    glideHandled = true
-                                                    listener.onGlideTyped(touchState.glidePath.toList(), keyGeometry)
-                                                }
+                                            val glideHandled = touchState.glideActive
+                                            if (glideHandled) {
+                                                listener.onGlideTyped(touchState.glidePath.toList(), keyGeometry)
                                             }
                                             touchState.resetGlide()
 
                                             val spaceSuppressed = wasOnSpace && !spaceDrag.shouldTypeSpace()
-                                            if (!glideHandled && p != null && !p.key.repeatable && !spaceSuppressed && !touchState.swipeFired && !touchState.longPressFired && !numberFired) {
+                                            if (!glideHandled && p != null && !p.key.repeatable && !spaceSuppressed && !touchState.swipeFired && !touchState.longPressFired) {
                                                 listener.onKey(p.key)
                                             }
                                             change.consume()
@@ -614,7 +575,7 @@ fun LatinKeyboard(
                         touchState.activePointerId = null
                         touchState.downOnSpace = false
                         touchState.swipeOffset = 0f
-                        touchState.numberSwipeFired = false
+                        touchState.longPressFired = false
                         touchState.resetGlide()
                         if (touchState.shiftPointerId != null) {
                             if (touchState.shiftUsedAsModifier) listener.onShiftHold(false)
@@ -668,9 +629,11 @@ fun LatinKeyboard(
 
                     val cx = rr.centerX()
                     val cy = rr.centerY() - (fm.ascent + fm.descent) / 2f
-                    val hasNumberHint = metrics.numberHintsVisible && key.numberHint != null
-                    val printableTextBaseline = if (hasNumberHint) {
-                        calculateNumberHintedTextBaseline(
+                    val hint = hintFor(key)
+                    // Once a hold has fired, the key previews the hint it just typed.
+                    val showingHint = hint != null && isPressed && touchState.longPressFired
+                    val printableTextBaseline = if (hint != null && !showingHint) {
+                        calculateHintedTextBaseline(
                             centeredBaseline = cy,
                             keyBottom = rr.bottom,
                             densityFloat = densityFloat,
@@ -752,7 +715,7 @@ fun LatinKeyboard(
                             textPaint.color = fg
                             textPaint.alpha = labelAlpha
                             canvas.nativeCanvas.drawText(
-                                displayLabel(key, shifted, capsLock),
+                                if (showingHint) hint.toString() else displayLabel(key, shifted, capsLock),
                                 cx,
                                 printableTextBaseline,
                                 textPaint,
@@ -760,22 +723,13 @@ fun LatinKeyboard(
                         }
                     }
 
-                    // Corner hints
-                    val hint = hintFor(key)
-                    if (hint != null) {
-                        val hintPosition = if (hasNumberHint) {
-                            calculateNumberHintPosition(
-                                keyRect = rr,
-                                densityFloat = densityFloat,
-                                fontAscent = hintPaint.fontMetrics.ascent,
-                            )
-                        } else {
-                            val pad = 5f * densityFloat
-                            PointF(
-                                rr.right - pad - hintPaint.textSize / 2f,
-                                rr.top + pad - hintPaint.fontMetrics.ascent,
-                            )
-                        }
+                    // Number/symbol hint, centered above the letter on a shared baseline.
+                    if (hint != null && !showingHint) {
+                        val hintPosition = calculateHintPosition(
+                            keyRect = rr,
+                            densityFloat = densityFloat,
+                            fontAscent = hintPaint.fontMetrics.ascent,
+                        )
                         hintPaint.color = keyHintColor.toArgb()
                         hintPaint.alpha = labelAlpha
                         canvas.nativeCanvas.drawText(
