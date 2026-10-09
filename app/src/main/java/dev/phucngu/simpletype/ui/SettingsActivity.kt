@@ -52,6 +52,7 @@ import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboard
 import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
+import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ui.theme.SimpleTypeTheme
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceLanguage
@@ -290,6 +291,30 @@ private fun LabeledSlider(
 }
 
 @Composable
+private fun SavedEmailRow(address: String, onRemove: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            address,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onRemove) {
+            Icon(
+                painter = painterResource(R.drawable.ic_kb_delete),
+                contentDescription = stringResource(R.string.email_suggestions_remove, address),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun ToggleRow(
     title: String,
     desc: String,
@@ -492,6 +517,7 @@ fun SettingsScreen(
 
     var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
     var glideEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)) }
+    var emailSuggestEnabled by remember { mutableStateOf(prefs.getBoolean(SavedEmails.PREF_ENABLED, true)) }
     var hapticLevel by remember {
         mutableStateOf(
             (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
@@ -654,6 +680,43 @@ fun SettingsScreen(
                             prefs.edit().putBoolean(LatinKeyboardView.PREF_GLIDE, checked).apply()
                         },
                     )
+                }
+
+                // Reloaded each time the page opens: the keyboard learns addresses in the background.
+                var savedEmails by remember { mutableStateOf(SavedEmails.ranked(SavedEmails.load(prefs))) }
+                SettingsCard {
+                    ToggleRow(
+                        title = stringResource(R.string.email_suggestions),
+                        desc = stringResource(R.string.email_suggestions_desc),
+                        checked = emailSuggestEnabled,
+                        onCheckedChange = { checked ->
+                            emailSuggestEnabled = checked
+                            prefs.edit().putBoolean(SavedEmails.PREF_ENABLED, checked).apply()
+                        },
+                    )
+                    if (emailSuggestEnabled) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        if (savedEmails.isEmpty()) {
+                            Text(
+                                stringResource(R.string.email_suggestions_empty),
+                                fontSize = 12.5.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Text(stringResource(R.string.email_suggestions_saved), fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                savedEmails.forEach { saved ->
+                                    SavedEmailRow(
+                                        address = saved.address,
+                                        onRemove = {
+                                            savedEmails = SavedEmails.remove(savedEmails, saved.address)
+                                            SavedEmails.save(prefs, savedEmails)
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 SettingsCard {

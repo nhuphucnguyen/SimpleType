@@ -83,6 +83,8 @@ fun KeyboardScreen(
     suggestions: List<String> = emptyList(),
     selectedSuggestion: String? = null,
     onSuggestionClick: (String) -> Unit = {},
+    emailSuggestions: List<String> = emptyList(),
+    onEmailSuggestionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
     onSetupClick: () -> Unit,
     onClipboardClick: () -> Unit,
@@ -182,6 +184,12 @@ fun KeyboardScreen(
                         suggestions = suggestions,
                         selectedSuggestion = selectedSuggestion,
                         onSuggestionClick = onSuggestionClick,
+                    )
+                } else if (emailSuggestions.isNotEmpty()) {
+                    SuggestionStrip(
+                        suggestions = emailSuggestions,
+                        selectedSuggestion = null,
+                        onSuggestionClick = onEmailSuggestionClick,
                     )
                 }
             }

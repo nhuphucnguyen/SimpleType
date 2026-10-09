@@ -48,6 +48,8 @@ import dev.phucngu.simpletype.ime.keyboard.model.Key
 import dev.phucngu.simpletype.ime.keyboard.model.KeyCode
 import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutSelector
 import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutType
+import dev.phucngu.simpletype.ime.email.SavedEmail
+import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ime.emoji.EmojiRecents
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.text.lastGraphemeLength
@@ -102,6 +104,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeEmojiRecents by mutableStateOf<List<String>>(emptyList())
     private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
     private var composeSelectedSuggestion by mutableStateOf<String?>(null)
+    private var composeEmailSuggestions by mutableStateOf<List<String>>(emptyList())
     private var composeGlideEnabled by mutableStateOf(false)
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -122,6 +125,13 @@ open class SimpleTypeIME : InputMethodService(),
     private var shiftHeld = false
     private var passwordField = false
     private var directCommit = false
+
+    // Saved-email suggestions: active only while an email field is focused.
+    private var emailField = false
+    private var emailLearning = false
+    private var savedEmails: List<SavedEmail> = emptyList()
+    /** Last-seen text of the email field, learned from when the field is left. */
+    private var emailFieldText = ""
 
     private val voice: VoiceInputController by lazy {
         VoiceInputController(this, voiceListener)
@@ -211,6 +221,8 @@ open class SimpleTypeIME : InputMethodService(),
                     suggestions = composeSuggestions,
                     selectedSuggestion = composeSelectedSuggestion,
                     onSuggestionClick = { onSuggestionSelected(it) },
+                    emailSuggestions = composeEmailSuggestions,
+                    onEmailSuggestionClick = { onEmailSuggestionSelected(it) },
                     onMicClick = { handleMic() },
                     onSetupClick = { openSettings() },
                     onClipboardClick = { showClipboard() },
@@ -290,10 +302,23 @@ open class SimpleTypeIME : InputMethodService(),
         glidePrefEnabled = prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)
         clearGlideSuggestions()
 
+        emailField = !passwordField && prefs.getBoolean(SavedEmails.PREF_ENABLED, true) &&
+            SavedEmails.isEmailField(info.inputType, info.hintText)
+        // Incognito fields ask keyboards not to learn from what is typed.
+        emailLearning = info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING == 0
+        savedEmails = if (emailField) SavedEmails.load(prefs) else emptyList()
+        emailFieldText = ""
+        refreshEmailSuggestions()
+
         applyKeyboardMetrics()
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)
+    }
+
+    override fun onFinishInput() {
+        learnEmailField()
+        super.onFinishInput()
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -334,12 +359,13 @@ open class SimpleTypeIME : InputMethodService(),
                 ic.finishComposingText()
                 telex.reset()
             }
-            if (language == VoiceLanguage.VIETNAMESE && !passwordField &&
+            if (language == VoiceLanguage.VIETNAMESE && !passwordField && !emailField &&
                 layout == KeyboardLayoutType.ALPHA &&
                 !directCommit) {
                 pickupTelexContext(ic, newSelStart)
             }
             updateAutoCapitalize(currentInputEditorInfo)
+            refreshEmailSuggestions()
         }
     }
 
@@ -455,6 +481,55 @@ open class SimpleTypeIME : InputMethodService(),
         composeSelectedSuggestion = word
     }
 
+    // ---- Saved-email suggestions ----
+
+    /** Re-reads the email field and offers saved addresses matching what is being typed. */
+    private fun refreshEmailSuggestions() {
+        val before = if (emailField) snapshotEmailField() else null
+        composeEmailSuggestions = if (before == null) emptyList()
+        else SavedEmails.suggest(savedEmails, SavedEmails.currentToken(before))
+    }
+
+    /** Records the email field's current text; returns the part before the cursor. */
+    private fun snapshotEmailField(): String? {
+        val ic = currentInputConnection ?: return null
+        val before = ic.getTextBeforeCursor(EMAIL_FIELD_LOOKAROUND, 0)?.toString() ?: return null
+        val after = ic.getTextAfterCursor(EMAIL_FIELD_LOOKAROUND, 0)?.toString().orEmpty()
+        emailFieldText = before + after
+        return before
+    }
+
+    /** Replaces the partly typed address before the cursor with the tapped one. */
+    private fun onEmailSuggestionSelected(address: String) {
+        val ic = currentInputConnection ?: return
+        finishComposing(ic)
+        val before = ic.getTextBeforeCursor(EMAIL_FIELD_LOOKAROUND, 0)?.toString().orEmpty()
+        val token = SavedEmails.currentToken(before)
+        ic.beginBatchEdit()
+        if (token.isNotEmpty()) ic.deleteSurroundingText(token.length, 0)
+        ic.commitText(address, 1)
+        ic.endBatchEdit()
+        consumeShift()
+        composeEmailSuggestions = emptyList()
+    }
+
+    /** Saves the addresses left in an email field as it loses focus. */
+    private fun learnEmailField() {
+        if (!emailField) return
+        // The connection is usually still readable here; if not, the last snapshot is used.
+        snapshotEmailField()
+        emailField = false
+        composeEmailSuggestions = emptyList()
+        if (!emailLearning) return
+        val addresses = SavedEmails.extract(emailFieldText)
+        if (addresses.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val prefs = prefs()
+        var updated = SavedEmails.load(prefs)
+        addresses.forEach { updated = SavedEmails.record(updated, it, now) }
+        SavedEmails.save(prefs, updated)
+    }
+
     private fun clearGlideSuggestions() {
         composeSuggestions = emptyList()
         composeSelectedSuggestion = null
@@ -478,9 +553,10 @@ open class SimpleTypeIME : InputMethodService(),
         var c = key.code.toChar()
         if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
 
+        // Telex would mangle addresses (e.g. "ee" -> "ê"), so email fields type plain letters.
         val useTelex = language == VoiceLanguage.VIETNAMESE &&
             layout == KeyboardLayoutType.ALPHA &&
-            !passwordField && !directCommit && c.isLetter()
+            !passwordField && !emailField && !directCommit && c.isLetter()
 
         if (useTelex) {
             telex.input(c)
@@ -806,6 +882,7 @@ open class SimpleTypeIME : InputMethodService(),
         /** Long enough for the longest ZWJ emoji sequences (family/flag tags run ~14 chars). */
         const val GRAPHEME_LOOKBEHIND = 32
         const val SELECTION_SYNC_DEBOUNCE_MS = 75L
+        const val EMAIL_FIELD_LOOKAROUND = 256
         val GLIDE_DICTIONARY_ASSETS = mapOf(
             VoiceLanguage.ENGLISH to "dictionaries/en.txt",
             VoiceLanguage.VIETNAMESE to "dictionaries/vi.txt",
