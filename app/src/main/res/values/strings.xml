@@ -106,6 +106,13 @@
     <string name="size_symbol_hints_desc">Show a common symbol on each letter key and touch and hold to type it. Turns off the number hints.</string>
     <string name="size_dedicated_number_row">Dedicated number row</string>
     <string name="size_dedicated_number_row_desc">Add a permanent row of number keys above the QWERTY row.</string>
+    <string name="dictation_log_title">Help improve Vietnamese punctuation</string>
+    <string name="dictation_log_desc">Keeps a log of your Vietnamese dictation and the text you kept after editing, so the punctuation model can be tested and trained on real speech. Stays on this phone until you export it. Not recorded in password or incognito fields.</string>
+    <string name="dictation_log_count">%1$d dictated fields logged</string>
+    <string name="dictation_log_export">Export log</string>
+    <string name="dictation_log_clear">Clear log</string>
+    <string name="dictation_log_exported">Log exported</string>
+    <string name="dictation_log_export_failed">Could not export the log</string>
     <string name="email_suggestions">Suggest saved emails</string>
     <string name="email_suggestions_desc">Remembers the email addresses you type and suggests them in email fields. Saved only on this phone.</string>
     <string name="email_suggestions_saved">Saved addresses</string>

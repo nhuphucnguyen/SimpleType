@@ -7,6 +7,8 @@ import android.provider.Settings
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
@@ -54,6 +56,7 @@ import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
 import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ui.theme.SimpleTypeTheme
+import dev.phucngu.simpletype.voice.DictationLog
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import kotlin.concurrent.thread
@@ -827,6 +830,58 @@ fun SettingsScreen(
                         )
                     }
                 }
+
+                DictationLogCard(prefs)
+            }
+        }
+    }
+}
+
+/** Opt-in log of Vietnamese dictation for the punctuation model, with export and clear. */
+@Composable
+private fun DictationLogCard(prefs: android.content.SharedPreferences) {
+    val context = LocalContext.current
+    val log = remember(context) { DictationLog(java.io.File(context.filesDir, DictationLog.FILE_NAME)) }
+    var enabled by remember { mutableStateOf(prefs.getBoolean(DictationLog.PREF_ENABLED, false)) }
+    var count by remember { mutableIntStateOf(log.entries()) }
+    val exported = stringResource(R.string.dictation_log_exported)
+    val exportFailed = stringResource(R.string.dictation_log_export_failed)
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val ok = runCatching {
+            context.contentResolver.openOutputStream(uri)!!.use { out -> log.file.inputStream().use { it.copyTo(out) } }
+        }.isSuccess
+        android.widget.Toast.makeText(context, if (ok) exported else exportFailed, android.widget.Toast.LENGTH_SHORT).show()
+    }
+    SettingsCard {
+        ToggleRow(
+            title = stringResource(R.string.dictation_log_title),
+            desc = stringResource(R.string.dictation_log_desc),
+            checked = enabled,
+            onCheckedChange = { checked ->
+                enabled = checked
+                prefs.edit().putBoolean(DictationLog.PREF_ENABLED, checked).apply()
+            },
+        )
+        if (count > 0) {
+            Text(
+                stringResource(R.string.dictation_log_count, count),
+                fontSize = 12.5.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PillButton(
+                    text = stringResource(R.string.dictation_log_export),
+                    onClick = { exportLauncher.launch(DictationLog.FILE_NAME) },
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    text = stringResource(R.string.dictation_log_clear),
+                    onClick = { log.clear(); count = 0 },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }
