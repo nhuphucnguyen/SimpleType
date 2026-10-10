@@ -62,6 +62,7 @@ import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.SherpaAsrEngine
+import dev.phucngu.simpletype.voice.punct.Punctuator
 import dev.phucngu.simpletype.voice.SherpaModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -143,7 +144,16 @@ open class SimpleTypeIME : InputMethodService(),
         // Populate the model dir from bundled assets if this build embeds it (local test
         // builds); no-op otherwise. One-time copy, then isAvailable sees the files.
         modelManager.installFromAssetsIfBundled(lang)
-        SherpaAsrEngine(SherpaModel.forLanguage(lang), modelManager.modelDir(lang), modelManager.vadFile())
+        SherpaAsrEngine(
+            SherpaModel.forLanguage(lang),
+            modelManager.modelDir(lang),
+            modelManager.vadFile(),
+            punctuatorLoader = if (lang == VoiceLanguage.VIETNAMESE) {
+                { Punctuator.fromAssets(assets)::punctuate }
+            } else {
+                null
+            },
+        )
     }
 
     private val commandMatcher = CommandMatcher()

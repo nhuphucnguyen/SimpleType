@@ -23,7 +23,8 @@ import java.io.File
  * pausing — the "VAD-gated near-real-time" model rather than word-by-word streaming.
  *
  * Model files ([SherpaModel.files]) are loaded from [modelDir] and the VAD from [vadModel];
- * both are installed by [ModelManager].
+ * both are installed by [ModelManager]. [punctuatorLoader], when given (Vietnamese), builds the
+ * text punctuator passed to [SherpaText.format]; if it fails, segments stay unpunctuated.
  *
  * The recognizer/VAD are created lazily in [load] and reused across utterances. All methods
  * are invoked on the audio capture thread by [VoiceInputController]; decoding runs inline on
@@ -35,7 +36,11 @@ class SherpaAsrEngine(
     private val vadModel: File,
     private val confidence: Float = 0.95f,
     private val numThreads: Int = 2,
+    private val punctuatorLoader: (() -> (String) -> String)? = null,
 ) : AsrEngine {
+
+    private var punctuate: ((String) -> String)? = null
+    private var punctuatorFailed = false
 
     private var recognizer: OfflineRecognizer? = null
     private var vad: Vad? = null
@@ -93,6 +98,19 @@ class SherpaAsrEngine(
                 ),
             )
         }
+
+        loadPunctuator()
+    }
+
+    private fun loadPunctuator() {
+        val loader = punctuatorLoader ?: return
+        if (punctuate != null || punctuatorFailed) return
+        try {
+            punctuate = loader()
+        } catch (t: Throwable) {
+            punctuatorFailed = true
+            Log.w(TAG, "punctuation model failed to load", t)
+        }
     }
 
     override fun feed(samples: ShortArray, length: Int) {
@@ -142,7 +160,7 @@ class SherpaAsrEngine(
         return try {
             stream.acceptWaveform(samples, SAMPLE_RATE)
             rec.decode(stream)
-            SherpaText.format(rec.getResult(stream).text, model)
+            SherpaText.format(rec.getResult(stream).text, model, punctuate)
         } finally {
             stream.release()
         }
