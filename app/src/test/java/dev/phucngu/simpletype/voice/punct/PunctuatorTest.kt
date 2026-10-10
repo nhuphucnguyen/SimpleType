@@ -70,6 +70,61 @@ class PunctuatorTest {
         assertEquals(300, seen.sum())
     }
 
+    // ---- Questions and casing (VPN2 models: 4 punctuation + 3 casing logits per token) ----
+
+    private val question = floatArrayOf(0f, 0f, 0f, 5f)
+
+    /** 7-wide row: punctuation logits [O, COMMA, PERIOD, QUESTION] + casing [lower, Cap, UPPER]. */
+    private fun row(punct: FloatArray, case: Int = 0) =
+        FloatArray(7).also { r -> punct.copyInto(r); r[4 + case] = 5f }
+
+    @Test
+    fun `question label inserts a question mark`() {
+        val p = punctuator { id -> if (id == 2) question else o }
+        assertEquals("x a? y.", p.punctuate("x a y"))
+    }
+
+    @Test
+    fun `a question at the end of the segment keeps its question mark`() {
+        val p = punctuator { id -> if (id == 2) question else o }
+        assertEquals("x a?", p.punctuate("x a"))
+    }
+
+    @Test
+    fun `question bias tips a close call between period and question`() {
+        val tie = floatArrayOf(0f, 0f, 3f, 3f)
+        val toQuestion = Punctuator(tok, { ids -> Array(ids.size) { if (ids[it] == 2) tie else o } },
+            DecisionRule.LEGACY.copy(questionBias = 0.5f))
+        val toPeriod = Punctuator(tok, { ids -> Array(ids.size) { if (ids[it] == 2) tie else o } },
+            DecisionRule.LEGACY.copy(questionBias = -0.5f))
+        assertEquals("a? x.", toQuestion.punctuate("a x"))
+        assertEquals("a. x.", toPeriod.punctuate("a x"))
+    }
+
+    @Test
+    fun `casing outputs capitalise and upper-case words`() {
+        val p = punctuator { id ->
+            when (id) {
+                2 -> row(floatArrayOf(2f, 0f, 0f, 0f), case = 1) // a -> Cap
+                3 -> row(floatArrayOf(2f, 0f, 0f, 0f), case = 2) // b -> UPPER
+                else -> row(floatArrayOf(2f, 0f, 0f, 0f))
+            }
+        }
+        assertEquals("x Ab BB x.", p.punctuate("x ab bb x"))
+    }
+
+    @Test
+    fun `lowercase prediction keeps the input casing`() {
+        val p = punctuator { row(floatArrayOf(2f, 0f, 0f, 0f)) }
+        assertEquals("X y.", p.punctuate("X y"))
+    }
+
+    @Test
+    fun `continuation can report a question mark for the previous segment`() {
+        val p = punctuator { id -> if (id == 2) question else o }
+        assertEquals(Continuation('?', "y z."), p.continueAfter("x a.", "y z"))
+    }
+
     @Test
     fun `blank input is returned as is`() {
         assertEquals("", punctuator { o }.punctuate("   ").trim())

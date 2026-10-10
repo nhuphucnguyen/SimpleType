@@ -82,6 +82,38 @@ class SherpaTextTest {
     }
 
     @Test
+    fun `a question boundary turns the previous period into a question mark`() {
+        assertEquals(
+            Segment("Em chờ nãy giờ.", SegmentJoin.QUESTION),
+            SherpaText.formatAfter("EM CHỜ NÃY GIỜ", SherpaModel.VIETNAMESE, punctAnswering('?'), "Anh đi đâu."),
+        )
+    }
+
+    @Test
+    fun `a period boundary after a question mark turns it into a period`() {
+        assertEquals(
+            Segment("Mai gặp.", SegmentJoin.PERIOD),
+            SherpaText.formatAfter("MAI GẶP", SherpaModel.VIETNAMESE, punctAnswering('.'), "Em về rồi à?"),
+        )
+    }
+
+    @Test
+    fun `a boundary that matches the previous mark changes nothing`() {
+        assertEquals(
+            Segment("Em chờ nãy giờ.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM CHỜ NÃY GIỜ", SherpaModel.VIETNAMESE, punctAnswering('?'), "Anh đi đâu?"),
+        )
+    }
+
+    @Test
+    fun `a segment ending in a question keeps its question mark`() {
+        assertEquals(
+            "Anh ơi, mai đi Hà Nội không?",
+            SherpaText.format("ANH ƠI MAI ĐI HÀ NỘI KHÔNG", SherpaModel.VIETNAMESE) { "anh ơi, mai đi Hà Nội không?" },
+        )
+    }
+
+    @Test
     fun `no previous segment formats as usual`() {
         assertEquals(
             Segment("Em đi đây.", SegmentJoin.NONE),

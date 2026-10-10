@@ -8,9 +8,11 @@ import kotlin.math.sqrt
 import kotlin.math.tanh
 
 /**
- * Pure-Kotlin forward pass of TinyPunctFormer, the Vietnamese dot/comma model: a pre-norm
- * transformer encoder (4 layers, d=256, 4 heads, FFN 1024, GELU-tanh) with a 3-class head
- * (O / COMMA / PERIOD) at every token.
+ * Pure-Kotlin forward pass of TinyPunctFormer, the Vietnamese punctuation and casing model: a
+ * pre-norm transformer encoder (4 layers, d=256, 4 heads, FFN 1024, GELU-tanh) with one head
+ * per token. VPN2 files: [punctClasses] = 4 logits (O / COMMA / PERIOD / QUESTION) then
+ * [caseClasses] = 3 (lower / Capitalised / UPPER), plus the calibrated [rule]. VPN1 files
+ * (models up to m07): 3 punctuation logits, no casing, no rule.
  *
  * Weights come from `punct_vi.bin` (written by `src/export_kotlin.py`): matrices are int8 with
  * one float scale per output row and stay int8 in memory (~8.6 MB); everything else is float.
@@ -34,6 +36,10 @@ class PunctModel private constructor(buf: ByteBuffer) {
     private val heads: Int
     private val maxLen: Int
     private val classes: Int
+    val punctClasses: Int
+    val caseClasses: Int
+    /** Decision rule calibrated for this model (VPN2), or null (VPN1). */
+    val rule: DecisionRule?
     private val tokEmb: QMatrix
     private val posEmb: FloatArray
     private val layers: List<Layer>
@@ -43,15 +49,27 @@ class PunctModel private constructor(buf: ByteBuffer) {
     private val headB: FloatArray
 
     init {
-        val magic = ByteArray(4).also { buf.get(it) }
-        require(String(magic, Charsets.US_ASCII) == "VPN1") { "not a punct_vi.bin file" }
+        val magic = String(ByteArray(4).also { buf.get(it) }, Charsets.US_ASCII)
+        require(magic == "VPN1" || magic == "VPN2") { "not a punct_vi.bin file" }
         buf.int // vocab size (implied by tok_emb)
         d = buf.int
         val nLayers = buf.int
         heads = buf.int
         buf.int // d_ff (implied by ff1)
         maxLen = buf.int
-        classes = buf.int
+        if (magic == "VPN1") {
+            punctClasses = buf.int
+            caseClasses = 0
+            rule = null
+        } else {
+            punctClasses = buf.int
+            caseClasses = buf.int
+            rule = DecisionRule(
+                tBreak = buf.float, commaBias = buf.float, questionBias = buf.float,
+                tEndPeriod = buf.float, tCap = buf.float, tUpper = buf.float,
+            )
+        }
+        classes = punctClasses + caseClasses
 
         fun f(): FloatArray = FloatArray(buf.int).also { buf.asFloatBuffer().get(it); skip(buf, it.size * 4) }
         fun q(): QMatrix {
@@ -71,7 +89,7 @@ class PunctModel private constructor(buf: ByteBuffer) {
         headB = f()
     }
 
-    /** Logits `[ids.size][3]` for one unpadded token sequence of at most [MAX_LEN] tokens. */
+    /** Logits `[ids.size][punctClasses + caseClasses]` for one unpadded sequence of at most [MAX_LEN] tokens. */
     fun logits(ids: IntArray): Array<FloatArray> {
         val s = ids.size
         require(s <= maxLen) { "sequence of $s tokens exceeds $maxLen" }

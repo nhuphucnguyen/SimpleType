@@ -36,9 +36,11 @@ object SherpaText {
     /**
      * Formats a segment spoken right after [previous] (the previous segment of the same
      * session, as committed). For uncased models with a [punctuator], the model judges the
-     * pause between the two: [Segment.join] says whether the previous segment's period should
-     * become a comma ([SegmentJoin.COMMA]) or go away ([SegmentJoin.CONTINUE]); the text then
-     * starts lowercase. Otherwise this is [format] with [SegmentJoin.NONE].
+     * pause between the two: [Segment.join] says whether the previous segment's final mark
+     * should become a comma ([SegmentJoin.COMMA]) or go away ([SegmentJoin.CONTINUE]), and the
+     * text then starts lowercase; or whether it should switch between `.` and `?`
+     * ([SegmentJoin.QUESTION], [SegmentJoin.PERIOD]). Otherwise this is [format] with
+     * [SegmentJoin.NONE].
      */
     fun formatAfter(raw: String, model: SherpaModel, punctuator: TextPunctuator?, previous: String?): Segment {
         val standalone = { Segment(format(raw, model, punctuator?.let { it::punctuate }), SegmentJoin.NONE) }
@@ -49,13 +51,17 @@ object SherpaText {
         val c = runCatching { punctuator.continueAfter(previous, trimmed.lowercase()) }
             .onFailure { runCatching { Log.w(TAG, "punctuation failed", it) } }
             .getOrNull() ?: return standalone()
+        val prevMark = previous.trimEnd().lastOrNull()
         val join = when (c.boundary) {
             ',' -> SegmentJoin.COMMA
             null -> SegmentJoin.CONTINUE
-            else -> SegmentJoin.NONE
+            '?' -> if (prevMark == '?') SegmentJoin.NONE else SegmentJoin.QUESTION
+            else -> if (prevMark == '?') SegmentJoin.PERIOD else SegmentJoin.NONE
         }
         var text = capitalizeSentences(c.text.trim())
-        if (join == SegmentJoin.NONE) text = text.replaceFirstChar { it.uppercase() }
+        if (join != SegmentJoin.COMMA && join != SegmentJoin.CONTINUE) {
+            text = text.replaceFirstChar { it.uppercase() }
+        }
         return Segment(if (text.last() in ".!?") text else "$text.", join)
     }
 

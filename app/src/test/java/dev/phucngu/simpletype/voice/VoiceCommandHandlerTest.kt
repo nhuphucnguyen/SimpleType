@@ -183,6 +183,39 @@ class VoiceCommandHandlerTest {
         assertEquals("Anh ơi.\nChiều nay.", ed.text)
     }
 
+    @Test fun question_join_turns_the_previous_period_into_a_question_mark() {
+        val ed = FakeTextEditor()
+        val h = VoiceCommandHandler(ed)
+        dictate(h, "Anh đi đâu.")
+        dictate(h, "Em chờ nãy giờ.", SegmentJoin.QUESTION)
+        assertEquals("Anh đi đâu? Em chờ nãy giờ.", ed.text)
+    }
+
+    @Test fun period_join_turns_the_previous_question_mark_into_a_period() {
+        val ed = FakeTextEditor()
+        val h = VoiceCommandHandler(ed)
+        dictate(h, "Em về rồi?")
+        dictate(h, "Mai gặp.", SegmentJoin.PERIOD)
+        assertEquals("Em về rồi. Mai gặp.", ed.text)
+    }
+
+    @Test fun comma_join_also_replaces_a_question_mark() {
+        val ed = FakeTextEditor()
+        val h = VoiceCommandHandler(ed)
+        dictate(h, "Anh ơi?")
+        dictate(h, "chiều nay.", SegmentJoin.COMMA)
+        assertEquals("Anh ơi, chiều nay.", ed.text)
+    }
+
+    @Test fun undo_after_a_question_join_restores_the_period() {
+        val ed = FakeTextEditor()
+        val h = VoiceCommandHandler(ed)
+        dictate(h, "Anh đi đâu.")
+        dictate(h, "Em chờ.", SegmentJoin.QUESTION)
+        h.handle(VoiceAction.Undo, "undo")
+        assertEquals("Anh đi đâu.", ed.text)
+    }
+
     @Test fun joins_chain_across_several_segments() {
         val ed = FakeTextEditor()
         val h = VoiceCommandHandler(ed)

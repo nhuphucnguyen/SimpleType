@@ -84,7 +84,7 @@ class VoiceCommandHandler(private val editor: TextEditor) {
 
     /**
      * Commit dictated text with a leading space when it abuts a preceding word. A [join] onto
-     * the previous segment rewrites that segment's final period, but only while the cursor
+     * the previous segment rewrites that segment's final `.` or `?`, but only while the cursor
      * still sits right after it (nothing typed, moved or commanded since); otherwise the text
      * is committed as a new sentence.
      */
@@ -104,11 +104,17 @@ class VoiceCommandHandler(private val editor: TextEditor) {
             is EditOp.Replaced -> op.inserted // itself a joined dictated segment
             else -> null
         } ?: return false
-        if (!last.endsWith(".") || editor.textBeforeCursor(last.length).toString() != last) return false
-        val inserted = (if (join == SegmentJoin.COMMA) ", " else " ") + text
+        val mark = last.lastOrNull()
+        if ((mark != '.' && mark != '?') || editor.textBeforeCursor(last.length).toString() != last) return false
+        val inserted = when (join) {
+            SegmentJoin.COMMA -> ", "
+            SegmentJoin.QUESTION -> "? "
+            SegmentJoin.PERIOD -> ". "
+            else -> " "
+        } + text
         editor.deleteBeforeCursor(1)
         editor.commitText(inserted)
-        undoStack.addLast(EditOp.Replaced(".", inserted))
+        undoStack.addLast(EditOp.Replaced(mark.toString(), inserted))
         return true
     }
 

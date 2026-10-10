@@ -12,17 +12,21 @@ interface TextPunctuator {
     fun continueAfter(previous: String, text: String): Continuation
 }
 
-/** @property boundary `'.'`, `','` or `null` (no mark: the sentence runs on). */
+/** @property boundary `'.'`, `'?'`, `','` or `null` (no mark: the sentence runs on). */
 data class Continuation(val boundary: Char?, val text: String)
 
 /** How a dictated segment attaches to the dictated segment just before it. */
 enum class SegmentJoin {
-    /** Starts a new sentence (the previous segment keeps its period). */
+    /** Starts a new sentence (the previous segment keeps its final mark). */
     NONE,
     /** The previous segment's final period becomes a comma. */
     COMMA,
     /** The previous segment's final period is dropped; the sentence runs on. */
     CONTINUE,
+    /** The previous segment's final period becomes a question mark; a new sentence starts. */
+    QUESTION,
+    /** The previous segment's final question mark becomes a period; a new sentence starts. */
+    PERIOD,
 }
 
 /** A formatted segment ready to commit, and how it joins the previous one. */
