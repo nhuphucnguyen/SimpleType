@@ -50,6 +50,65 @@ class SherpaTextTest {
         assertEquals("Are you there?", SherpaText.format("Are you there?", SherpaModel.ENGLISH) { "x" })
     }
 
+    // Vietnamese continuation: the model decides how the previous segment should end.
+
+    private fun punctAnswering(boundary: Char?) = object : TextPunctuator {
+        override fun punctuate(text: String) = "$text."
+        override fun continueAfter(previous: String, text: String) = Continuation(boundary, "$text.")
+    }
+
+    @Test
+    fun `continuation joined by a comma starts lowercase`() {
+        assertEquals(
+            Segment("chiều nay anh rảnh không.", SegmentJoin.COMMA),
+            SherpaText.formatAfter("CHIỀU NAY ANH RẢNH KHÔNG", SherpaModel.VIETNAMESE, punctAnswering(','), "Anh ơi."),
+        )
+    }
+
+    @Test
+    fun `continuation with no boundary mark continues the sentence`() {
+        assertEquals(
+            Segment("nhà rồi.", SegmentJoin.CONTINUE),
+            SherpaText.formatAfter("NHÀ RỒI", SherpaModel.VIETNAMESE, punctAnswering(null), "Em về đến."),
+        )
+    }
+
+    @Test
+    fun `continuation after a real sentence end starts a new sentence`() {
+        assertEquals(
+            Segment("Em đi đây.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM ĐI ĐÂY", SherpaModel.VIETNAMESE, punctAnswering('.'), "Xong rồi."),
+        )
+    }
+
+    @Test
+    fun `no previous segment formats as usual`() {
+        assertEquals(
+            Segment("Em đi đây.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM ĐI ĐÂY", SherpaModel.VIETNAMESE, punctAnswering(','), null),
+        )
+    }
+
+    @Test
+    fun `failing continuation falls back to a new sentence`() {
+        val broken = object : TextPunctuator {
+            override fun punctuate(text: String) = error("boom")
+            override fun continueAfter(previous: String, text: String) = error("boom")
+        }
+        assertEquals(
+            Segment("Em đi đây.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM ĐI ĐÂY", SherpaModel.VIETNAMESE, broken, "Xong."),
+        )
+    }
+
+    @Test
+    fun `english never joins`() {
+        assertEquals(
+            Segment("Okay.", SegmentJoin.NONE),
+            SherpaText.formatAfter("okay", SherpaModel.ENGLISH, punctAnswering(','), "Hi."),
+        )
+    }
+
     // English Parakeet: already cased and punctuated — must not be lowercased.
 
     @Test

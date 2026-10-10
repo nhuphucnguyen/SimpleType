@@ -1,5 +1,6 @@
 package dev.phucngu.simpletype.voice.punct
 
+import dev.phucngu.simpletype.voice.Continuation
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -23,5 +24,19 @@ class PunctuatorRealModelTest {
             punctuate("hôm qua công ty có cuộc họp quan trọng sếp nói tháng sau sẽ tăng lương cho mọi người"),
         )
         assertEquals("xin chào.", punctuate("xin chào"))
+    }
+
+    @Test
+    fun `a pause after a vocative becomes a comma`() {
+        val c = PunctTestAssets.punctuator.continueAfter(
+            "Anh ơi.", "chiều nay anh có rảnh không em muốn nhờ anh một việc",
+        )
+        assertEquals(Continuation(',', "chiều nay anh có rảnh không. em muốn nhờ anh một việc."), c)
+    }
+
+    @Test
+    fun `a pause after a finished question stays a period`() {
+        val c = PunctTestAssets.punctuator.continueAfter("Anh ơi, chiều nay anh có rảnh không.", "em muốn nhờ anh một việc")
+        assertEquals('.', c.boundary)
     }
 }

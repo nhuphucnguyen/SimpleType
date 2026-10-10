@@ -1,6 +1,8 @@
 package dev.phucngu.simpletype.voice.punct
 
 import android.content.res.AssetManager
+import dev.phucngu.simpletype.voice.Continuation
+import dev.phucngu.simpletype.voice.TextPunctuator
 import kotlin.math.exp
 
 /**
@@ -17,14 +19,30 @@ import kotlin.math.exp
 class Punctuator(
     private val tokenizer: BpeTokenizer,
     private val logits: (IntArray) -> Array<FloatArray>,
-) {
+) : TextPunctuator {
 
-    fun punctuate(text: String): String {
+    override fun punctuate(text: String): String {
         val words = cleanWords(text)
         if (words.isEmpty()) return text
-        val labels = labels(words)
-        return words.indices.joinToString(" ") { words[it] + MARKS[labels[it]] }
+        return render(words, labels(words), 0)
     }
+
+    /**
+     * Labels the previous segment's tail and [text] together, so a VAD pause is judged with
+     * the words on both sides of it instead of always becoming a period.
+     */
+    override fun continueAfter(previous: String, text: String): Continuation {
+        val prev = cleanWords(previous).takeLast(CONTEXT_WORDS)
+        val words = cleanWords(text)
+        if (words.isEmpty()) return Continuation('.', text)
+        if (prev.isEmpty()) return Continuation('.', punctuate(text))
+        val labels = labels(prev + words)
+        val mark = MARKS[labels[prev.size - 1]].firstOrNull()
+        return Continuation(mark, render(words, labels, prev.size))
+    }
+
+    private fun render(words: List<String>, labels: IntArray, offset: Int): String =
+        words.indices.joinToString(" ") { words[it] + MARKS[labels[offset + it]] }
 
     private fun labels(words: List<String>): IntArray {
         val encoded = words.map { tokenizer.bpeWord(it.lowercase()).let { e -> if (e.size > MAX_SUB) e.copyOf(MAX_SUB) else e } }
@@ -89,6 +107,8 @@ class Punctuator(
         const val MAX_LEN = PunctModel.MAX_LEN
         private const val MAX_SUB = MAX_LEN - 2
         private const val MAX_WORDS = 110
+        /** Words of the previous segment shown to the model as left context. */
+        private const val CONTEXT_WORDS = 40
 
         private const val O = 0
         private const val COMMA = 1

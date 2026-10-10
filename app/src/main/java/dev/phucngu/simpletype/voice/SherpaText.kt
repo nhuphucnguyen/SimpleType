@@ -33,6 +33,32 @@ object SherpaText {
         return if (cased.last() in ".!?") cased else "$cased."
     }
 
+    /**
+     * Formats a segment spoken right after [previous] (the previous segment of the same
+     * session, as committed). For uncased models with a [punctuator], the model judges the
+     * pause between the two: [Segment.join] says whether the previous segment's period should
+     * become a comma ([SegmentJoin.COMMA]) or go away ([SegmentJoin.CONTINUE]); the text then
+     * starts lowercase. Otherwise this is [format] with [SegmentJoin.NONE].
+     */
+    fun formatAfter(raw: String, model: SherpaModel, punctuator: TextPunctuator?, previous: String?): Segment {
+        val standalone = { Segment(format(raw, model, punctuator?.let { it::punctuate }), SegmentJoin.NONE) }
+        val trimmed = raw.trim()
+        if (!model.uppercaseOutput || punctuator == null || previous.isNullOrBlank() || trimmed.isEmpty()) {
+            return standalone()
+        }
+        val c = runCatching { punctuator.continueAfter(previous, trimmed.lowercase()) }
+            .onFailure { runCatching { Log.w(TAG, "punctuation failed", it) } }
+            .getOrNull() ?: return standalone()
+        val join = when (c.boundary) {
+            ',' -> SegmentJoin.COMMA
+            null -> SegmentJoin.CONTINUE
+            else -> SegmentJoin.NONE
+        }
+        var text = capitalizeSentences(c.text.trim())
+        if (join == SegmentJoin.NONE) text = text.replaceFirstChar { it.uppercase() }
+        return Segment(if (text.last() in ".!?") text else "$text.", join)
+    }
+
     private val SENTENCE_START = Regex("([.!?]\\s+)(\\p{L})")
 
     private fun capitalizeSentences(text: String): String =
