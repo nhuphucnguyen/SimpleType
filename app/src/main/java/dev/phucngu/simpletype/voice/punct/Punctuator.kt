@@ -1,5 +1,6 @@
 package dev.phucngu.simpletype.voice.punct
 
+import android.content.res.AssetManager
 import kotlin.math.exp
 
 /**
@@ -112,5 +113,12 @@ class Punctuator(
         }
 
         private val WS = Regex("\\s+")
+
+        /** The shipped model from `assets/punct/` (~9 MB read; call off the main thread). */
+        fun fromAssets(assets: AssetManager): Punctuator {
+            val tokenizer = BpeTokenizer.load(assets.open("punct/vocab.txt"), assets.open("punct/merges.txt"))
+            val model = assets.open("punct/punct_vi.bin").use { PunctModel.load(it) }
+            return Punctuator(tokenizer, model::logits)
+        }
     }
 }
