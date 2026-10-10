@@ -24,7 +24,9 @@ import java.io.File
  *
  * Model files ([SherpaModel.files]) are loaded from [modelDir] and the VAD from [vadModel];
  * both are installed by [ModelManager]. [punctuatorLoader], when given (Vietnamese), builds the
- * text punctuator passed to [SherpaText.format]; if it fails, segments stay unpunctuated.
+ * text punctuator used by [SherpaText.formatAfter]; if it fails, segments stay unpunctuated.
+ * With a punctuator, each segment is punctuated together with the previous one of the session,
+ * so a short pause can turn out to be a comma (or nothing) instead of a period.
  *
  * The recognizer/VAD are created lazily in [load] and reused across utterances. All methods
  * are invoked on the audio capture thread by [VoiceInputController]; decoding runs inline on
@@ -36,11 +38,15 @@ class SherpaAsrEngine(
     private val vadModel: File,
     private val confidence: Float = 0.95f,
     private val numThreads: Int = 2,
-    private val punctuatorLoader: (() -> (String) -> String)? = null,
+    private val punctuatorLoader: (() -> TextPunctuator)? = null,
 ) : AsrEngine {
 
-    private var punctuate: ((String) -> String)? = null
+    private var punctuator: TextPunctuator? = null
     private var punctuatorFailed = false
+
+    /** Previous segment of this session (as emitted) and the VAD sample where it ended. */
+    private var previousText: String? = null
+    private var previousEnd = 0L
 
     private var recognizer: OfflineRecognizer? = null
     private var vad: Vad? = null
@@ -100,13 +106,16 @@ class SherpaAsrEngine(
         }
 
         loadPunctuator()
+        previousText = null
     }
 
     private fun loadPunctuator() {
         val loader = punctuatorLoader ?: return
-        if (punctuate != null || punctuatorFailed) return
+        if (punctuator != null || punctuatorFailed) return
         try {
-            punctuate = loader()
+            val t0 = System.nanoTime()
+            punctuator = loader()
+            Log.i(TAG, "punctuator loaded in ${(System.nanoTime() - t0) / 1_000_000} ms")
         } catch (t: Throwable) {
             punctuatorFailed = true
             Log.w(TAG, "punctuation model failed to load", t)
@@ -130,6 +139,7 @@ class SherpaAsrEngine(
             drainSegments()
             v.reset()
             v.clear()
+            previousText = null // VAD sample positions restart after reset
         } catch (t: Throwable) {
             Log.w(TAG, "endOfUtterance failed", t)
         }
@@ -150,17 +160,28 @@ class SherpaAsrEngine(
         while (!v.empty()) {
             val segment = v.front()
             v.pop()
-            val text = decode(rec, segment.samples)
-            if (text.isNotEmpty()) listener?.onFinal(text, confidence)
+            val start = segment.start.toLong()
+            val previous = previousText?.takeIf { start - previousEnd <= MAX_JOIN_GAP }
+            val out = decode(rec, segment.samples, previous)
+            if (out.text.isEmpty()) continue
+            previousText = out.text
+            previousEnd = start + segment.samples.size
+            listener?.onFinal(out.text, confidence, out.join)
         }
     }
 
-    private fun decode(rec: OfflineRecognizer, samples: FloatArray): String {
+    private fun decode(rec: OfflineRecognizer, samples: FloatArray, previous: String?): Segment {
         val stream = rec.createStream()
         return try {
             stream.acceptWaveform(samples, SAMPLE_RATE)
             rec.decode(stream)
-            SherpaText.format(rec.getResult(stream).text, model, punctuate)
+            val raw = rec.getResult(stream).text
+            val t0 = System.nanoTime()
+            val out = SherpaText.formatAfter(raw, model, punctuator, previous)
+            if (punctuator != null) {
+                Log.d(TAG, "punctuated in ${(System.nanoTime() - t0) / 1_000_000} ms: ${out.join}")
+            }
+            out
         } finally {
             stream.release()
         }
@@ -169,5 +190,7 @@ class SherpaAsrEngine(
     companion object {
         private const val TAG = "SherpaAsrEngine"
         private const val SAMPLE_RATE = 16_000
+        /** Longer silences than this always end the sentence (in samples: 2 s). */
+        private const val MAX_JOIN_GAP = 2L * SAMPLE_RATE
     }
 }

@@ -64,6 +64,7 @@ import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.SherpaAsrEngine
 import dev.phucngu.simpletype.voice.punct.Punctuator
 import dev.phucngu.simpletype.voice.SherpaModel
+import dev.phucngu.simpletype.voice.SegmentJoin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -149,7 +150,7 @@ open class SimpleTypeIME : InputMethodService(),
             modelManager.modelDir(lang),
             modelManager.vadFile(),
             punctuatorLoader = if (lang == VoiceLanguage.VIETNAMESE) {
-                { Punctuator.fromAssets(assets)::punctuate }
+                { Punctuator.fromAssets(assets) }
             } else {
                 null
             },
@@ -819,11 +820,11 @@ open class SimpleTypeIME : InputMethodService(),
             currentInputConnection?.setComposingText(text, 1)
         }
 
-        override fun onFinal(text: String, confidence: Float) {
+        override fun onFinal(text: String, confidence: Float, join: SegmentJoin) {
             val ic = currentInputConnection ?: return
             ic.finishComposingText()
             val action = commandMatcher.match(text, confidence)
-            if (commandHandler.handle(action, text) == VoiceCommandHandler.Result.STOP_LISTENING) {
+            if (commandHandler.handle(action, text, join) == VoiceCommandHandler.Result.STOP_LISTENING) {
                 voice.stop()
                 setMicListening(false)
                 hideStatus()

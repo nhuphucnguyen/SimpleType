@@ -13,10 +13,12 @@ package dev.phucngu.simpletype.voice
  */
 class VoiceCommandHandler(private val editor: TextEditor) {
 
-    /** One reversible edit: text was inserted at, or deleted from, the cursor. */
+    /** One reversible edit: text was inserted at, deleted from, or replaced before the cursor. */
     private sealed interface EditOp {
-        data class Inserted(val text: String) : EditOp
+        /** [dictation]: a dictated segment, which the next segment may join onto. */
+        data class Inserted(val text: String, val dictation: Boolean = false) : EditOp
         data class Deleted(val text: String) : EditOp
+        data class Replaced(val removed: String, val inserted: String) : EditOp
     }
 
     private val undoStack = ArrayDeque<EditOp>()
@@ -31,8 +33,9 @@ class VoiceCommandHandler(private val editor: TextEditor) {
     /**
      * @param originalText the raw utterance, used as the fallback when a destructive command
      *   targets an empty field.
+     * @param join how dictated text attaches to the segment dictated just before it.
      */
-    fun handle(action: VoiceAction, originalText: String): Result = when (action) {
+    fun handle(action: VoiceAction, originalText: String, join: SegmentJoin = SegmentJoin.NONE): Result = when (action) {
         is VoiceAction.DeleteWord ->
             if (fieldEmpty()) commitFallback(originalText) else { deleteLastWord(); Result.HANDLED }
         is VoiceAction.DeleteSentence ->
@@ -43,7 +46,7 @@ class VoiceCommandHandler(private val editor: TextEditor) {
         is VoiceAction.Undo -> { undo(); Result.HANDLED }
         is VoiceAction.StopListening -> Result.STOP_LISTENING
         is VoiceAction.CommitText ->
-            if (action.text.isEmpty()) Result.NOTHING else { insertDictation(action.text); Result.HANDLED }
+            if (action.text.isEmpty()) Result.NOTHING else { insertDictation(action.text, join); Result.HANDLED }
     }
 
     // ---- Editing primitives ----
@@ -79,18 +82,44 @@ class VoiceCommandHandler(private val editor: TextEditor) {
         undoStack.addLast(EditOp.Inserted(text))
     }
 
-    /** Commit dictated text with a leading space when it abuts a preceding word. */
-    private fun insertDictation(text: String) {
+    /**
+     * Commit dictated text with a leading space when it abuts a preceding word. A [join] onto
+     * the previous segment rewrites that segment's final period, but only while the cursor
+     * still sits right after it (nothing typed, moved or commanded since); otherwise the text
+     * is committed as a new sentence.
+     */
+    private fun insertDictation(text: String, join: SegmentJoin = SegmentJoin.NONE) {
+        if (join != SegmentJoin.NONE && joinPrevious(text, join)) return
         val prev = editor.textBeforeCursor(1).toString()
         val needSpace = prev.isNotEmpty() && !prev.last().isWhitespace() &&
             text.isNotEmpty() && text.first().isLetterOrDigit()
-        insert(if (needSpace) " $text" else text)
+        val body = if (join == SegmentJoin.NONE) text else text.replaceFirstChar { it.uppercase() }
+        editor.commitText(if (needSpace) " $body" else body)
+        undoStack.addLast(EditOp.Inserted(if (needSpace) " $body" else body, dictation = true))
+    }
+
+    private fun joinPrevious(text: String, join: SegmentJoin): Boolean {
+        val last = when (val op = undoStack.lastOrNull()) {
+            is EditOp.Inserted -> op.text.takeIf { op.dictation }
+            is EditOp.Replaced -> op.inserted // itself a joined dictated segment
+            else -> null
+        } ?: return false
+        if (!last.endsWith(".") || editor.textBeforeCursor(last.length).toString() != last) return false
+        val inserted = (if (join == SegmentJoin.COMMA) ", " else " ") + text
+        editor.deleteBeforeCursor(1)
+        editor.commitText(inserted)
+        undoStack.addLast(EditOp.Replaced(".", inserted))
+        return true
     }
 
     private fun undo() {
         when (val op = undoStack.removeLastOrNull()) {
             is EditOp.Inserted -> editor.deleteBeforeCursor(op.text.length)
             is EditOp.Deleted -> editor.commitText(op.text)
+            is EditOp.Replaced -> {
+                editor.deleteBeforeCursor(op.inserted.length)
+                editor.commitText(op.removed)
+            }
             null -> {}
         }
     }

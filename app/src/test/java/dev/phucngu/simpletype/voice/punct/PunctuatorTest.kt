@@ -1,5 +1,6 @@
 package dev.phucngu.simpletype.voice.punct
 
+import dev.phucngu.simpletype.voice.Continuation
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -72,5 +73,36 @@ class PunctuatorTest {
     @Test
     fun `blank input is returned as is`() {
         assertEquals("", punctuator { o }.punctuate("   ").trim())
+    }
+
+    // ---- Continuation: a segment spoken right after the previous one ----
+
+    @Test
+    fun `continuation reports the mark that should end the previous segment`() {
+        val p = punctuator { id -> when (id) { 2 -> comma; 3 -> period; else -> o } }
+        // previous ends with "a" (comma), "b" (period) or "x" (nothing)
+        assertEquals(Continuation(',', "y z."), p.continueAfter("x a.", "y z"))
+        assertEquals(Continuation('.', "y z."), p.continueAfter("x b.", "y z"))
+        assertEquals(Continuation(null, "y z."), p.continueAfter("a x.", "y z"))
+    }
+
+    @Test
+    fun `continuation output covers only the new segment`() {
+        val p = punctuator { id -> if (id == 2) comma else o }
+        assertEquals(Continuation(null, "a, y."), p.continueAfter("x x x", "a y"))
+    }
+
+    @Test
+    fun `continuation sees the previous words as context`() {
+        val seen = mutableListOf<Int>()
+        val p = Punctuator(tok, { ids -> seen += ids.size; Array(ids.size) { o } })
+        p.continueAfter("x x x", "y")
+        assertEquals(listOf(4), seen)
+    }
+
+    @Test
+    fun `empty previous segment is a plain punctuation`() {
+        val p = punctuator { o }
+        assertEquals(Continuation('.', "y z."), p.continueAfter("", "y z"))
     }
 }

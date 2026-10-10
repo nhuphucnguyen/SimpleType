@@ -42,8 +42,11 @@ interface AsrEngine {
 interface AsrListener {
     /** Streaming hypothesis for the current utterance; shown as composing (underlined) text. */
     fun onPartial(text: String)
-    /** Finalised utterance text with a [0,1] confidence used for command disambiguation. */
-    fun onFinal(text: String, confidence: Float)
+    /**
+     * Finalised utterance text with a [0,1] confidence used for command disambiguation;
+     * [join] says how it attaches to the previous final of the same session.
+     */
+    fun onFinal(text: String, confidence: Float, join: SegmentJoin = SegmentJoin.NONE)
     fun onError(message: String)
 }
 

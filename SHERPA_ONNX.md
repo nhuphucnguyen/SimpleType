@@ -129,8 +129,11 @@ To force a re-install, clear the installed copy:
 - **Not word-by-word streaming.** Partials aren't emitted mid-utterance; text appears per
   phrase on VAD endpoint. A truly streaming experience needs a causal/cache-aware model
   (e.g. `hynt/Zipformer-30M-RNNT-Streaming-6000h` for Vietnamese).
-- **Vietnamese punctuation is per segment.** The model sees one VAD segment at a time and
-  only emits `.` and `,`; a mid-thought pause still ends with a period.
+- **Vietnamese pauses are judged by the model.** Each segment is punctuated together with the
+  previous one of the session (`SherpaText.formatAfter`), so a short pause can become a comma
+  or nothing: `VoiceCommandHandler` then rewrites the previous segment's period, only while
+  the cursor still sits right after it (undoable). Silences over 2 s always end the sentence.
+  Only `.` and `,` are produced.
 - **Decoding runs on the audio thread.** Segments are short so this is fine for a POC, but a
   dedicated decode thread would avoid any chance of dropping mic frames on long segments.
 
