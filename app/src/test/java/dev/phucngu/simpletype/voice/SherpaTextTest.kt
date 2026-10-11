@@ -98,6 +98,22 @@ class SherpaTextTest {
     }
 
     @Test
+    fun `a comma boundary never replaces a question mark`() {
+        assertEquals(
+            Segment("Em nhờ việc này một tí.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM NHỜ VIỆC NÀY MỘT TÍ", SherpaModel.VIETNAMESE, punctAnswering(','), "Anh rảnh không?"),
+        )
+    }
+
+    @Test
+    fun `a question mark is not removed to continue the sentence`() {
+        assertEquals(
+            Segment("Em nhờ việc này một tí.", SegmentJoin.NONE),
+            SherpaText.formatAfter("EM NHỜ VIỆC NÀY MỘT TÍ", SherpaModel.VIETNAMESE, punctAnswering(null), "Anh rảnh không?"),
+        )
+    }
+
+    @Test
     fun `a boundary that matches the previous mark changes nothing`() {
         assertEquals(
             Segment("Em chờ nãy giờ.", SegmentJoin.NONE),

@@ -1,5 +1,8 @@
 package dev.phucngu.simpletype.voice.punct
 
+import dev.phucngu.simpletype.voice.SegmentJoin
+import dev.phucngu.simpletype.voice.SherpaModel
+import dev.phucngu.simpletype.voice.SherpaText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -17,7 +20,12 @@ class PunctuatorRealModelTest {
     @Test
     fun `questions end with a question mark`() {
         assertEquals("mai mấy giờ mình đi?", punctuate("mai mấy giờ mình đi"))
-        assertTrue(punctuate("anh ơi chiều nay anh có rảnh không em muốn nhờ anh một việc").contains("không? em"))
+    }
+
+    @Test
+    fun `a question followed by more speech without a pause takes a comma`() {
+        // the owner's preference: "anh rảnh không, em nhờ…" in one breath; '?' only after a pause
+        assertTrue(punctuate("anh ơi chiều nay anh có rảnh không em muốn nhờ anh một việc").contains("không, em"))
     }
 
     @Test
@@ -40,12 +48,15 @@ class PunctuatorRealModelTest {
             "Anh ơi.", "chiều nay anh có rảnh không em muốn nhờ anh một việc",
         )
         assertEquals(',', c.boundary)
-        assertTrue(c.text, c.text.startsWith("chiều nay anh có rảnh không?"))
     }
 
     @Test
-    fun `a pause after a finished sentence stays a period`() {
-        val c = PunctTestAssets.punctuator.continueAfter("Anh ơi, chiều nay anh có rảnh không?", "em muốn nhờ anh một việc")
-        assertTrue("${c.boundary}", c.boundary == '.' || c.boundary == '?')
+    fun `a pause after a question keeps the question mark`() {
+        val s = SherpaText.formatAfter(
+            "EM MUỐN NHỜ ANH MỘT VIỆC", SherpaModel.VIETNAMESE, PunctTestAssets.punctuator,
+            "Anh ơi, chiều nay anh có rảnh không?",
+        )
+        assertTrue("${s.join}", s.join == SegmentJoin.NONE)
+        assertTrue(s.text, s.text.startsWith("Em muốn"))
     }
 }

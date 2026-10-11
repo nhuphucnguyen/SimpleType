@@ -38,7 +38,7 @@ object SherpaText {
      * session, as committed). For uncased models with a [punctuator], the model judges the
      * pause between the two: [Segment.join] says whether the previous segment's final mark
      * should become a comma ([SegmentJoin.COMMA]) or go away ([SegmentJoin.CONTINUE]), and the
-     * text then starts lowercase; or whether it should switch between `.` and `?`
+     * text then starts lowercase (never for a question mark, which stays); or whether it should switch between `.` and `?`
      * ([SegmentJoin.QUESTION], [SegmentJoin.PERIOD]). Otherwise this is [format] with
      * [SegmentJoin.NONE].
      */
@@ -53,8 +53,10 @@ object SherpaText {
             .getOrNull() ?: return standalone()
         val prevMark = previous.trimEnd().lastOrNull()
         val join = when (c.boundary) {
-            ',' -> SegmentJoin.COMMA
-            null -> SegmentJoin.CONTINUE
+            // a question mark already shown stays: after a real pause the speaker ended the
+            // question ("Anh rảnh không? Em nhờ…"), even where one breath would take a comma
+            ',' -> if (prevMark == '?') SegmentJoin.NONE else SegmentJoin.COMMA
+            null -> if (prevMark == '?') SegmentJoin.NONE else SegmentJoin.CONTINUE
             '?' -> if (prevMark == '?') SegmentJoin.NONE else SegmentJoin.QUESTION
             else -> if (prevMark == '?') SegmentJoin.PERIOD else SegmentJoin.NONE
         }
