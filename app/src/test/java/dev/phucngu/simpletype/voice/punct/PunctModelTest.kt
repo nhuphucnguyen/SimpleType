@@ -7,11 +7,13 @@ class PunctModelTest {
 
     @Test
     fun `logits match the python int8 reference`() {
-        for ((text, ids, expected) in PunctTestAssets.golden) {
-            val got = PunctTestAssets.model.logits(ids)
-            assertEquals(text, ids.size, got.size)
-            for (i in ids.indices) for (c in 0 until 3) {
-                assertEquals("$text [$i,$c]", expected[i * 3 + c], got[i][c], 2e-3f)
+        val model = PunctTestAssets.model
+        for (g in PunctTestAssets.golden) {
+            val got = model.logits(g.ids)
+            assertEquals(g.text, g.ids.size, got.size)
+            assertEquals(g.text, model.punctClasses + model.caseClasses, g.width)
+            for (i in g.ids.indices) for (c in 0 until g.width) {
+                assertEquals("${g.text} [$i,$c]", g.logits[i * g.width + c], got[i][c], 2e-3f)
             }
         }
     }

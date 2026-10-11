@@ -3,33 +3,30 @@
 ## Vietnamese punctuation model
 
 The on-device model (`voice/punct/`, trained in the `vietnamese-punctuation` repo) restores
-`.` and `,` in Vietnamese dictation and judges pauses between VAD segments. Next steps, in
+`.` `,` `?` and proper-noun casing in Vietnamese dictation and judges pauses between VAD segments. Next steps, in
 order of payoff:
 
-### 1. Question marks — small, very visible
-Questions currently end with `.`. Vietnamese questions are strongly marked by particles
-(*không, chưa, à, hả, nhỉ, sao, gì, đâu, mấy, bao giờ*), and the training data already has
-`?` (it is folded into PERIOD today).
-- [ ] Add a QUESTION label to the training data pipeline
-- [ ] Fine-tune (~1 h on the Mac) and recalibrate the decision rule
-- [ ] Re-export `punct_vi.bin` and update the Kotlin decision rule + tests
+Status (2026-10-11): model **m09** ships (`assets/punct/punct_vi.version`): `?` and
+proper-noun casing, decision rule read from `punct_vi.bin` (VPN2). Spoken test set, m07 → m09:
+comma 0.73 → 0.76, question 0 → 0.89, casing 0 → 0.97, pause decisions between segments
+0.80 → 0.84 accuracy.
 
-### 2. Proper-noun capitalisation — medium, very visible
-The vi Zipformer outputs all caps and everything is lowercased: "hà nội", "anh tuấn",
-"việt nam".
-- [ ] Add a second (casing) head to the same model; labels come from the original corpus casing
-- [ ] Retrain from scratch (hours on the Mac, much faster on the RTX 4060)
-- [ ] Apply the casing in `Punctuator` / `SherpaText`; near-zero extra cost on the phone
+### 1. Question marks — done (m08/m09)
+- [x] QUESTION label in the training data, fine-tuned, decision rule recalibrated
+- [x] `punct_vi.bin` v2 + `Punctuator` / `SherpaText` / `VoiceCommandHandler` handle `?`
+      (a pause can also turn the previous `.` into `?` and back)
 
-Do 1 and 2 together in one retrain: they share the data pipeline.
+### 2. Proper-noun capitalisation — done (m08/m09)
+- [x] Casing outputs on the same model (lower / Cap / UPPER); applied in `Punctuator`
+- [ ] Acronyms are weak ("fpt" stays lowercase): UPPER is rare in the data
+- [ ] Not retrained from scratch: the head was grown onto m07. A from-scratch run on
+      dataset_v4 (`run_all.sh`) is the cleaner baseline, best on the RTX 4060
 
-### 3. Real-dictation log — the most reliable improvement over time
-All current test sets were written by Claude models, so the scores may be optimistic.
-- [ ] Opt-in, local-only "punctuation log" toggle in Settings (strings in `strings.xml`)
-- [ ] Record the raw ASR segment and the text the user finally kept after edits
-- [ ] Export the log; use it as an honest test set and as fine-tuning corrections
-
-Start this early so real data accumulates while 1 and 2 are in progress.
+### 3. Real-dictation log — app side done, waiting for data
+- [x] Opt-in, local-only toggle in Settings › Voice ("Help improve Vietnamese punctuation"):
+      segments as committed + the text kept when the field is left; export / clear
+- [ ] Use it for a few weeks, export, then in vietnamese-punctuation:
+      `python src/import_dictation_log.py <exported.jsonl>` → real test set + fine-tune split
 
 ### 4. Bigger / distilled model on the RTX 4060 — later
 - [ ] Train a 20–30M parameter model on more data, or distil from PhoBERT

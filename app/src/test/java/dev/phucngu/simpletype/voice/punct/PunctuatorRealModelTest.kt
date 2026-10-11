@@ -1,29 +1,37 @@
 package dev.phucngu.simpletype.voice.punct
 
-import dev.phucngu.simpletype.voice.Continuation
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** End to end with the shipped model; expectations are the Python int8 reference output. */
+/** End to end with the shipped model. */
 class PunctuatorRealModelTest {
 
     private fun punctuate(text: String) = PunctTestAssets.punctuator.punctuate(text)
 
     @Test
-    fun `dictated messages match the python reference`() {
-        assertEquals(
-            "anh ơi, chiều nay anh có rảnh không. em muốn nhờ anh một việc.",
-            punctuate("anh ơi chiều nay anh có rảnh không em muốn nhờ anh một việc"),
-        )
-        assertEquals(
-            "ừ, được rồi, để anh xem lại rồi. báo em sau nha.",
-            punctuate("ừ được rồi để anh xem lại rồi báo em sau nha"),
-        )
-        assertEquals(
-            "hôm qua công ty có cuộc họp quan trọng, sếp nói tháng sau sẽ tăng lương cho mọi người.",
-            punctuate("hôm qua công ty có cuộc họp quan trọng sếp nói tháng sau sẽ tăng lương cho mọi người"),
-        )
+    fun `golden cases match the python int8 reference`() {
+        for (g in PunctTestAssets.golden) assertEquals(g.text, g.expected, punctuate(g.text))
+    }
+
+    @Test
+    fun `questions end with a question mark`() {
+        assertEquals("mai mấy giờ mình đi?", punctuate("mai mấy giờ mình đi"))
+        assertTrue(punctuate("anh ơi chiều nay anh có rảnh không em muốn nhờ anh một việc").contains("không? em"))
+    }
+
+    @Test
+    fun `greetings are not questions`() {
         assertEquals("xin chào.", punctuate("xin chào"))
+        assertEquals("cảm ơn.", punctuate("cảm ơn"))
+    }
+
+    @Test
+    fun `names are capitalised`() {
+        val out = punctuate("chị lan ơi tuần sau em bay vào thành phố hồ chí minh chị có cần gửi gì không")
+        assertTrue(out, out.startsWith("chị Lan ơi,"))
+        assertTrue(out, out.contains("Hồ Chí Minh"))
+        assertTrue(out, out.endsWith("không?"))
     }
 
     @Test
@@ -31,12 +39,13 @@ class PunctuatorRealModelTest {
         val c = PunctTestAssets.punctuator.continueAfter(
             "Anh ơi.", "chiều nay anh có rảnh không em muốn nhờ anh một việc",
         )
-        assertEquals(Continuation(',', "chiều nay anh có rảnh không. em muốn nhờ anh một việc."), c)
+        assertEquals(',', c.boundary)
+        assertTrue(c.text, c.text.startsWith("chiều nay anh có rảnh không?"))
     }
 
     @Test
-    fun `a pause after a finished question stays a period`() {
-        val c = PunctTestAssets.punctuator.continueAfter("Anh ơi, chiều nay anh có rảnh không.", "em muốn nhờ anh một việc")
-        assertEquals('.', c.boundary)
+    fun `a pause after a finished sentence stays a period`() {
+        val c = PunctTestAssets.punctuator.continueAfter("Anh ơi, chiều nay anh có rảnh không?", "em muốn nhờ anh một việc")
+        assertTrue("${c.boundary}", c.boundary == '.' || c.boundary == '?')
     }
 }

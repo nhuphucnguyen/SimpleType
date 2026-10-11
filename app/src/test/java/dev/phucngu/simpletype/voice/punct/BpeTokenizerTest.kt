@@ -8,7 +8,8 @@ class BpeTokenizerTest {
 
     @Test
     fun `matches the training tokenizer ids on golden texts`() {
-        for ((text, ids, _) in PunctTestAssets.golden) {
+        for (g in PunctTestAssets.golden) {
+            val (text, ids) = g.text to g.ids
             val got = text.split(' ').flatMap { PunctTestAssets.tokenizer.bpeWord(it).toList() }
             assertArrayEquals(text, ids, got.toIntArray())
         }
