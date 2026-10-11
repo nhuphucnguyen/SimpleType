@@ -25,7 +25,7 @@ class Punctuator(
     private val rule: DecisionRule = DecisionRule.LEGACY,
 ) : TextPunctuator {
 
-    private class Labels(val marks: IntArray, val cases: IntArray)
+    private class Labels(val marks: IntArray, val cases: IntArray, val rows: Array<FloatArray?>)
 
     override fun punctuate(text: String): String {
         val words = cleanWords(text)
@@ -43,7 +43,8 @@ class Punctuator(
         if (words.isEmpty()) return Continuation('.', text)
         if (prev.isEmpty()) return Continuation('.', punctuate(text))
         val labels = labels(prev + words)
-        val mark = MARKS[labels.marks[prev.size - 1]].firstOrNull()
+        val row = labels.rows[prev.size - 1]
+        val mark = if (row == null) '.' else MARKS[pauseMark(row)].firstOrNull()
         return Continuation(mark, render(words, labels, prev.size))
     }
 
@@ -60,6 +61,7 @@ class Punctuator(
         val encoded = words.map { tokenizer.bpeWord(it.lowercase()).let { e -> if (e.size > MAX_SUB) e.copyOf(MAX_SUB) else e } }
         val marks = IntArray(words.size)
         val cases = IntArray(words.size)
+        val punctRows = arrayOfNulls<FloatArray>(words.size)
         var lastRow: FloatArray? = null
         var start = 0
         while (start < words.size) {
@@ -90,6 +92,7 @@ class Punctuator(
                     marks[w] = decide(rows[p])
                     cases[w] = decideCase(rows[p])
                     lastRow = rows[p]
+                    punctRows[w] = rows[p]
                 }
             }
             start = end
@@ -98,7 +101,7 @@ class Punctuator(
         // period bar catches completed sentences.
         val row = lastRow
         if (row != null) marks[marks.size - 1] = endMark(row, marks.last())
-        return Labels(marks, cases)
+        return Labels(marks, cases, punctRows)
     }
 
     /** Break-then-mark: punctuate at all, then which mark (see [DecisionRule]). */
@@ -112,6 +115,19 @@ class Punctuator(
             p[PERIOD] >= question -> PERIOD
             else -> QUESTION
         }
+    }
+
+    /**
+     * The mark at a VAD pause. The model never hears the pause, and with only the next
+     * segment as right context it often prefers a comma or no mark where the speaker ended a
+     * sentence, so a pause leans to a period: no mark only when the model is sure the sentence
+     * goes on ("em về đến… nhà rồi"), a comma only when it clearly beats the period ("Anh ơi,").
+     */
+    private fun pauseMark(row: FloatArray): Int {
+        val p = punctProbs(row)
+        if (p[O] > PAUSE_JOIN) return O
+        if (p[COMMA] * exp(PAUSE_COMMA_BIAS) > p[PERIOD] + p[QUESTION]) return COMMA
+        return if (p[QUESTION] * exp(rule.questionBias) > p[PERIOD]) QUESTION else PERIOD
     }
 
     private fun endMark(row: FloatArray, mark: Int): Int {
@@ -150,6 +166,9 @@ class Punctuator(
         private const val MAX_WORDS = 110
         /** Words of the previous segment shown to the model as left context. */
         private const val CONTEXT_WORDS = 40
+        /** [pauseMark]: tuned on simulated pauses in news and dictation text (m11). */
+        private const val PAUSE_JOIN = 0.95f
+        private const val PAUSE_COMMA_BIAS = -1.0f
 
         private const val O = 0
         private const val COMMA = 1

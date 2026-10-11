@@ -15,6 +15,8 @@ class PunctuatorTest {
     private val o = floatArrayOf(2f, 0f, 0f) // p(break) 0.21, p(period) 0.11 > t_end_period
     private val comma = floatArrayOf(0f, 5f, 0f)
     private val period = floatArrayOf(0f, 0f, 5f)
+    private val sureO = floatArrayOf(5f, 0f, 0f) // sure enough to join across a pause
+    private val X = 25 // token id of "x"
 
     /** Fake model that answers with [rowFor] per token id. */
     private fun punctuator(rowFor: (Int) -> FloatArray) =
@@ -134,7 +136,7 @@ class PunctuatorTest {
 
     @Test
     fun `continuation reports the mark that should end the previous segment`() {
-        val p = punctuator { id -> when (id) { 2 -> comma; 3 -> period; else -> o } }
+        val p = punctuator { id -> when (id) { 2 -> comma; 3 -> period; X -> sureO; else -> o } }
         // previous ends with "a" (comma), "b" (period) or "x" (nothing)
         assertEquals(Continuation(',', "y z."), p.continueAfter("x a.", "y z"))
         assertEquals(Continuation('.', "y z."), p.continueAfter("x b.", "y z"))
@@ -142,8 +144,25 @@ class PunctuatorTest {
     }
 
     @Test
+    fun `a pause stays a period unless the model is sure the sentence goes on`() {
+        // p(no mark) 0.79 inside a segment means no mark; at a pause it is not enough
+        val unsure = punctuator { id -> if (id == 2) floatArrayOf(2f, 0f, 0f, 0f) else o }
+        assertEquals('.', unsure.continueAfter("x a.", "y z").boundary)
+        val sure = punctuator { id -> if (id == 2) floatArrayOf(5f, 0f, 0f, 0f) else o }
+        assertEquals(null, sure.continueAfter("x a.", "y z").boundary)
+    }
+
+    @Test
+    fun `a pause becomes a comma only when the comma clearly beats the period`() {
+        val close = punctuator { id -> if (id == 2) floatArrayOf(0f, 0.5f, 0f, 0f) else o }
+        assertEquals('.', close.continueAfter("x a.", "y z").boundary)
+        val clear = punctuator { id -> if (id == 2) floatArrayOf(0f, 2f, 0f, 0f) else o }
+        assertEquals(',', clear.continueAfter("x a.", "y z").boundary)
+    }
+
+    @Test
     fun `continuation output covers only the new segment`() {
-        val p = punctuator { id -> if (id == 2) comma else o }
+        val p = punctuator { id -> when (id) { 2 -> comma; X -> sureO; else -> o } }
         assertEquals(Continuation(null, "a, y."), p.continueAfter("x x x", "a y"))
     }
 
