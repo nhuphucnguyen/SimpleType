@@ -1,0 +1,55 @@
+# Local / dialect words to include in the Vietnamese glide dictionary.
+#
+# One word per line, in one of three forms:
+#
+#   rứa           <- weight auto-derived: max(wordfreq value, 450)
+#   mệ 520        <- explicit zipf100 weight
+#   mệ = mẹ       <- weight copied from the standard word it corresponds to
+#                    (best choice: ranks the dialect word like its national twin)
+#
+# '#' starts a comment. Words are lowercased and NFC-normalized automatically;
+# the swipe key sequence (rứa -> rua) is derived automatically too.
+# These entries OVERRIDE the wordfreq-generated entry for the same word.
+#
+# After editing, run:  python3 tools/generate_gesture_dictionary.py vi
+# then check with:     ./gradlew test
+#
+# Weight guide: ~500+ everyday, ~450 common in speech, ~250 niche. Words sharing
+# a key path rank purely by this number and only the top 3 fit the suggestion
+# strip — see the note in generate_gesture_dictionary.py before raising values.
+
+mệ = mẹ         # "bà/mẹ" (Central)
+rứa = vậy       # "vậy/thế" (Central)
+choa = tao      # "chúng tao" (Central)
+dồ             # crowded "do" path (đó/độ/do/đồ...); needs ~630 to reach the strip
+
+# --- Nghệ An dialect (from dulichhonmat.com "Học tiếng Nghệ An" guide) ---
+# Re-ranked to match their standard equivalents (corpus underrates dialect):
+tau = tao
+hấn = nó
+nỏ = không
+ni = này
+tê = kia
+răng = sao
+hỉ = nhé
+chơ = chứ
+mần = làm
+ngó = nhìn
+ăng = ăn
+rầy = ngại
+# Missing from the corpus entirely:
+nớ = đó
+dừ = giờ         # bây giờ
+chộ = thấy
+quày = rẽ
+ót = gáy
+cảy = sưng
+rèo = nài        # nài nỉ
+dằm = chỗ
+nậy = lớn
+tọng = nhét
+bựt = bật
+rọt = ruột
+hấy = nhé
+hầy = nhỉ
+eng = anh

@@ -119,4 +119,28 @@ class VietnameseGlideTest {
             assertEquals("expected '$word' when swiping '$keys'", word, candidates.first().word)
         }
     }
+
+    @Test fun local_dialect_words_from_extras_reach_the_suggestion_strip() {
+        val file = File("src/main/assets/dictionaries/vi.txt")
+        assertTrue("bundled Vietnamese dictionary missing", file.exists())
+        val dict = file.inputStream().use { GestureDictionary.parse(it) }
+        val decoder = GestureDecoder(dict)
+
+        // Force-included via tools/vi-local-words.txt (read by the generator script).
+        // ("dồ" is intentionally absent: its "do" path is owned by đó/độ/do/đồ/đô.)
+        val expectations = mapOf(
+            "rua" to "rứa",
+            "me" to "mệ",
+            "choa" to "choa",
+            // Nghệ An words ranked like their standard equivalents:
+            "man" to "mần",
+            "no" to "nỏ",
+            "cho" to "chộ",
+            "han" to "hấn",
+        )
+        for ((keys, word) in expectations) {
+            val words = decoder.decode(trace(keys), geometry).map { it.word }
+            assertTrue("expected '$word' in the strip when swiping '$keys', got $words", word in words)
+        }
+    }
 }
