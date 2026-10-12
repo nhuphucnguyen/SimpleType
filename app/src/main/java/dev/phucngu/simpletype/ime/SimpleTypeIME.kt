@@ -57,12 +57,16 @@ import dev.phucngu.simpletype.ui.MicPermissionActivity
 import dev.phucngu.simpletype.voice.AsrEngine
 import dev.phucngu.simpletype.voice.AsrListener
 import dev.phucngu.simpletype.voice.CommandMatcher
+import dev.phucngu.simpletype.voice.DictationLog
+import dev.phucngu.simpletype.voice.VoiceAction
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceCommandHandler
 import dev.phucngu.simpletype.voice.VoiceInputController
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import dev.phucngu.simpletype.voice.SherpaAsrEngine
+import dev.phucngu.simpletype.voice.punct.Punctuator
 import dev.phucngu.simpletype.voice.SherpaModel
+import dev.phucngu.simpletype.voice.SegmentJoin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -129,6 +133,9 @@ open class SimpleTypeIME : InputMethodService(),
     // Saved-email suggestions: active only while an email field is focused.
     private var emailField = false
     private var emailLearning = false
+    /** Opt-in punctuation log for this field (see [DictationLog]). */
+    private var dictationLogging = false
+    private val dictationLog by lazy { DictationLog(java.io.File(filesDir, DictationLog.FILE_NAME)) }
     private var savedEmails: List<SavedEmail> = emptyList()
     /** Last-seen text of the email field, learned from when the field is left. */
     private var emailFieldText = ""
@@ -143,7 +150,16 @@ open class SimpleTypeIME : InputMethodService(),
         // Populate the model dir from bundled assets if this build embeds it (local test
         // builds); no-op otherwise. One-time copy, then isAvailable sees the files.
         modelManager.installFromAssetsIfBundled(lang)
-        SherpaAsrEngine(SherpaModel.forLanguage(lang), modelManager.modelDir(lang), modelManager.vadFile())
+        SherpaAsrEngine(
+            SherpaModel.forLanguage(lang),
+            modelManager.modelDir(lang),
+            modelManager.vadFile(),
+            punctuatorLoader = if (lang == VoiceLanguage.VIETNAMESE) {
+                { Punctuator.fromAssets(assets) }
+            } else {
+                null
+            },
+        )
     }
 
     private val commandMatcher = CommandMatcher()
@@ -307,6 +323,7 @@ open class SimpleTypeIME : InputMethodService(),
         // Incognito fields ask keyboards not to learn from what is typed.
         emailLearning = info.imeOptions and EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING == 0
         savedEmails = if (emailField) SavedEmails.load(prefs) else emptyList()
+        dictationLogging = !passwordField && emailLearning && prefs.getBoolean(DictationLog.PREF_ENABLED, false)
         emailFieldText = ""
         refreshEmailSuggestions()
 
@@ -318,6 +335,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onFinishInput() {
         learnEmailField()
+        logDictatedField()
         super.onFinishInput()
     }
 
@@ -528,6 +546,16 @@ open class SimpleTypeIME : InputMethodService(),
         var updated = SavedEmails.load(prefs)
         addresses.forEach { updated = SavedEmails.record(updated, it, now) }
         SavedEmails.save(prefs, updated)
+    }
+
+    /** Records what the user kept of this field's dictation, if the log is on. */
+    private fun logDictatedField() {
+        if (!dictationLogging) return
+        val ic = currentInputConnection
+        val kept = ic?.getTextBeforeCursor(DICTATION_LOG_LOOKAROUND, 0)?.toString()?.let { before ->
+            before + ic.getTextAfterCursor(DICTATION_LOG_LOOKAROUND, 0)?.toString().orEmpty()
+        }
+        runCatching { dictationLog.finishField(kept) }
     }
 
     private fun clearGlideSuggestions() {
@@ -809,11 +837,14 @@ open class SimpleTypeIME : InputMethodService(),
             currentInputConnection?.setComposingText(text, 1)
         }
 
-        override fun onFinal(text: String, confidence: Float) {
+        override fun onFinal(text: String, confidence: Float, join: SegmentJoin) {
             val ic = currentInputConnection ?: return
             ic.finishComposingText()
             val action = commandMatcher.match(text, confidence)
-            if (commandHandler.handle(action, text) == VoiceCommandHandler.Result.STOP_LISTENING) {
+            if (dictationLogging && language == VoiceLanguage.VIETNAMESE && action is VoiceAction.CommitText) {
+                dictationLog.segment(action.text, join)
+            }
+            if (commandHandler.handle(action, text, join) == VoiceCommandHandler.Result.STOP_LISTENING) {
                 voice.stop()
                 setMicListening(false)
                 hideStatus()
@@ -883,6 +914,7 @@ open class SimpleTypeIME : InputMethodService(),
         const val GRAPHEME_LOOKBEHIND = 32
         const val SELECTION_SYNC_DEBOUNCE_MS = 75L
         const val EMAIL_FIELD_LOOKAROUND = 256
+        const val DICTATION_LOG_LOOKAROUND = 4000
         val GLIDE_DICTIONARY_ASSETS = mapOf(
             VoiceLanguage.ENGLISH to "dictionaries/en.txt",
             VoiceLanguage.VIETNAMESE to "dictionaries/vi.txt",

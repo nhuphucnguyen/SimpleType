@@ -40,8 +40,8 @@ class VoiceInputController(
     /** Forwards engine callbacks (fired on the audio thread) to the main thread. */
     private val mainThreadListener = object : AsrListener {
         override fun onPartial(text: String) = post { listener.onPartial(text) }
-        override fun onFinal(text: String, confidence: Float) =
-            post { listener.onFinal(text, confidence) }
+        override fun onFinal(text: String, confidence: Float, join: SegmentJoin) =
+            post { listener.onFinal(text, confidence, join) }
         override fun onError(message: String) = post { listener.onError(message) }
     }
 

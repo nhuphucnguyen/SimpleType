@@ -27,9 +27,12 @@ AudioRecord (16 kHz mono PCM) → SherpaAsrEngine.feed()
 `SherpaText.format()` normalises each segment (≈ one pause-delimited sentence):
 
 - **Vietnamese:** the Zipformer emits uppercase, punctuation-free words, so they are lowercased
-  (Unicode-aware, so diacritics map correctly), the first letter capitalised and a period
-  appended. There is no on-device Vietnamese punctuation-restoration model, so commas / `?` /
-  `!` are not produced.
+  (Unicode-aware, so diacritics map correctly), then the on-device punctuation model
+  (`voice/punct/`) inserts commas and sentence breaks inside the segment, every sentence is
+  capitalised and a period is appended. The model is TinyPunctFormer (8.3M params, int8,
+  `assets/punct/punct_vi.bin`), trained in the `vietnamese-punctuation` repo and run in plain
+  Kotlin (`PunctModel`); `src/export_kotlin.py` there regenerates the asset and the golden
+  test file. It only produces `.` and `,` (questions still end with `.`).
 - **English:** Parakeet already emits casing and punctuation, which is kept as-is (only a
   missing first capital / terminal period is added).
 
@@ -126,8 +129,11 @@ To force a re-install, clear the installed copy:
 - **Not word-by-word streaming.** Partials aren't emitted mid-utterance; text appears per
   phrase on VAD endpoint. A truly streaming experience needs a causal/cache-aware model
   (e.g. `hynt/Zipformer-30M-RNNT-Streaming-6000h` for Vietnamese).
-- **Heuristic Vietnamese punctuation only.** Sentence-case + a period per VAD segment; no
-  commas / `?` / `!`, and a mid-thought pause produces a period.
+- **Vietnamese pauses are judged by the model.** Each segment is punctuated together with the
+  previous one of the session (`SherpaText.formatAfter`), so a short pause can become a comma
+  or nothing: `VoiceCommandHandler` then rewrites the previous segment's period, only while
+  the cursor still sits right after it (undoable). Silences over 2 s always end the sentence.
+  Only `.` and `,` are produced.
 - **Decoding runs on the audio thread.** Segments are short so this is fine for a POC, but a
   dedicated decode thread would avoid any chance of dropping mic frames on long segments.
 
