@@ -212,6 +212,7 @@ fun LatinKeyboard(
     shifted: Boolean,
     capsLock: Boolean,
     listener: LatinKeyboardListener,
+    enterIconRes: Int = R.drawable.ic_kb_enter,
     modifier: Modifier = Modifier,
     glideEnabled: Boolean = false,
 ) {
@@ -360,6 +361,7 @@ fun LatinKeyboard(
         fun iconResFor(key: Key): Int? = when {
             key.code == KeyCode.SHIFT && capsLock -> R.drawable.ic_kb_shift_lock
             key.code == KeyCode.SHIFT && !shifted -> R.drawable.ic_kb_shift_off
+            key.code == KeyCode.ENTER -> enterIconRes
             else -> key.iconRes
         }
 

@@ -99,6 +99,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeSpaceLabel by mutableStateOf("")
     private var composeShifted by mutableStateOf(false)
     private var composeCapsLock by mutableStateOf(false)
+    private var composeEnterIconRes by mutableStateOf(R.drawable.ic_kb_enter)
     private var composeVoiceStatus by mutableStateOf<String?>(null)
     private var composeMicActive by mutableStateOf(false)
     private var composeOptionsExpanded by mutableStateOf(false)
@@ -227,6 +228,7 @@ open class SimpleTypeIME : InputMethodService(),
                     spaceLabel = composeSpaceLabel,
                     shifted = composeShifted,
                     capsLock = composeCapsLock,
+                    enterIconRes = composeEnterIconRes,
                     voiceStatus = composeVoiceStatus,
                     micActive = composeMicActive,
                     optionsExpanded = composeOptionsExpanded,
@@ -295,6 +297,7 @@ open class SimpleTypeIME : InputMethodService(),
         capsLock = false
         passwordField = isPasswordField(info)
         directCommit = info.inputType == InputType.TYPE_NULL
+        composeEnterIconRes = EnterAction.resolve(info).iconRes
         hideStatus()
         composeOptionsExpanded = false
         hideClipboard()
@@ -669,17 +672,17 @@ open class SimpleTypeIME : InputMethodService(),
     private fun handleEnter(ic: InputConnection) {
         finishComposing(ic)
         val info = currentInputEditorInfo
-        val action = info?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-        val multiline = (info?.inputType ?: 0) and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
-        val noEnterAction = (info?.imeOptions ?: 0) and EditorInfo.IME_FLAG_NO_ENTER_ACTION != 0
-
-        if (!multiline && !noEnterAction && action != EditorInfo.IME_ACTION_NONE &&
-            action != EditorInfo.IME_ACTION_UNSPECIFIED
-        ) {
-            ic.performEditorAction(action)
-        } else {
-            ic.commitText("\n", 1)
-            updateAutoCapitalize(info)
+        when (val enter = EnterAction.resolve(info)) {
+            is EnterAction.Perform -> ic.performEditorAction(enter.actionId)
+            EnterAction.Newline -> {
+                ic.commitText("\n", 1)
+                updateAutoCapitalize(info)
+            }
+            EnterAction.KeyEvent -> {
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+                ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+                updateAutoCapitalize(info)
+            }
         }
     }
 
