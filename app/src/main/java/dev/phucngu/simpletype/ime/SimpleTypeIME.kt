@@ -36,6 +36,9 @@ import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ai.AiSettings
+import dev.phucngu.simpletype.ai.AiTextFixer
+import dev.phucngu.simpletype.ai.describe
 import dev.phucngu.simpletype.gesture.GestureCommit
 import dev.phucngu.simpletype.gesture.GestureDecoder
 import dev.phucngu.simpletype.gesture.GestureDictionary
@@ -111,6 +114,8 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeSelectedSuggestion by mutableStateOf<String?>(null)
     private var composeEmailSuggestions by mutableStateOf<List<String>>(emptyList())
     private var composeGlideEnabled by mutableStateOf(false)
+    private var composeAiFixVisible by mutableStateOf(false)
+    private var composeAiFixState by mutableStateOf(AiFixController.State.IDLE)
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var selectionSyncJob: Job? = null
@@ -164,6 +169,21 @@ open class SimpleTypeIME : InputMethodService(),
             },
         )
     }
+
+    private val aiFix by lazy {
+        AiFixController(
+            scope = imeScope,
+            connection = { currentInputConnection },
+            prepare = { finishComposing(it) },
+            fixer = { text ->
+                val lang = language
+                AiTextFixer(AiSettings.load(aiPrefs())).fix(text, lang)
+            },
+            onStateChange = { composeAiFixState = it },
+            onOutcome = { onAiFixOutcome(it) },
+        )
+    }
+    private var statusHideJob: Job? = null
 
     private val commandMatcher = CommandMatcher()
     private val commandHandler by lazy {
@@ -244,11 +264,15 @@ open class SimpleTypeIME : InputMethodService(),
                     emailSuggestions = composeEmailSuggestions,
                     onEmailSuggestionClick = { onEmailSuggestionSelected(it) },
                     onMicClick = { handleMic() },
+                    aiFixVisible = composeAiFixVisible,
+                    aiFixState = composeAiFixState,
+                    onAiFixClick = { handleAiFix() },
                     onSetupClick = { openSettings() },
                     onClipboardClick = { showClipboard() },
                     onMenuClick = { toggleOptions() },
                     onClipboardClose = { hideClipboard() },
                     onClipboardSelect = { text ->
+                        aiFix.invalidate()
                         currentInputConnection?.commitText(text, 1)
                         hideClipboard()
                     },
@@ -316,6 +340,9 @@ open class SimpleTypeIME : InputMethodService(),
 
         if (voice.isListening) voice.stop()
         setMicListening(false)
+        aiFix.cancel()
+        aiFix.invalidate()
+        composeAiFixVisible = !passwordField && AiSettings.load(aiPrefs()).isConfigured
 
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
@@ -350,6 +377,7 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         selectionSyncJob?.cancel()
         if (voice.isListening) voice.stop()
+        aiFix.cancel()
         telex.reset()
     }
 
@@ -465,6 +493,7 @@ open class SimpleTypeIME : InputMethodService(),
         if (candidates.isEmpty()) return
 
         finishComposing(ic)
+        aiFix.invalidate()
         val capitalize = shifted || capsLock
         val before = ic.getTextBeforeCursor(1, 0)
         val text = GestureCommit.textToCommit(candidates[0].word, before, capitalize)
@@ -584,6 +613,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun handlePrintable(ic: InputConnection, key: Key) {
+        aiFix.invalidate()
         var c = key.code.toChar()
         if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
 
@@ -603,6 +633,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun handleDelete(ic: InputConnection) {
+        aiFix.invalidate()
         val selected = ic.getSelectedText(0)
         if (!selected.isNullOrEmpty()) {
             ic.commitText("", 1)
@@ -644,6 +675,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun handleSpace(ic: InputConnection) {
+        aiFix.invalidate()
         finishComposing(ic)
         ic.commitText(" ", 1)
         updateAutoCapitalize(currentInputEditorInfo)
@@ -665,6 +697,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun commitEmoji(emoji: String) {
+        aiFix.invalidate()
         val ic = currentInputConnection ?: return
         finishComposing(ic)
         ic.commitText(emoji, 1)
@@ -673,6 +706,7 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private fun handleEnter(ic: InputConnection) {
+        aiFix.invalidate()
         finishComposing(ic)
         val info = currentInputEditorInfo
         when (val enter = EnterAction.resolve(info)) {
@@ -834,6 +868,53 @@ open class SimpleTypeIME : InputMethodService(),
         }
     }
 
+    // ---- AI fix ----
+
+    private fun aiPrefs() = getSharedPreferences(AiSettings.PREFS_NAME, MODE_PRIVATE)
+
+    private fun handleAiFix() {
+        if (passwordField) {
+            showTransientStatus(getString(R.string.ai_password_disabled))
+            return
+        }
+        // Fix what has been dictated so far rather than racing new segments into the field.
+        if (voice.isListening) {
+            voice.stop()
+            setMicListening(false)
+        }
+        clearGlideSuggestions()
+        aiFix.onButton()
+        if (aiFix.state == AiFixController.State.WORKING) {
+            statusHideJob?.cancel()
+            showStatus(getString(R.string.ai_status_working))
+        } else if (composeVoiceStatus == getString(R.string.ai_status_working)) {
+            hideStatus() // cancelled
+        }
+    }
+
+    private fun onAiFixOutcome(outcome: AiFixController.Outcome) {
+        val msg = when (outcome) {
+            AiFixController.Outcome.Fixed -> getString(R.string.ai_status_fixed)
+            AiFixController.Outcome.Unchanged -> getString(R.string.ai_status_unchanged)
+            AiFixController.Outcome.Empty -> getString(R.string.ai_status_empty)
+            AiFixController.Outcome.Stale -> getString(R.string.ai_status_stale)
+            AiFixController.Outcome.Undone -> getString(R.string.ai_status_undone)
+            AiFixController.Outcome.UndoUnavailable -> getString(R.string.ai_status_undo_unavailable)
+            is AiFixController.Outcome.Failed -> outcome.error.describe(this)
+        }
+        showTransientStatus(msg, if (outcome is AiFixController.Outcome.Failed) ERROR_STATUS_MS else STATUS_MS)
+    }
+
+    /** Shows [text] in the status slot, then clears it unless something replaced it meanwhile. */
+    private fun showTransientStatus(text: String, durationMs: Long = STATUS_MS) {
+        showStatus(text)
+        statusHideJob?.cancel()
+        statusHideJob = imeScope.launch {
+            delay(durationMs)
+            if (composeVoiceStatus == text) hideStatus()
+        }
+    }
+
     private fun requestMicPermission() {
         showStatus(getString(R.string.voice_need_permission))
         val intent = Intent(this, MicPermissionActivity::class.java)
@@ -850,6 +931,7 @@ open class SimpleTypeIME : InputMethodService(),
 
         override fun onFinal(text: String, confidence: Float, join: SegmentJoin) {
             val ic = currentInputConnection ?: return
+            aiFix.invalidate()
             ic.finishComposingText()
             val action = commandMatcher.match(text, confidence)
             if (dictationLogging && language == VoiceLanguage.VIETNAMESE && action is VoiceAction.CommitText) {
@@ -924,6 +1006,8 @@ open class SimpleTypeIME : InputMethodService(),
         /** Long enough for the longest ZWJ emoji sequences (family/flag tags run ~14 chars). */
         const val GRAPHEME_LOOKBEHIND = 32
         const val SELECTION_SYNC_DEBOUNCE_MS = 75L
+        const val STATUS_MS = 2500L
+        const val ERROR_STATUS_MS = 5000L
         const val EMAIL_FIELD_LOOKAROUND = 256
         const val DICTATION_LOG_LOOKAROUND = 4000
         val GLIDE_DICTIONARY_ASSETS = mapOf(

@@ -41,11 +41,20 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.phucngu.simpletype.R
+import dev.phucngu.simpletype.ai.AiException
+import dev.phucngu.simpletype.ai.AiProvider
+import dev.phucngu.simpletype.ai.AiSettings
+import dev.phucngu.simpletype.ai.AiTextFixer
+import dev.phucngu.simpletype.ai.describe
 import dev.phucngu.simpletype.ime.HapticPlayer
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
 import dev.phucngu.simpletype.ime.keyboard.model.Key
@@ -60,6 +69,7 @@ import dev.phucngu.simpletype.voice.DictationLog
 import dev.phucngu.simpletype.voice.ModelManager
 import dev.phucngu.simpletype.voice.VoiceLanguage
 import kotlin.concurrent.thread
+import kotlinx.coroutines.launch
 
 class SettingsActivity : ComponentActivity() {
 
@@ -401,7 +411,7 @@ private fun VoiceModelChip(
 
 // ----- Settings screen ----------------------------------------------------------------------
 
-private enum class SettingsPage { HOME, LAYOUT, TYPING, VOICE }
+private enum class SettingsPage { HOME, LAYOUT, TYPING, VOICE, AI }
 
 /** Which hint (if any) is drawn in the corner of letter keys; maps onto two [KeyboardMetrics] flags. */
 private enum class KeyHints { NONE, NUMBERS, SYMBOLS }
@@ -531,6 +541,8 @@ fun SettingsScreen(
         mutableStateOf(prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT))
     }
     val installedText = stringResource(R.string.model_installed)
+    val aiPrefs = remember(context) { context.getSharedPreferences(AiSettings.PREFS_NAME, Context.MODE_PRIVATE) }
+    var aiSettings by remember { mutableStateOf(AiSettings.load(aiPrefs)) }
 
     var page by rememberSaveable { mutableStateOf(SettingsPage.HOME) }
     BackHandler(enabled = page != SettingsPage.HOME) { page = SettingsPage.HOME }
@@ -570,6 +582,11 @@ fun SettingsScreen(
                 viInstalled = viModelText == installedText,
                 onEnableClick = onEnableClick,
                 onSelectClick = onSelectClick,
+                aiSummary = if (aiSettings.isConfigured) {
+                    stringResource(R.string.settings_page_ai_sub_on, aiSettings.model)
+                } else {
+                    stringResource(R.string.settings_page_ai_sub_off)
+                },
                 onOpen = { page = it },
             )
 
@@ -833,6 +850,150 @@ fun SettingsScreen(
 
                 DictationLogCard(prefs)
             }
+
+            SettingsPage.AI -> SubPage(
+                title = stringResource(R.string.settings_page_ai),
+                onBack = { page = SettingsPage.HOME },
+            ) {
+                AiSettingsContent(
+                    settings = aiSettings,
+                    onProviderChange = { provider ->
+                        aiSettings = AiSettings.forProvider(aiPrefs, provider)
+                        AiSettings.save(aiPrefs, aiSettings)
+                    },
+                    onChange = { updated ->
+                        aiSettings = updated
+                        AiSettings.save(aiPrefs, updated)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** AI fix setup: provider presets (GLM first-class), credentials, and a live test call. */
+@Composable
+private fun AiSettingsContent(
+    settings: AiSettings,
+    onProviderChange: (AiProvider) -> Unit,
+    onChange: (AiSettings) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showKey by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
+    var testResult by remember(settings.provider) { mutableStateOf<String?>(null) }
+    val sample = stringResource(R.string.ai_test_sample)
+
+    SettingsCard {
+        Text(
+            stringResource(R.string.ai_intro),
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+
+    SettingsCard(spacing = 4.dp) {
+        Text(
+            stringResource(R.string.ai_provider_title),
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        val options = listOf(
+            Triple(AiProvider.GLM_FLASH, R.string.ai_provider_glm_flash, R.string.ai_provider_glm_flash_desc),
+            Triple(AiProvider.GLM_CODING_PLAN, R.string.ai_provider_glm_coding, R.string.ai_provider_glm_coding_desc),
+            Triple(AiProvider.CUSTOM, R.string.ai_provider_custom, R.string.ai_provider_custom_desc),
+        )
+        for ((provider, title, desc) in options) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { if (provider != settings.provider) onProviderChange(provider) }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = provider == settings.provider, onClick = null, modifier = Modifier.padding(horizontal = 8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text(
+                        stringResource(desc),
+                        fontSize = 12.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+
+    SettingsCard(spacing = 12.dp) {
+        OutlinedTextField(
+            value = settings.apiKey,
+            onValueChange = { onChange(settings.copy(apiKey = it)) },
+            label = { Text(stringResource(R.string.ai_api_key)) },
+            singleLine = true,
+            visualTransformation = if (showKey) VisualTransformation.None else PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            trailingIcon = {
+                TextButton(onClick = { showKey = !showKey }) {
+                    Text(stringResource(if (showKey) R.string.ai_hide_key else R.string.ai_show_key))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = settings.model,
+            onValueChange = { onChange(settings.copy(model = it)) },
+            label = { Text(stringResource(R.string.ai_model_id)) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (settings.provider == AiProvider.CUSTOM) {
+            OutlinedTextField(
+                value = settings.baseUrl,
+                onValueChange = { onChange(settings.copy(baseUrl = it)) },
+                label = { Text(stringResource(R.string.ai_base_url)) },
+                placeholder = { Text("https://api.example.com/v1") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (settings.baseUrl.isNotBlank()) {
+            Text(
+                stringResource(R.string.ai_endpoint, settings.endpoint),
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            FilledTonalButton(
+                onClick = {
+                    testing = true
+                    testResult = null
+                    scope.launch {
+                        testResult = try {
+                            context.getString(R.string.ai_test_ok, AiTextFixer(settings).fix(sample, VoiceLanguage.ENGLISH))
+                        } catch (e: AiException) {
+                            e.describe(context)
+                        }
+                        testing = false
+                    }
+                },
+                enabled = settings.isConfigured && !testing,
+                shape = CircleShape,
+            ) {
+                Text(
+                    stringResource(if (testing) R.string.ai_testing else R.string.ai_test),
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            testResult?.let {
+                Text(it, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            }
         }
     }
 }
@@ -926,6 +1087,7 @@ private fun HomePage(
     viInstalled: Boolean,
     onEnableClick: () -> Unit,
     onSelectClick: () -> Unit,
+    aiSummary: String,
     onOpen: (SettingsPage) -> Unit,
 ) {
     Column(
@@ -1059,6 +1221,12 @@ private fun HomePage(
             summary = if (installed.isEmpty()) stringResource(R.string.voice_summary_none)
             else stringResource(R.string.voice_summary_installed, installed.joinToString(", ")),
             onClick = { onOpen(SettingsPage.VOICE) },
+        )
+        NavRow(
+            iconRes = R.drawable.ic_kb_ai_fix,
+            title = stringResource(R.string.settings_page_ai),
+            summary = aiSummary,
+            onClick = { onOpen(SettingsPage.AI) },
         )
 
         Spacer(modifier = Modifier.height(24.dp))

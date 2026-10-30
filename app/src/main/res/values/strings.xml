@@ -138,4 +138,44 @@
         <item>Strong</item>
         <item>@string/haptic_level_max</item>
     </string-array>
+
+    <!-- AI fix -->
+    <string name="toolbar_ai_fix">Fix text with AI</string>
+    <string name="toolbar_ai_undo">Undo AI fix</string>
+    <string name="ai_status_working">Fixing…</string>
+    <string name="ai_status_fixed">Fixed — tap ↶ to undo</string>
+    <string name="ai_status_unchanged">Nothing to fix</string>
+    <string name="ai_status_empty">No text to fix</string>
+    <string name="ai_status_stale">Text changed while fixing — result discarded</string>
+    <string name="ai_status_undone">Original text restored</string>
+    <string name="ai_status_undo_unavailable">Can’t undo — the text was edited</string>
+    <string name="ai_password_disabled">AI fix is off in password fields</string>
+    <string name="ai_error_not_configured">Set up AI fix in SimpleType settings</string>
+    <string name="ai_error_auth">AI: API key rejected (%1$s)</string>
+    <string name="ai_error_rate_limit">AI: rate limit reached (%1$s)</string>
+    <string name="ai_error_network">AI: can’t reach the server</string>
+    <string name="ai_error_server">AI error: %1$s</string>
+    <string name="ai_error_bad_response">AI: unexpected reply from the server</string>
+
+    <string name="settings_page_ai">AI fix</string>
+    <string name="settings_page_ai_sub_off">Fix typos, punctuation and numbers with GLM</string>
+    <string name="settings_page_ai_sub_on">On · %1$s</string>
+    <string name="ai_intro">Tap the wand next to the mic to fix typos, punctuation, misheard words and spelled-out numbers in what you typed or dictated. It fixes the selection, or the whole field if nothing is selected. Tap again to undo. The text is sent to the provider below.</string>
+    <string name="ai_provider_title">Provider</string>
+    <string name="ai_provider_glm_flash">GLM-5.3 Flash</string>
+    <string name="ai_provider_glm_flash_desc">Z.ai API key, pay as you go</string>
+    <string name="ai_provider_glm_coding">GLM-5.3 · Coding Plan</string>
+    <string name="ai_provider_glm_coding_desc">Z.ai API key, billed to your GLM Coding Plan</string>
+    <string name="ai_provider_custom">Custom</string>
+    <string name="ai_provider_custom_desc">Any OpenAI-compatible endpoint</string>
+    <string name="ai_api_key">API key</string>
+    <string name="ai_model_id">Model ID</string>
+    <string name="ai_base_url">Base URL</string>
+    <string name="ai_endpoint">Sends to %1$s</string>
+    <string name="ai_show_key">Show key</string>
+    <string name="ai_hide_key">Hide key</string>
+    <string name="ai_test">Test</string>
+    <string name="ai_testing">Testing…</string>
+    <string name="ai_test_sample">i have too apples and fourty five dollar its ok</string>
+    <string name="ai_test_ok">Works: “%1$s”</string>
 </resources>

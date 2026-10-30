@@ -37,6 +37,40 @@ import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.emoji.EmojiPanel
 import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 
+/**
+ * Toolbar button for the AI fix: a wand that pulses while the model works (tap to cancel),
+ * then turns into undo until the user edits the field.
+ */
+@Composable
+private fun AiFixButton(
+    state: AiFixController.State,
+    onClick: () -> Unit,
+    tint: Color,
+    background: Color,
+) {
+    val working = state == AiFixController.State.WORKING
+    val pulse = if (working) {
+        val transition = rememberInfiniteTransition(label = "aiFix")
+        transition.animateFloat(
+            initialValue = 1f,
+            targetValue = 0.35f,
+            animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
+            label = "aiFixPulse",
+        ).value
+    } else {
+        1f
+    }
+    val undo = state == AiFixController.State.UNDOABLE
+    CircleIconButton(
+        iconRes = if (undo) R.drawable.ic_kb_undo else R.drawable.ic_kb_ai_fix,
+        contentDescription = stringResource(if (undo) R.string.toolbar_ai_undo else R.string.toolbar_ai_fix),
+        onClick = onClick,
+        tint = tint,
+        background = background,
+        modifier = Modifier.alpha(pulse),
+    )
+}
+
 /** A round tonal icon button used throughout the keyboard chrome (M3 Expressive). */
 @Composable
 private fun CircleIconButton(
@@ -87,6 +121,9 @@ fun KeyboardScreen(
     emailSuggestions: List<String> = emptyList(),
     onEmailSuggestionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
+    aiFixVisible: Boolean = false,
+    aiFixState: AiFixController.State = AiFixController.State.IDLE,
+    onAiFixClick: () -> Unit = {},
     onSetupClick: () -> Unit,
     onClipboardClick: () -> Unit,
     onMenuClick: () -> Unit,
@@ -193,6 +230,16 @@ fun KeyboardScreen(
                         onSuggestionClick = onEmailSuggestionClick,
                     )
                 }
+            }
+
+            if (aiFixVisible) {
+                AiFixButton(
+                    state = aiFixState,
+                    onClick = onAiFixClick,
+                    tint = chromeIconColor,
+                    background = chromeButtonBg,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
             }
 
             // Prominent mic button (M3 filled, primaryContainer).
