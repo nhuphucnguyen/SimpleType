@@ -135,6 +135,7 @@ open class SimpleTypeIME : InputMethodService(),
     /** Uncased suggestions for [predictionContext]; cased for display by [showPredictions]. */
     private var rawPredictions: List<String> = emptyList()
     private var predictionContext: TypingContext? = null
+    private var predictionsStartSentence = false
     /** A picked suggestion committed with a trailing space that punctuation may take back. */
     private var autoSpacedWord: String? = null
 
@@ -597,8 +598,13 @@ open class SimpleTypeIME : InputMethodService(),
     /** Recomputes the strip's predictions for the text before the cursor. */
     private fun refreshPredictions() {
         val ic = currentInputConnection
-        val ctx = if (predictionsAllowed && ic != null) readTypingContext(ic) else null
+        val before = if (predictionsAllowed && ic != null) ic.getTextBeforeCursor(PREDICTION_LOOKBEHIND, 0) else null
+        val ctx = before?.let { TypingContext.parse(it, complete = it.length < PREDICTION_LOOKBEHIND) }
         predictionContext = ctx
+        // Auto-shift waits for the space after "." (it may be a URL), but a picked word gets
+        // that space anyway, so it starts a sentence.
+        predictionsStartSentence = before?.lastOrNull()?.let { it in ".?!" } == true &&
+            (currentInputEditorInfo?.inputType ?: 0) and InputType.TYPE_TEXT_FLAG_CAP_SENTENCES != 0
         rawPredictions = ctx?.let { predictions.suggest(language, it) } ?: emptyList()
         showPredictions()
     }
@@ -606,8 +612,9 @@ open class SimpleTypeIME : InputMethodService(),
     /** Publishes [rawPredictions] cased for the current shift state. */
     private fun showPredictions() {
         val partial = predictionContext?.partial.orEmpty()
+        val capitalize = shifted || predictionsStartSentence
         composePredictions = rawPredictions.map {
-            NextWordPredictor.applyCase(it, partial, capitalize = shifted, allCaps = capsLock)
+            NextWordPredictor.applyCase(it, partial, capitalize = capitalize, allCaps = capsLock)
         }
     }
 

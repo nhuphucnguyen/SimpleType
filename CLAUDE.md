@@ -14,6 +14,7 @@ SimpleType is an Android Input Method Editor (IME) focused on on-device voice ty
 - `dev.phucngu.simpletype.ime`: Main `InputMethodService` (`SimpleTypeIME`) and keyboard UI components.
 - `dev.phucngu.simpletype.text`: Text processing logic, including `TelexEngine`.
 - `dev.phucngu.simpletype.gesture`: Glide (swipe-to-type) decoder, dictionary, and commit rules. Pure Kotlin, JVM-unit-tested. See `docs/glide-typing.md` for the architecture, dictionary format, and how to add words.
+- `dev.phucngu.simpletype.predict`: Next-word prediction and completion (trigram model + on-device learned history). Pure Kotlin, JVM-unit-tested. See `docs/next-word-prediction.md`.
 - `dev.phucngu.simpletype.voice`: Voice pipeline management (`VoiceInputController`), ASR engine interfaces, and command handling.
 - `dev.phucngu.simpletype.ui`: Supporting activities and UI utilities.
 

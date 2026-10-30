@@ -21,7 +21,8 @@ Corpora used for the bundled models:
 
 Usage:
   python3 tools/generate_prediction_model.py en OpenSubtitles.en-vi.en
-  python3 tools/generate_prediction_model.py vi subs.txt.gz news_wiki.txt --max-lines 0,3000000
+  python3 tools/generate_prediction_model.py vi subs.txt.gz news_wiki.txt --max-lines 0,1500000 \
+      --max-trigram-contexts 60000
 """
 
 import argparse
@@ -121,6 +122,8 @@ def main():
     ap.add_argument("lang", choices=["en", "vi"])
     ap.add_argument("inputs", nargs="+")
     ap.add_argument("--max-lines", default="", help="comma-separated per-input line limits (0 = all)")
+    ap.add_argument("--max-trigram-contexts", type=int, default=MAX_TRIGRAM_CONTEXTS,
+                    help="keep the trigram lists of only this many most frequent word pairs")
     args = ap.parse_args()
     lang = args.lang
     limits = [int(x) for x in args.max_lines.split(",")] if args.max_lines else [0] * len(args.inputs)
@@ -180,7 +183,7 @@ def main():
     ctx_tri = Counter()
     for k, c in tri.items():
         ctx_tri[k // V] += c
-    tri_ctx = {k for k, c in ctx_tri.most_common(MAX_TRIGRAM_CONTEXTS) if c >= MIN_TRIGRAM_CONTEXT}
+    tri_ctx = {k for k, c in ctx_tri.most_common(args.max_trigram_contexts) if c >= MIN_TRIGRAM_CONTEXT}
     by_pair = defaultdict(list)
     for k, c in tri.items():
         if c >= MIN_NGRAM_COUNT and k // V in tri_ctx:
