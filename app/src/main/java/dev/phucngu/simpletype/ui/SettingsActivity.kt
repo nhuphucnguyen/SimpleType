@@ -10,6 +10,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -84,6 +85,9 @@ class SettingsActivity : ComponentActivity() {
     private val viModelEnabled = mutableStateOf(true)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // targetSdk 35+ draws edge-to-edge regardless; this also picks status bar icon colors
+        // that match the theme.
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContent {
             SimpleTypeTheme {
@@ -91,23 +95,27 @@ class SettingsActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    SettingsScreen(
-                        imeEnabled = imeEnabled.value,
-                        imeSelected = imeSelected.value,
-                        enModelText = enModelText.value,
-                        enModelEnabled = enModelEnabled.value,
-                        viModelText = viModelText.value,
-                        viModelEnabled = viModelEnabled.value,
-                        onDownloadClick = { lang -> downloadModel(lang) },
-                        onEnableClick = {
-                            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
-                        },
-                        onSelectClick = {
-                            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
-                                .showInputMethodPicker()
-                        },
-                        haptics = haptics
-                    )
+                    // Keep content clear of the status/navigation bars (and the keyboard, for
+                    // the text fields) while the background still fills behind them.
+                    Box(modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing)) {
+                        SettingsScreen(
+                            imeEnabled = imeEnabled.value,
+                            imeSelected = imeSelected.value,
+                            enModelText = enModelText.value,
+                            enModelEnabled = enModelEnabled.value,
+                            viModelText = viModelText.value,
+                            viModelEnabled = viModelEnabled.value,
+                            onDownloadClick = { lang -> downloadModel(lang) },
+                            onEnableClick = {
+                                startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+                            },
+                            onSelectClick = {
+                                (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
+                                    .showInputMethodPicker()
+                            },
+                            haptics = haptics
+                        )
+                    }
                 }
             }
         }
