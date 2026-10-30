@@ -126,6 +126,8 @@ open class SimpleTypeIME : InputMethodService(),
     private var layout = KeyboardLayoutType.ALPHA
 
     private var shifted = false
+    // True while [shifted] was armed by auto-capitalisation rather than a Shift tap.
+    private var autoShifted = false
     private var capsLock = false
     private var shiftHeld = false
     private var passwordField = false
@@ -577,6 +579,7 @@ open class SimpleTypeIME : InputMethodService(),
         shiftHeld = active
         if (capsLock) return
         shifted = active
+        autoShifted = false
         syncShiftToView()
     }
 
@@ -691,15 +694,19 @@ open class SimpleTypeIME : InputMethodService(),
     private fun cycleShift() {
         when {
             capsLock -> { capsLock = false; shifted = false }
+            // An auto-capitalised shift is only a suggestion; tapping Shift declines it.
+            shifted && autoShifted -> shifted = false
             shifted -> { capsLock = true; shifted = false }
             else -> shifted = true
         }
+        autoShifted = false
         syncShiftToView()
     }
 
     private fun consumeShift() {
         if (shifted && !capsLock && !shiftHeld) {
             shifted = false
+            autoShifted = false
             syncShiftToView()
         }
     }
@@ -725,6 +732,7 @@ open class SimpleTypeIME : InputMethodService(),
         val newShift = capChars || atStart || (capWords && (before.isEmpty() || before.endsWith(" ")))
         if (newShift != shifted) {
             shifted = newShift
+            autoShifted = newShift
             syncShiftToView()
         }
     }
