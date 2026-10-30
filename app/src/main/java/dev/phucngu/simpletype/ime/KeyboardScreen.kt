@@ -120,6 +120,8 @@ fun KeyboardScreen(
     onSuggestionClick: (String) -> Unit = {},
     emailSuggestions: List<String> = emptyList(),
     onEmailSuggestionClick: (String) -> Unit = {},
+    predictions: List<String> = emptyList(),
+    onPredictionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
     aiFixVisible: Boolean = false,
     aiFixState: AiFixController.State = AiFixController.State.IDLE,
@@ -228,6 +230,11 @@ fun KeyboardScreen(
                         suggestions = emailSuggestions,
                         selectedSuggestion = null,
                         onSuggestionClick = onEmailSuggestionClick,
+                    )
+                } else if (predictions.isNotEmpty()) {
+                    PredictionStrip(
+                        predictions = predictions,
+                        onPredictionClick = onPredictionClick,
                     )
                 }
             }
@@ -349,6 +356,57 @@ private fun SuggestionStrip(
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Next-word predictions and completions in three fixed slots, Gboard-style: the best
+ * suggestion in the middle, the runners-up either side. [predictions] is ranked best first.
+ */
+@Composable
+private fun PredictionStrip(
+    predictions: List<String>,
+    onPredictionClick: (String) -> Unit,
+) {
+    val textColor = colorResource(R.color.kb_key_text)
+    val dividerColor = colorResource(R.color.kb_chrome_button)
+    val slots = listOf(predictions.getOrNull(1), predictions.getOrNull(0), predictions.getOrNull(2))
+    Row(
+        modifier = Modifier.fillMaxSize(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        slots.forEachIndexed { index, word ->
+            if (index > 0) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(18.dp)
+                        .background(dividerColor)
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(vertical = 3.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .then(if (word != null) Modifier.clickable { onPredictionClick(word) } else Modifier)
+                    .padding(horizontal = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (word != null) {
+                    Text(
+                        text = word,
+                        color = textColor,
+                        fontSize = 16.sp,
+                        fontWeight = if (index == 1) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = TextAlign.Center,
+                    )
+                }
             }
         }
     }

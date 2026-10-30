@@ -113,6 +113,10 @@
     <string name="dictation_log_clear">Clear log</string>
     <string name="dictation_log_exported">Log exported</string>
     <string name="dictation_log_export_failed">Could not export the log</string>
+    <string name="next_word_suggestions">Word suggestions</string>
+    <string name="next_word_suggestions_desc">Suggests the next word after a space and completes the word you are typing. Learns the words you use, only on this phone.</string>
+    <string name="next_word_forget">Forget learned words</string>
+    <string name="next_word_forgotten">Learned words cleared</string>
     <string name="email_suggestions">Suggest saved emails</string>
     <string name="email_suggestions_desc">Remembers the email addresses you type and suggests them in email fields. Saved only on this phone.</string>
     <string name="email_suggestions_saved">Saved addresses</string>

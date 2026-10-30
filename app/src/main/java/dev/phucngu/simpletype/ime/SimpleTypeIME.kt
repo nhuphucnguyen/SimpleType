@@ -54,6 +54,8 @@ import dev.phucngu.simpletype.ime.keyboard.selection.KeyboardLayoutType
 import dev.phucngu.simpletype.ime.email.SavedEmail
 import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ime.emoji.EmojiRecents
+import dev.phucngu.simpletype.predict.NextWordPredictor
+import dev.phucngu.simpletype.predict.TypingContext
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.text.lastGraphemeLength
 import dev.phucngu.simpletype.ui.MicPermissionActivity
@@ -77,6 +79,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.abs
 
 open class SimpleTypeIME : InputMethodService(),
@@ -113,6 +116,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
     private var composeSelectedSuggestion by mutableStateOf<String?>(null)
     private var composeEmailSuggestions by mutableStateOf<List<String>>(emptyList())
+    private var composePredictions by mutableStateOf<List<String>>(emptyList())
     private var composeGlideEnabled by mutableStateOf(false)
     private var composeAiFixVisible by mutableStateOf(false)
     private var composeAiFixState by mutableStateOf(AiFixController.State.IDLE)
@@ -122,6 +126,17 @@ open class SimpleTypeIME : InputMethodService(),
     private var glidePrefEnabled = true
     private val gestureDecoders = mutableMapOf<VoiceLanguage, GestureDecoder>()
     private var lastGlideWord: String? = null
+
+    // Next-word predictions and completions (see [WordPredictions]).
+    private val predictions by lazy { WordPredictions(filesDir) }
+    private var predictionsAllowed = false
+    private var predictionLearning = false
+    private var historyGeneration = 0
+    /** Uncased suggestions for [predictionContext]; cased for display by [showPredictions]. */
+    private var rawPredictions: List<String> = emptyList()
+    private var predictionContext: TypingContext? = null
+    /** A picked suggestion committed with a trailing space that punctuation may take back. */
+    private var autoSpacedWord: String? = null
 
     private lateinit var clipboardHistory: ClipboardHistoryManager
 
@@ -206,6 +221,11 @@ open class SimpleTypeIME : InputMethodService(),
                 }
             }
         }
+        imeScope.launch {
+            val loaded = withContext(Dispatchers.IO) { predictions.load(assets) }
+            predictions.publish(loaded)
+            refreshPredictions()
+        }
         clipboardHistory = ClipboardHistoryManager(this)
         val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
         cm.addPrimaryClipChangedListener {
@@ -263,6 +283,8 @@ open class SimpleTypeIME : InputMethodService(),
                     onSuggestionClick = { onSuggestionSelected(it) },
                     emailSuggestions = composeEmailSuggestions,
                     onEmailSuggestionClick = { onEmailSuggestionSelected(it) },
+                    predictions = composePredictions,
+                    onPredictionClick = { onPredictionSelected(it) },
                     onMicClick = { handleMic() },
                     aiFixVisible = composeAiFixVisible,
                     aiFixState = composeAiFixState,
@@ -359,15 +381,23 @@ open class SimpleTypeIME : InputMethodService(),
         emailFieldText = ""
         refreshEmailSuggestions()
 
+        predictionsAllowed = prefs.getBoolean(WordPredictions.PREF_ENABLED, true) &&
+            !passwordField && !emailField && !directCommit && wantsWordSuggestions(info)
+        predictionLearning = predictionsAllowed && emailLearning
+        syncHistoryGeneration(prefs)
+        autoSpacedWord = null
+
         applyKeyboardMetrics()
         chooseLayoutForField(info)
         applyLayout()
         updateAutoCapitalize(info)
+        refreshPredictions()
     }
 
     override fun onFinishInput() {
         learnEmailField()
         logDictatedField()
+        savePredictionHistory()
         super.onFinishInput()
     }
 
@@ -417,6 +447,7 @@ open class SimpleTypeIME : InputMethodService(),
             }
             updateAutoCapitalize(currentInputEditorInfo)
             refreshEmailSuggestions()
+            refreshPredictions()
         }
     }
 
@@ -464,12 +495,15 @@ open class SimpleTypeIME : InputMethodService(),
             }
             else -> if (key.isPrintable) handlePrintable(ic, key)
         }
+        autoSpacedWord = null
+        refreshPredictions()
     }
 
     override fun onKeyRepeat(key: Key) {
         val ic = currentInputConnection ?: return
         clearGlideSuggestions()
         if (key.code == KeyCode.DELETE) handleDelete(ic)
+        refreshPredictions()
     }
 
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
@@ -494,6 +528,9 @@ open class SimpleTypeIME : InputMethodService(),
 
         finishComposing(ic)
         aiFix.invalidate()
+        // Back-to-back glides never press space, so the previous glided word ends here.
+        if (lastGlideWord != null) learnFinishedWord(ic)
+        autoSpacedWord = null
         val capitalize = shifted || capsLock
         val before = ic.getTextBeforeCursor(1, 0)
         val text = GestureCommit.textToCommit(candidates[0].word, before, capitalize)
@@ -506,12 +543,14 @@ open class SimpleTypeIME : InputMethodService(),
         updateAutoCapitalize(currentInputEditorInfo)
     }
 
-    /** Replaces the last glide-committed word with a tapped alternate suggestion. */
+    /**
+     * Settles the last glide-committed word on the tapped candidate (replacing it when an
+     * alternate was tapped), adds a space, and moves on to next-word predictions, like Gboard.
+     */
     private fun onSuggestionSelected(word: String) {
         val ic = currentInputConnection ?: return
         val last = lastGlideWord ?: return
         val styled = GestureCommit.matchCapitalization(last, word)
-        if (styled == last) return
 
         // In Vietnamese, onUpdateSelection may have picked the committed word back up as
         // a Telex composing region; release it before editing the surrounding text.
@@ -521,16 +560,124 @@ open class SimpleTypeIME : InputMethodService(),
         }
 
         val before = ic.getTextBeforeCursor(last.length, 0)?.toString() ?: return
-        if (!before.endsWith(last)) {
-            clearGlideSuggestions()
-            return
-        }
+        clearGlideSuggestions()
+        if (!before.endsWith(last)) return
+        if (predictionLearning) readTypingContext(ic)?.let { predictions.learn(language, it, styled) }
         ic.beginBatchEdit()
         ic.deleteSurroundingText(last.length, 0)
-        ic.commitText(styled, 1)
+        commitPickedWord(ic, styled)
         ic.endBatchEdit()
-        lastGlideWord = styled
-        composeSelectedSuggestion = word
+        afterWordPicked(styled)
+    }
+
+    // ---- Next-word predictions ----
+
+    /** Fields where word suggestions make sense: free text that isn't an address or code. */
+    private fun wantsWordSuggestions(info: EditorInfo): Boolean {
+        if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
+        if (info.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
+        return when (info.inputType and InputType.TYPE_MASK_VARIATION) {
+            InputType.TYPE_TEXT_VARIATION_URI,
+            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
+            InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
+            InputType.TYPE_TEXT_VARIATION_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
+            InputType.TYPE_TEXT_VARIATION_FILTER -> false
+            else -> true
+        }
+    }
+
+    /** The word context at the cursor, or null where word suggestions don't apply. */
+    private fun readTypingContext(ic: InputConnection): TypingContext? {
+        val before = ic.getTextBeforeCursor(PREDICTION_LOOKBEHIND, 0) ?: return null
+        return TypingContext.parse(before, complete = before.length < PREDICTION_LOOKBEHIND)
+    }
+
+    /** Recomputes the strip's predictions for the text before the cursor. */
+    private fun refreshPredictions() {
+        val ic = currentInputConnection
+        val ctx = if (predictionsAllowed && ic != null) readTypingContext(ic) else null
+        predictionContext = ctx
+        rawPredictions = ctx?.let { predictions.suggest(language, it) } ?: emptyList()
+        showPredictions()
+    }
+
+    /** Publishes [rawPredictions] cased for the current shift state. */
+    private fun showPredictions() {
+        val partial = predictionContext?.partial.orEmpty()
+        composePredictions = rawPredictions.map {
+            NextWordPredictor.applyCase(it, partial, capitalize = shifted, allCaps = capsLock)
+        }
+    }
+
+    /** Replaces the word being typed with the tapped prediction, followed by a space. */
+    private fun onPredictionSelected(word: String) {
+        val ic = currentInputConnection ?: return
+        aiFix.invalidate()
+        finishComposing(ic)
+        val ctx = readTypingContext(ic) ?: return
+        if (predictionLearning) predictions.learn(language, ctx, word)
+        ic.beginBatchEdit()
+        if (ctx.partial.isNotEmpty()) {
+            ic.deleteSurroundingText(ctx.partial.length, 0)
+        } else if (GestureCommit.needsLeadingSpace(ic.getTextBeforeCursor(1, 0))) {
+            ic.commitText(" ", 1)
+        }
+        commitPickedWord(ic, word)
+        ic.endBatchEdit()
+        afterWordPicked(word)
+    }
+
+    private fun commitPickedWord(ic: InputConnection, word: String) {
+        ic.commitText("$word ", 1)
+    }
+
+    private fun afterWordPicked(word: String) {
+        autoSpacedWord = word
+        consumeShift()
+        updateAutoCapitalize(currentInputEditorInfo)
+        refreshPredictions()
+    }
+
+    /**
+     * Learns the word right before the cursor, as the user finishes it with a space,
+     * punctuation or enter. Picked predictions are learned when tapped instead.
+     */
+    private fun learnFinishedWord(ic: InputConnection) {
+        if (!predictionLearning) return
+        val ctx = readTypingContext(ic) ?: return
+        if (ctx.partial.isNotEmpty()) predictions.learn(language, ctx, ctx.partial)
+    }
+
+    /**
+     * Gboard-style: punctuation typed right after a picked word goes where the
+     * automatic space was ("word ." -> "word.").
+     */
+    private fun absorbAutoSpace(ic: InputConnection, c: Char) {
+        val word = autoSpacedWord ?: return
+        if (c !in AUTO_SPACE_ABSORBERS) return
+        val before = ic.getTextBeforeCursor(word.length + 1, 0)?.toString() ?: return
+        if (before == "$word ") ic.deleteSurroundingText(1, 0)
+    }
+
+    private fun savePredictionHistory() {
+        if (syncHistoryGeneration(prefs())) return
+        val saves = predictions.pendingSaves()
+        if (saves.isEmpty()) return
+        imeScope.launch(Dispatchers.IO) { predictions.write(saves) }
+    }
+
+    /**
+     * Drops the in-memory history when Settings cleared learned words since we last looked.
+     * Returns true when it did.
+     */
+    private fun syncHistoryGeneration(prefs: android.content.SharedPreferences): Boolean {
+        val generation = prefs.getInt(WordPredictions.PREF_HISTORY_GENERATION, 0)
+        if (generation == historyGeneration) return false
+        historyGeneration = generation
+        predictions.forgetInMemory()
+        return true
     }
 
     // ---- Saved-email suggestions ----
@@ -627,6 +774,10 @@ open class SimpleTypeIME : InputMethodService(),
             ic.setComposingText(telex.composing, 1)
         } else {
             finishComposing(ic)
+            if (!c.isLetterOrDigit() && !TypingContext.isWordChar(c)) {
+                learnFinishedWord(ic)
+                absorbAutoSpace(ic, c)
+            }
             ic.commitText(c.toString(), 1)
         }
         consumeShift()
@@ -677,6 +828,7 @@ open class SimpleTypeIME : InputMethodService(),
     private fun handleSpace(ic: InputConnection) {
         aiFix.invalidate()
         finishComposing(ic)
+        learnFinishedWord(ic)
         ic.commitText(" ", 1)
         updateAutoCapitalize(currentInputEditorInfo)
     }
@@ -708,6 +860,7 @@ open class SimpleTypeIME : InputMethodService(),
     private fun handleEnter(ic: InputConnection) {
         aiFix.invalidate()
         finishComposing(ic)
+        learnFinishedWord(ic)
         val info = currentInputEditorInfo
         when (val enter = EnterAction.resolve(info)) {
             is EnterAction.Perform -> ic.performEditorAction(enter.actionId)
@@ -774,6 +927,7 @@ open class SimpleTypeIME : InputMethodService(),
     private fun syncShiftToView() {
         composeShifted = shifted
         composeCapsLock = capsLock
+        showPredictions()
     }
 
     private fun setMicListening(active: Boolean) {
@@ -820,6 +974,7 @@ open class SimpleTypeIME : InputMethodService(),
         composeSpaceLabel = languageLabel()
         clearGlideSuggestions()
         updateGlideEnabled()
+        refreshPredictions()
 
         getSharedPreferences("simpletype_prefs", MODE_PRIVATE).edit()
             .putString("language", language.name)
@@ -835,6 +990,7 @@ open class SimpleTypeIME : InputMethodService(),
         composeSpaceLabel = languageLabel()
         clearGlideSuggestions()
         updateGlideEnabled()
+        refreshPredictions()
     }
 
     private fun languageLabel(): String = when (language) {
@@ -1010,6 +1166,10 @@ open class SimpleTypeIME : InputMethodService(),
         const val ERROR_STATUS_MS = 5000L
         const val EMAIL_FIELD_LOOKAROUND = 256
         const val DICTATION_LOG_LOOKAROUND = 4000
+        /** Enough for the two words of context the predictor uses, plus the word in progress. */
+        const val PREDICTION_LOOKBEHIND = 96
+        /** Punctuation that sits right after a word, taking the place of an automatic space. */
+        const val AUTO_SPACE_ABSORBERS = ".,?!;:)"
         val GLIDE_DICTIONARY_ASSETS = mapOf(
             VoiceLanguage.ENGLISH to "dictionaries/en.txt",
             VoiceLanguage.VIETNAMESE to "dictionaries/vi.txt",

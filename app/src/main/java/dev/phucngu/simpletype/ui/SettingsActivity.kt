@@ -64,6 +64,7 @@ import dev.phucngu.simpletype.ime.KeyboardMetrics
 import dev.phucngu.simpletype.ime.LatinKeyboard
 import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
+import dev.phucngu.simpletype.ime.WordPredictions
 import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ui.theme.SimpleTypeTheme
 import dev.phucngu.simpletype.voice.DictationLog
@@ -539,6 +540,7 @@ fun SettingsScreen(
     var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
     var glideEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)) }
     var emailSuggestEnabled by remember { mutableStateOf(prefs.getBoolean(SavedEmails.PREF_ENABLED, true)) }
+    var predictEnabled by remember { mutableStateOf(prefs.getBoolean(WordPredictions.PREF_ENABLED, true)) }
     var hapticLevel by remember {
         mutableStateOf(
             (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
@@ -710,6 +712,37 @@ fun SettingsScreen(
                     )
                 }
 
+                SettingsCard {
+                    ToggleRow(
+                        title = stringResource(R.string.next_word_suggestions),
+                        desc = stringResource(R.string.next_word_suggestions_desc),
+                        checked = predictEnabled,
+                        onCheckedChange = { checked ->
+                            predictEnabled = checked
+                            prefs.edit().putBoolean(WordPredictions.PREF_ENABLED, checked).apply()
+                        },
+                    )
+                    var forgotten by remember { mutableStateOf(false) }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    if (forgotten) {
+                        Text(
+                            stringResource(R.string.next_word_forgotten),
+                            fontSize = 12.5.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        PillButton(
+                            text = stringResource(R.string.next_word_forget),
+                            onClick = {
+                                WordPredictions.forget(context.filesDir)
+                                val generation = prefs.getInt(WordPredictions.PREF_HISTORY_GENERATION, 0)
+                                prefs.edit().putInt(WordPredictions.PREF_HISTORY_GENERATION, generation + 1).apply()
+                                forgotten = true
+                            },
+                        )
+                    }
+                }
+
                 // Reloaded each time the page opens: the keyboard learns addresses in the background.
                 var savedEmails by remember { mutableStateOf(SavedEmails.ranked(SavedEmails.load(prefs))) }
                 SettingsCard {
@@ -810,11 +843,13 @@ fun SettingsScreen(
                     text = stringResource(R.string.reset_typing),
                     onClick = {
                         glideEnabled = true
+                        predictEnabled = true
                         hapticEnabled = true
                         hapticLevel = 2
                         cursorSpeed = CursorSpeed.DEFAULT
                         prefs.edit()
                             .putBoolean(LatinKeyboardView.PREF_GLIDE, true)
+                            .putBoolean(WordPredictions.PREF_ENABLED, true)
                             .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
                             .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
                             .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
