@@ -9,7 +9,7 @@ import android.content.SharedPreferences
 enum class AiProvider(
     val defaultBaseUrl: String,
     val defaultModel: String,
-    /** GLM models think by default; the fixer turns it off for speed. */
+    /** GLM-5.3 models always think; the request sets their thinking and sampling params. */
     val isGlm: Boolean,
 ) {
     /** GLM-5.3 Flash on Z.ai's general (pay-as-you-go) API. */

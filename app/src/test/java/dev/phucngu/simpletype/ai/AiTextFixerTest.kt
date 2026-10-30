@@ -44,7 +44,11 @@ class AiTextFixerTest {
         assertEquals("Bearer sk-test", t.headers["Authorization"])
         val body = JSONObject(t.body)
         assertEquals("glm-5.3", body.getString("model"))
-        assertEquals("disabled", body.getJSONObject("thinking").getString("type"))
+        // GLM-5.3 models always think (docs.z.ai); keep it short for a one-shot proofread.
+        assertEquals("enabled", body.getJSONObject("thinking").getString("type"))
+        assertEquals("low", body.getString("reasoning_effort"))
+        assertEquals(1.0, body.getDouble("temperature"), 0.0)
+        assertEquals(0.95, body.getDouble("top_p"), 0.0)
         val messages = body.getJSONArray("messages")
         assertEquals("system", messages.getJSONObject(0).getString("role"))
         assertTrue(messages.getJSONObject(1).getString("content").contains("<text>\ni have two apples\n</text>"))
@@ -57,7 +61,10 @@ class AiTextFixerTest {
         AiTextFixer(custom, t).fix("ok", VoiceLanguage.ENGLISH)
 
         assertEquals("https://example.com/v1/chat/completions", t.url)
-        assertFalse(JSONObject(t.body).has("thinking"))
+        val body = JSONObject(t.body)
+        assertFalse(body.has("thinking"))
+        assertFalse(body.has("reasoning_effort"))
+        assertEquals(0.2, body.getDouble("temperature"), 0.0)
     }
 
     @Test
