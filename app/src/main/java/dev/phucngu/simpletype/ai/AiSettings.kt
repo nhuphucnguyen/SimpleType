@@ -4,22 +4,22 @@ import android.content.SharedPreferences
 
 /**
  * A chat-completions backend the text fixer can call. Every provider speaks the OpenAI
- * `/chat/completions` format; the GLM presets are first-class and only need an API key.
+ * `/chat/completions` format; the GLM Coding Plan is first-class and only needs an API key.
  */
 enum class AiProvider(
     val defaultBaseUrl: String,
-    val defaultModel: String,
+    /** Models offered as a choice; empty means the user types a model ID. */
+    val models: List<String>,
     /** GLM-5.3 models always think; the request sets their thinking and sampling params. */
     val isGlm: Boolean,
 ) {
-    /** GLM-5.3 Flash on Z.ai's general (pay-as-you-go) API. */
-    GLM_FLASH("https://api.z.ai/api/paas/v4", "glm-5.3-flash", isGlm = true),
-
-    /** GLM-5.3 billed against a GLM Coding Plan subscription (its own endpoint). */
-    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", "glm-5.3", isGlm = true),
+    /** GLM models billed against a GLM Coding Plan subscription. Flash first: fastest in testing. */
+    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", listOf("glm-5.3-flash", "glm-5.3"), isGlm = true),
 
     /** Any OpenAI-compatible endpoint; base URL and model are user-supplied. */
-    CUSTOM("", "", isGlm = false),
+    CUSTOM("", emptyList(), isGlm = false);
+
+    val defaultModel: String get() = models.firstOrNull() ?: ""
 }
 
 /** The user's AI configuration: which provider, and the key/model/URL to call it with. */
@@ -44,6 +44,9 @@ data class AiSettings(
         const val PREFS_NAME = "simpletype_ai"
         private const val KEY_PROVIDER = "provider"
 
+        /** Pre-release preset (GLM-5.3 Flash on the general API); its key works on the Coding Plan. */
+        private const val LEGACY_GLM_FLASH = "GLM_FLASH"
+
         private fun keyFor(p: AiProvider) = "api_key_${p.name}"
         private fun modelFor(p: AiProvider) = "model_${p.name}"
         private fun baseUrlFor(p: AiProvider) = "base_url_${p.name}"
@@ -51,21 +54,36 @@ data class AiSettings(
         fun load(prefs: SharedPreferences): AiSettings {
             val provider = prefs.getString(KEY_PROVIDER, null)
                 ?.let { name -> AiProvider.entries.firstOrNull { it.name == name } }
-                ?: AiProvider.GLM_FLASH
+                ?: AiProvider.GLM_CODING_PLAN
             return forProvider(prefs, provider)
         }
 
         /** The stored settings for [provider], whether or not it is the selected one. */
-        fun forProvider(prefs: SharedPreferences, provider: AiProvider) = AiSettings(
-            provider = provider,
-            apiKey = prefs.getString(keyFor(provider), "") ?: "",
-            model = prefs.getString(modelFor(provider), null) ?: provider.defaultModel,
-            baseUrl = if (provider == AiProvider.CUSTOM) {
-                prefs.getString(baseUrlFor(provider), "") ?: ""
+        fun forProvider(prefs: SharedPreferences, provider: AiProvider): AiSettings {
+            val storedKey = prefs.getString(keyFor(provider), "") ?: ""
+            val apiKey = if (storedKey.isEmpty() && provider == AiProvider.GLM_CODING_PLAN) {
+                prefs.getString("api_key_$LEGACY_GLM_FLASH", "") ?: ""
             } else {
-                provider.defaultBaseUrl
-            },
-        )
+                storedKey
+            }
+            val storedModel = prefs.getString(modelFor(provider), null)
+            // A preset only offers its listed models; anything else falls back to the default.
+            val model = when {
+                provider.models.isEmpty() -> storedModel ?: ""
+                storedModel in provider.models -> storedModel!!
+                else -> provider.defaultModel
+            }
+            return AiSettings(
+                provider = provider,
+                apiKey = apiKey,
+                model = model,
+                baseUrl = if (provider == AiProvider.CUSTOM) {
+                    prefs.getString(baseUrlFor(provider), "") ?: ""
+                } else {
+                    provider.defaultBaseUrl
+                },
+            )
+        }
 
         fun save(prefs: SharedPreferences, settings: AiSettings) {
             val p = settings.provider

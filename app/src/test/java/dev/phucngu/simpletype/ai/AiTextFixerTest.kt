@@ -119,19 +119,49 @@ class AiTextFixerTest {
         assertEquals("\"Hi.\"", ChatCompletion.cleanReply("\"Hi.\"", "\"hi\""))
     }
 
+    private fun freshPrefs(name: String) =
+        ApplicationProvider.getApplicationContext<Context>().getSharedPreferences(name, Context.MODE_PRIVATE)
+            .also { it.edit().clear().commit() }
+
+    @Test
+    fun defaults_to_glm_coding_plan_with_flash_model() {
+        val loaded = AiSettings.load(freshPrefs("ai_default"))
+        assertEquals(AiProvider.GLM_CODING_PLAN, loaded.provider)
+        assertEquals("glm-5.3-flash", loaded.model)
+        assertEquals(listOf("glm-5.3-flash", "glm-5.3"), AiProvider.GLM_CODING_PLAN.models)
+    }
+
     @Test
     fun settings_round_trip_per_provider() {
-        val ctx = ApplicationProvider.getApplicationContext<Context>()
-        val prefs = ctx.getSharedPreferences("ai_test", Context.MODE_PRIVATE)
+        val prefs = freshPrefs("ai_round_trip")
         AiSettings.save(prefs, AiSettings(AiProvider.CUSTOM, " key ", "m", "https://x/v1"))
         AiSettings.save(prefs, glm)
 
-        val loaded = AiSettings.load(prefs)
-        assertEquals(glm, loaded)
+        assertEquals(glm, AiSettings.load(prefs))
         val custom = AiSettings.forProvider(prefs, AiProvider.CUSTOM)
         assertEquals("key", custom.apiKey)
         assertEquals("https://x/v1", custom.baseUrl)
-        // Untouched presets fall back to their defaults.
-        assertEquals("glm-5.3-flash", AiSettings.forProvider(prefs, AiProvider.GLM_FLASH).model)
+    }
+
+    @Test
+    fun coding_plan_model_outside_the_offered_list_falls_back_to_flash() {
+        val prefs = freshPrefs("ai_bad_model")
+        prefs.edit().putString("model_GLM_CODING_PLAN", "glm-4.5").commit()
+        assertEquals("glm-5.3-flash", AiSettings.forProvider(prefs, AiProvider.GLM_CODING_PLAN).model)
+    }
+
+    @Test
+    fun legacy_glm_flash_selection_migrates_to_coding_plan_keeping_the_key() {
+        val prefs = freshPrefs("ai_legacy")
+        prefs.edit()
+            .putString("provider", "GLM_FLASH")
+            .putString("api_key_GLM_FLASH", "old-key")
+            .putString("model_GLM_FLASH", "glm-5.3-flash")
+            .commit()
+
+        val loaded = AiSettings.load(prefs)
+        assertEquals(AiProvider.GLM_CODING_PLAN, loaded.provider)
+        assertEquals("old-key", loaded.apiKey)
+        assertEquals("https://api.z.ai/api/coding/paas/v4", loaded.baseUrl)
     }
 }

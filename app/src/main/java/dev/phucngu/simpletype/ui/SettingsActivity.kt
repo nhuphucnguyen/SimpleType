@@ -871,7 +871,59 @@ fun SettingsScreen(
     }
 }
 
-/** AI fix setup: provider presets (GLM first-class), credentials, and a live test call. */
+@Composable
+private fun CardTitle(text: String) {
+    Text(text, fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 4.dp))
+}
+
+/** A radio option with a title and a one-line description. */
+@Composable
+private fun ChoiceRow(title: String, desc: String, selected: Boolean, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { if (!selected) onClick() }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioButton(selected = selected, onClick = null, modifier = Modifier.padding(horizontal = 8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(desc, fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/** One AI feature that uses the shared model setup: its toolbar icon, name and how to use it. */
+@Composable
+private fun AiFeatureRow(iconRes: Int, title: String, desc: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.size(19.dp),
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(desc, fontSize = 12.5.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+/**
+ * Shared AI model setup (GLM Coding Plan with a model choice, or a custom endpoint, plus the key
+ * and a live test call) followed by the features that use it.
+ */
 @Composable
 private fun AiSettingsContent(
     settings: AiSettings,
@@ -894,35 +946,33 @@ private fun AiSettingsContent(
     }
 
     SettingsCard(spacing = 4.dp) {
-        Text(
-            stringResource(R.string.ai_provider_title),
-            fontSize = 15.5.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 4.dp),
+        CardTitle(stringResource(R.string.ai_provider_title))
+        ChoiceRow(
+            title = stringResource(R.string.ai_provider_glm_coding),
+            desc = stringResource(R.string.ai_provider_glm_coding_desc),
+            selected = settings.provider == AiProvider.GLM_CODING_PLAN,
+            onClick = { onProviderChange(AiProvider.GLM_CODING_PLAN) },
         )
-        val options = listOf(
-            Triple(AiProvider.GLM_FLASH, R.string.ai_provider_glm_flash, R.string.ai_provider_glm_flash_desc),
-            Triple(AiProvider.GLM_CODING_PLAN, R.string.ai_provider_glm_coding, R.string.ai_provider_glm_coding_desc),
-            Triple(AiProvider.CUSTOM, R.string.ai_provider_custom, R.string.ai_provider_custom_desc),
+        ChoiceRow(
+            title = stringResource(R.string.ai_provider_custom),
+            desc = stringResource(R.string.ai_provider_custom_desc),
+            selected = settings.provider == AiProvider.CUSTOM,
+            onClick = { onProviderChange(AiProvider.CUSTOM) },
         )
-        for ((provider, title, desc) in options) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .clickable { if (provider != settings.provider) onProviderChange(provider) }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RadioButton(selected = provider == settings.provider, onClick = null, modifier = Modifier.padding(horizontal = 8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    Text(
-                        stringResource(desc),
-                        fontSize = 12.5.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+    }
+
+    if (settings.provider.models.isNotEmpty()) {
+        SettingsCard(spacing = 4.dp) {
+            CardTitle(stringResource(R.string.ai_model_title))
+            for (model in settings.provider.models) {
+                ChoiceRow(
+                    title = model,
+                    desc = stringResource(
+                        if (model == settings.provider.defaultModel) R.string.ai_model_fast_desc else R.string.ai_model_strong_desc
+                    ),
+                    selected = model == settings.model,
+                    onClick = { onChange(settings.copy(model = model)) },
+                )
             }
         }
     }
@@ -942,15 +992,15 @@ private fun AiSettingsContent(
             },
             modifier = Modifier.fillMaxWidth(),
         )
-        OutlinedTextField(
-            value = settings.model,
-            onValueChange = { onChange(settings.copy(model = it)) },
-            label = { Text(stringResource(R.string.ai_model_id)) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
-            modifier = Modifier.fillMaxWidth(),
-        )
         if (settings.provider == AiProvider.CUSTOM) {
+            OutlinedTextField(
+                value = settings.model,
+                onValueChange = { onChange(settings.copy(model = it)) },
+                label = { Text(stringResource(R.string.ai_model_id)) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth(),
+            )
             OutlinedTextField(
                 value = settings.baseUrl,
                 onValueChange = { onChange(settings.copy(baseUrl = it)) },
@@ -995,6 +1045,15 @@ private fun AiSettingsContent(
                 Text(it, fontSize = 13.sp, modifier = Modifier.weight(1f))
             }
         }
+    }
+
+    SettingsCard(spacing = 12.dp) {
+        CardTitle(stringResource(R.string.ai_features_title))
+        AiFeatureRow(
+            iconRes = R.drawable.ic_kb_ai_fix,
+            title = stringResource(R.string.ai_feature_fix),
+            desc = stringResource(R.string.ai_feature_fix_desc),
+        )
     }
 }
 
@@ -1223,7 +1282,7 @@ private fun HomePage(
             onClick = { onOpen(SettingsPage.VOICE) },
         )
         NavRow(
-            iconRes = R.drawable.ic_kb_ai_fix,
+            iconRes = R.drawable.ic_ai_sparkle,
             title = stringResource(R.string.settings_page_ai),
             summary = aiSummary,
             onClick = { onOpen(SettingsPage.AI) },
