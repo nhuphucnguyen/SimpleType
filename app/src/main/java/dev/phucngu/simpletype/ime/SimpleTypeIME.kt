@@ -414,13 +414,15 @@ open class SimpleTypeIME : InputMethodService(),
         refreshEmailSuggestions()
 
         predictionsAllowed = prefs.getBoolean(WordPredictions.PREF_ENABLED, true) &&
-            !passwordField && !emailField && !directCommit && wantsWordSuggestions(info)
-        predictionLearning = predictionsAllowed && emailLearning
+            !passwordField && !emailField && !directCommit && SuggestionFields.showsSuggestions(info.inputType)
+        predictionLearning = predictionsAllowed && emailLearning &&
+            SuggestionFields.learnsWords(info.inputType)
         syncHistoryGeneration(prefs)
         autoSpacedWord = null
 
+        // Everywhere Telex types: not in passwords and email addresses, which keep every key.
         autoSwitchAllowed = prefs.getBoolean(LanguageAutoSwitch.PREF_ENABLED, true) &&
-            !passwordField && !emailField && !directCommit && wantsWordSuggestions(info)
+            !passwordField && !emailField && !directCommit
         englishKeys.setLength(0)
         lastAutoFix = null
         keptWord = null
@@ -638,22 +640,6 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     // ---- Next-word predictions ----
-
-    /** Fields where word suggestions make sense: free text that isn't an address or code. */
-    private fun wantsWordSuggestions(info: EditorInfo): Boolean {
-        if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) return false
-        if (info.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0) return false
-        return when (info.inputType and InputType.TYPE_MASK_VARIATION) {
-            InputType.TYPE_TEXT_VARIATION_URI,
-            InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS,
-            InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS,
-            InputType.TYPE_TEXT_VARIATION_PASSWORD,
-            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD,
-            InputType.TYPE_TEXT_VARIATION_WEB_PASSWORD,
-            InputType.TYPE_TEXT_VARIATION_FILTER -> false
-            else -> true
-        }
-    }
 
     /** The word context at the cursor, or null where word suggestions don't apply. */
     private fun readTypingContext(ic: InputConnection): TypingContext? {
