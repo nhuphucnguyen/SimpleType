@@ -34,6 +34,15 @@ class GestureDictionary private constructor(
         return byFirstKey[index]
     }
 
+    /** Each word (lowercase) with its Zipf × 100 score, the higher one where a word repeats. */
+    fun scores(): Map<String, Int> {
+        val scores = HashMap<String, Int>(size * 2)
+        for (bucket in byFirstKey) for (entry in bucket) {
+            scores.merge(entry.word.lowercase(), entry.zipf100, ::maxOf)
+        }
+        return scores
+    }
+
     companion object {
         fun parse(stream: InputStream): GestureDictionary {
             val buckets = Array(26) { ArrayList<Entry>() }

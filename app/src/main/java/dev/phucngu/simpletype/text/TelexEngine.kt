@@ -65,6 +65,12 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     private val raw = StringBuilder()
 
     /**
+     * Every key typed for this word, escapes included ("office", where [raw] drops the escaped
+     * f: "ofice"). Backspace only keeps it exact while the word left is plain letters.
+     */
+    private val keys = StringBuilder()
+
+    /**
      * Current display form of the word being composed: the Vietnamese form while it is still a
      * plausible syllable, otherwise the raw keystrokes — so a transform that misfired on an English
      * word types through.
@@ -86,9 +92,22 @@ class TelexEngine(private val modernStyle: Boolean = true) {
     val isEmpty: Boolean
         get() = buffer.isEmpty()
 
+    /** The keys typed for this word, as [composing] falls back to them (escaped keys dropped). */
+    val rawKeys: String
+        get() = raw.toString()
+
+    /** Every key typed for this word, escapes included. */
+    val typedKeys: String
+        get() = keys.toString()
+
+    /** The Telex result for this word, even where [composing] shows [rawKeys] instead. */
+    val telexForm: String
+        get() = buffer.toString()
+
     fun reset() {
         buffer.setLength(0)
         raw.setLength(0)
+        keys.setLength(0)
         loneHornIndex = -1
         codaEchoIndex = -1
         retypeEscapeIndex = -1
@@ -99,6 +118,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         reset()
         buffer.append(word)
         raw.append(word)
+        keys.append(word)
     }
 
     /**
@@ -110,6 +130,7 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (!c.isLetter()) return false
         val lower = c.lowercaseChar()
         raw.append(c)
+        keys.append(c)
 
         // These escapes are only armed for the single keystroke that follows.
         val prevLoneHorn = loneHornIndex
@@ -171,6 +192,9 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         if (buffer.isEmpty()) return false
         buffer.deleteCharAt(buffer.length - 1)
         if (raw.isNotEmpty()) raw.deleteCharAt(raw.length - 1)
+        if (keys.isNotEmpty()) keys.deleteCharAt(keys.length - 1)
+        // With no marks left, the letters on screen are exactly the keys that typed them.
+        if (buffer.all { it.code < 128 }) keys.setLength(0).also { keys.append(buffer) }
         // Deleting the whole word clears the display, but raw can lag behind it (a tone/modifier key
         // grows raw without growing buffer, e.g. "as"→"á" leaves raw "as"). Drop that residue plus
         // any armed escape state so it can't taint the next word the user types.

@@ -3,6 +3,7 @@ package dev.phucngu.simpletype.ime
 import android.content.Context
 import android.content.Intent
 import android.inputmethodservice.InputMethodService
+import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
@@ -56,6 +57,7 @@ import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ime.emoji.EmojiRecents
 import dev.phucngu.simpletype.predict.NextWordPredictor
 import dev.phucngu.simpletype.predict.TypingContext
+import dev.phucngu.simpletype.text.LanguageAutoSwitch
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.text.lastGraphemeLength
 import dev.phucngu.simpletype.ui.MicPermissionActivity
@@ -144,6 +146,26 @@ open class SimpleTypeIME : InputMethodService(),
     private val telex = TelexEngine()
     private var language = VoiceLanguage.ENGLISH
 
+    // Automatic English/Vietnamese switching (see [LanguageAutoSwitch]).
+    @Volatile private var autoSwitch: LanguageAutoSwitch? = null
+    private var autoSwitchAllowed = false
+    /** Letters tapped in English for the word being typed, checked by auto switch at its end. */
+    private val englishKeys = StringBuilder()
+    /** The last auto-switch fix, undone by a Backspace right after it. */
+    private var lastAutoFix: AutoFix? = null
+    /** A word whose fix was just undone: finishing it again keeps it as typed. */
+    private var keptWord: String? = null
+    /** Auto switch rests until this time (uptime ms) after a manual language switch. */
+    private var autoSwitchPausedUntil = 0L
+
+    /** [original] in [from] was replaced by [replacement], then [separator] was typed. */
+    private class AutoFix(
+        val original: String,
+        val replacement: String,
+        val separator: String,
+        val from: VoiceLanguage,
+    )
+
     private var layout = KeyboardLayoutType.ALPHA
 
     private var shifted = false
@@ -213,13 +235,20 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         super.onCreate()
         imeScope.launch(Dispatchers.IO) {
+            val dictionaries = mutableMapOf<VoiceLanguage, GestureDictionary>()
             for ((lang, asset) in GLIDE_DICTIONARY_ASSETS) {
                 try {
                     val dictionary = assets.open(asset).use { GestureDictionary.parse(it) }
                     gestureDecoders[lang] = GestureDecoder(dictionary)
+                    dictionaries[lang] = dictionary
                 } catch (e: Exception) {
                     android.util.Log.w("SimpleTypeIME", "Failed to load gesture dictionary $asset", e)
                 }
+            }
+            val english = dictionaries[VoiceLanguage.ENGLISH]
+            val vietnamese = dictionaries[VoiceLanguage.VIETNAMESE]
+            if (english != null && vietnamese != null) {
+                autoSwitch = LanguageAutoSwitch(english.scores(), vietnamese.scores())
             }
         }
         imeScope.launch {
@@ -388,6 +417,12 @@ open class SimpleTypeIME : InputMethodService(),
         syncHistoryGeneration(prefs)
         autoSpacedWord = null
 
+        autoSwitchAllowed = prefs.getBoolean(LanguageAutoSwitch.PREF_ENABLED, true) &&
+            !passwordField && !emailField && !directCommit && wantsWordSuggestions(info)
+        englishKeys.setLength(0)
+        lastAutoFix = null
+        keptWord = null
+
         applyKeyboardMetrics()
         chooseLayoutForField(info)
         applyLayout()
@@ -481,9 +516,12 @@ open class SimpleTypeIME : InputMethodService(),
     override fun onKey(key: Key) {
         val ic = currentInputConnection ?: return
         clearGlideSuggestions()
+        // Only the key right after a fix can undo it.
+        val pendingFix = lastAutoFix
+        lastAutoFix = null
         when (key.code) {
             KeyCode.SHIFT -> cycleShift()
-            KeyCode.DELETE -> handleDelete(ic)
+            KeyCode.DELETE -> if (!undoAutoFix(ic, pendingFix)) handleDelete(ic)
             KeyCode.ENTER -> handleEnter(ic)
             KeyCode.SPACE -> handleSpace(ic)
             KeyCode.SYMBOLS -> switchLayout(KeyboardLayoutType.SYMBOLS)
@@ -513,6 +551,7 @@ open class SimpleTypeIME : InputMethodService(),
         val ic = currentInputConnection ?: return
         clearGlideSuggestions()
         finishComposing(ic)
+        englishKeys.setLength(0)
         val keyCode = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { sendDownUpKeyEvents(keyCode) }
     }
@@ -528,6 +567,7 @@ open class SimpleTypeIME : InputMethodService(),
         if (candidates.isEmpty()) return
 
         finishComposing(ic)
+        englishKeys.setLength(0)
         aiFix.invalidate()
         // Back-to-back glides never press space, so the previous glided word ends here.
         if (lastGlideWord != null) learnFinishedWord(ic)
@@ -623,6 +663,7 @@ open class SimpleTypeIME : InputMethodService(),
         val ic = currentInputConnection ?: return
         aiFix.invalidate()
         finishComposing(ic)
+        englishKeys.setLength(0)
         val ctx = readTypingContext(ic) ?: return
         if (predictionLearning) predictions.learn(language, ctx, word)
         ic.beginBatchEdit()
@@ -780,12 +821,14 @@ open class SimpleTypeIME : InputMethodService(),
             telex.input(c)
             ic.setComposingText(telex.composing, 1)
         } else {
+            if (c in AUTO_SWITCH_WORD_ENDS) autoSwitchWord(ic, c.toString())
             finishComposing(ic)
             if (!c.isLetterOrDigit() && !TypingContext.isWordChar(c)) {
                 learnFinishedWord(ic)
                 absorbAutoSpace(ic, c)
             }
             ic.commitText(c.toString(), 1)
+            if (c.isLetter() && language == VoiceLanguage.ENGLISH) englishKeys.append(c) else englishKeys.setLength(0)
         }
         consumeShift()
     }
@@ -814,9 +857,11 @@ open class SimpleTypeIME : InputMethodService(),
             return
         }
         if (shiftHeld) {
+            englishKeys.setLength(0)
             deleteWordBeforeCursor(ic)
             return
         }
+        if (englishKeys.isNotEmpty()) englishKeys.setLength(englishKeys.length - 1)
         val before = ic.getTextBeforeCursor(GRAPHEME_LOOKBEHIND, 0) ?: ""
         ic.deleteSurroundingText(lastGraphemeLength(before).coerceAtLeast(1), 0)
         updateAutoCapitalize(currentInputEditorInfo)
@@ -834,6 +879,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     private fun handleSpace(ic: InputConnection) {
         aiFix.invalidate()
+        autoSwitchWord(ic, " ")
         finishComposing(ic)
         learnFinishedWord(ic)
         ic.commitText(" ", 1)
@@ -859,6 +905,7 @@ open class SimpleTypeIME : InputMethodService(),
         aiFix.invalidate()
         val ic = currentInputConnection ?: return
         finishComposing(ic)
+        englishKeys.setLength(0)
         ic.commitText(emoji, 1)
         composeEmojiRecents = EmojiRecents.record(composeEmojiRecents, emoji)
         EmojiRecents.save(prefs(), composeEmojiRecents)
@@ -866,6 +913,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     private fun handleEnter(ic: InputConnection) {
         aiFix.invalidate()
+        autoSwitchWord(ic, separator = null)
         finishComposing(ic)
         learnFinishedWord(ic)
         val info = currentInputEditorInfo
@@ -972,20 +1020,84 @@ open class SimpleTypeIME : InputMethodService(),
             setMicListening(false)
             hideStatus()
         }
+        // The user chose the language: auto switch stays out of the way for a moment.
+        englishKeys.setLength(0)
+        lastAutoFix = null
+        autoSwitchPausedUntil = SystemClock.uptimeMillis() + MANUAL_SWITCH_PAUSE_MS
 
-        language = if (language == VoiceLanguage.ENGLISH) {
-            VoiceLanguage.VIETNAMESE
-        } else {
-            VoiceLanguage.ENGLISH
-        }
+        setLanguage(
+            if (language == VoiceLanguage.ENGLISH) VoiceLanguage.VIETNAMESE else VoiceLanguage.ENGLISH
+        )
+    }
+
+    private fun setLanguage(target: VoiceLanguage) {
+        language = target
         composeSpaceLabel = languageLabel()
         clearGlideSuggestions()
         updateGlideEnabled()
         refreshPredictions()
+        prefs().edit().putString("language", language.name).apply()
+    }
 
-        getSharedPreferences("simpletype_prefs", MODE_PRIVATE).edit()
-            .putString("language", language.name)
-            .apply()
+    // ---- Auto switch ----
+
+    /**
+     * At a word's end, replaces a word typed in the wrong language and switches the keyboard to
+     * the other one. [separator] is the key ending the word, which a Backspace right after takes
+     * back along with the fix; null (enter) leaves nothing to undo.
+     */
+    private fun autoSwitchWord(ic: InputConnection, separator: String?) {
+        val switcher = autoSwitch
+        val keys = englishKeys.toString()
+        englishKeys.setLength(0)
+        val kept = keptWord
+        keptWord = null
+        if (switcher == null || !autoSwitchAllowed || layout != KeyboardLayoutType.ALPHA) return
+        if (SystemClock.uptimeMillis() < autoSwitchPausedUntil) return
+
+        if (!telex.isEmpty) {
+            val original = telex.composing
+            if (original == kept) return
+            val english = switcher.englishFor(telex.typedKeys, telex.rawKeys, telex.telexForm) ?: return
+            ic.setComposingText(english, 1)
+            ic.finishComposingText()
+            telex.reset()
+            applyAutoFix(original, english, separator, VoiceLanguage.ENGLISH)
+        } else if (language == VoiceLanguage.ENGLISH && keys.isNotEmpty() && keys != kept) {
+            val before = ic.getTextBeforeCursor(keys.length + AUTO_SWITCH_LOOKBEHIND, 0)?.toString() ?: return
+            if (!before.endsWith(keys)) return
+            val head = before.dropLast(keys.length)
+            // Only a whole word: after . _ - / or a digit it is part of a name or a path (obj.dir).
+            if (head.isNotEmpty() && !head.last().isWhitespace() && head.last() !in AUTO_SWITCH_WORD_STARTS) return
+            val previous = head.trimEnd().takeLastWhile { it.isLetter() }.ifEmpty { null }
+            val vietnamese = switcher.vietnameseFor(keys, previous) ?: return
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(keys.length, 0)
+            ic.commitText(vietnamese, 1)
+            ic.endBatchEdit()
+            applyAutoFix(keys, vietnamese, separator, VoiceLanguage.VIETNAMESE)
+        }
+    }
+
+    private fun applyAutoFix(original: String, replacement: String, separator: String?, to: VoiceLanguage) {
+        if (separator != null) lastAutoFix = AutoFix(original, replacement, separator, language)
+        setLanguage(to)
+    }
+
+    /** Backspace right after a fix: puts the word back as it was, in its language. */
+    private fun undoAutoFix(ic: InputConnection, fix: AutoFix?): Boolean {
+        if (fix == null || !telex.isEmpty) return false
+        val expected = fix.replacement + fix.separator
+        if (ic.getTextBeforeCursor(expected.length, 0)?.toString() != expected) return false
+        ic.beginBatchEdit()
+        ic.deleteSurroundingText(expected.length, 0)
+        ic.commitText(fix.original, 1)
+        ic.endBatchEdit()
+        keptWord = fix.original
+        setLanguage(fix.from)
+        // Typing on continues the restored word ("cos" + t → "cost").
+        if (fix.from == VoiceLanguage.ENGLISH) englishKeys.append(fix.original)
+        return true
     }
 
     override fun onCurrentInputMethodSubtypeChanged(newSubtype: InputMethodSubtype?) {
@@ -1175,6 +1287,13 @@ open class SimpleTypeIME : InputMethodService(),
         const val DICTATION_LOG_LOOKAROUND = 4000
         /** Enough for the two words of context the predictor uses, plus the word in progress. */
         const val PREDICTION_LOOKBEHIND = 96
+        /** Keys besides space and enter that end a word for auto switch. */
+        const val AUTO_SWITCH_WORD_ENDS = ",.;:!?)\""
+        /** Characters a word may follow and still be checked (besides whitespace). */
+        const val AUTO_SWITCH_WORD_STARTS = "([\"'"
+        /** Enough to see the word before the one being checked. */
+        const val AUTO_SWITCH_LOOKBEHIND = 32
+        const val MANUAL_SWITCH_PAUSE_MS = 5000L
         /** Punctuation that sits right after a word, taking the place of an automatic space. */
         const val AUTO_SPACE_ABSORBERS = ".,?!;:)"
         val GLIDE_DICTIONARY_ASSETS = mapOf(

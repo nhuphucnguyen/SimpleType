@@ -113,6 +113,8 @@
     <string name="dictation_log_clear">Clear log</string>
     <string name="dictation_log_exported">Log exported</string>
     <string name="dictation_log_export_failed">Could not export the log</string>
+    <string name="auto_switch_language">Switch English/Vietnamese automatically</string>
+    <string name="auto_switch_language_desc">Type Telex as usual: an English word typed in Vietnamese (mỏe) goes back to English (more), and Vietnamese typed in English (khoong) becomes Vietnamese (không). The keyboard switches language with it. Press Backspace right after to undo.</string>
     <string name="next_word_suggestions">Word suggestions</string>
     <string name="next_word_suggestions_desc">Suggests the next word after a space and completes the word you are typing. Learns the words you use, only on this phone.</string>
     <string name="next_word_forget">Forget learned words</string>

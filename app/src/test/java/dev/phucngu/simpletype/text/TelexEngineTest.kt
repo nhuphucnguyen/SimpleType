@@ -35,6 +35,21 @@ class TelexEngineTest {
     // ---- Escape behaviour: repeating a key reverts it ----
 
     @Test fun double_tone_emits_literal() = assertEquals("as", type("ass"))
+
+    @Test fun typed_keys_keep_escaped_key() {
+        val e = TelexEngine()
+        "office".forEach { e.input(it) }
+        assertEquals("office", e.typedKeys)
+        assertEquals("ofice", e.telexForm)
+    }
+
+    @Test fun typed_keys_follow_backspace_to_plain_letters() {
+        val e = TelexEngine()
+        "cos".forEach { e.input(it) } // có
+        e.backspace() // c
+        e.input('a')
+        assertEquals("ca", e.typedKeys)
+    }
     @Test fun triple_a_reverts_circumflex() = assertEquals("aa", type("aaa"))
     @Test fun z_removes_tone() = assertEquals("a", type("asz"))
 

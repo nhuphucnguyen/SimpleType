@@ -66,6 +66,7 @@ import dev.phucngu.simpletype.ime.LatinKeyboardListener
 import dev.phucngu.simpletype.ime.LatinKeyboardView
 import dev.phucngu.simpletype.ime.WordPredictions
 import dev.phucngu.simpletype.ime.email.SavedEmails
+import dev.phucngu.simpletype.text.LanguageAutoSwitch
 import dev.phucngu.simpletype.ui.theme.SimpleTypeTheme
 import dev.phucngu.simpletype.voice.DictationLog
 import dev.phucngu.simpletype.voice.ModelManager
@@ -541,6 +542,7 @@ fun SettingsScreen(
     var glideEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_GLIDE, true)) }
     var emailSuggestEnabled by remember { mutableStateOf(prefs.getBoolean(SavedEmails.PREF_ENABLED, true)) }
     var predictEnabled by remember { mutableStateOf(prefs.getBoolean(WordPredictions.PREF_ENABLED, true)) }
+    var autoSwitchEnabled by remember { mutableStateOf(prefs.getBoolean(LanguageAutoSwitch.PREF_ENABLED, true)) }
     var hapticLevel by remember {
         mutableStateOf(
             (Math.round(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT) * 5 / 100f) - 1).coerceIn(0, 4)
@@ -714,6 +716,18 @@ fun SettingsScreen(
 
                 SettingsCard {
                     ToggleRow(
+                        title = stringResource(R.string.auto_switch_language),
+                        desc = stringResource(R.string.auto_switch_language_desc),
+                        checked = autoSwitchEnabled,
+                        onCheckedChange = { checked ->
+                            autoSwitchEnabled = checked
+                            prefs.edit().putBoolean(LanguageAutoSwitch.PREF_ENABLED, checked).apply()
+                        },
+                    )
+                }
+
+                SettingsCard {
+                    ToggleRow(
                         title = stringResource(R.string.next_word_suggestions),
                         desc = stringResource(R.string.next_word_suggestions_desc),
                         checked = predictEnabled,
@@ -844,12 +858,14 @@ fun SettingsScreen(
                     onClick = {
                         glideEnabled = true
                         predictEnabled = true
+                        autoSwitchEnabled = true
                         hapticEnabled = true
                         hapticLevel = 2
                         cursorSpeed = CursorSpeed.DEFAULT
                         prefs.edit()
                             .putBoolean(LatinKeyboardView.PREF_GLIDE, true)
                             .putBoolean(WordPredictions.PREF_ENABLED, true)
+                            .putBoolean(LanguageAutoSwitch.PREF_ENABLED, true)
                             .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
                             .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
                             .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
