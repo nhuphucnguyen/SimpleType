@@ -125,6 +125,8 @@ open class SimpleTypeIME : InputMethodService(),
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var selectionSyncJob: Job? = null
+    /** The cursor the waiting [selectionSyncJob] was scheduled for. */
+    private var pendingSyncCursor = 0
     private var glidePrefEnabled = true
     private val gestureDecoders = mutableMapOf<VoiceLanguage, GestureDecoder>()
     private var lastGlideWord: String? = null
@@ -460,7 +462,12 @@ open class SimpleTypeIME : InputMethodService(),
         )
         val cursorAtComposingEnd =
             newSelStart == newSelEnd && candidatesEnd >= 0 && newSelEnd == candidatesEnd
-        if (cursorAtComposingEnd) return
+        if (cursorAtComposingEnd) {
+            // Our own composing edit: a re-sync still waiting was scheduled for a cursor that
+            // has moved on since, and would pick up the word at the wrong place.
+            selectionSyncJob?.cancel()
+            return
+        }
 
         // Every commit echoes back a burst of selection updates (our own
         // finishComposingText/setComposingRegion writes each trigger another one), and
@@ -471,20 +478,37 @@ open class SimpleTypeIME : InputMethodService(),
         selectionSyncJob?.cancel()
         selectionSyncJob = imeScope.launch {
             delay(SELECTION_SYNC_DEBOUNCE_MS)
-            val ic = currentInputConnection ?: return@launch
-            if (!telex.isEmpty) {
-                ic.finishComposingText()
-                telex.reset()
-            }
-            if (language == VoiceLanguage.VIETNAMESE && !passwordField && !emailField &&
-                layout == KeyboardLayoutType.ALPHA &&
-                !directCommit) {
-                pickupTelexContext(ic, newSelStart)
-            }
-            updateAutoCapitalize(currentInputEditorInfo)
-            refreshEmailSuggestions()
-            refreshPredictions()
+            syncSelection(newSelStart)
         }
+        pendingSyncCursor = newSelStart
+    }
+
+    /**
+     * A key typed while a re-sync waits runs it first, while [pendingSyncCursor] is still where
+     * the cursor is. Left to run after the key, it would pick up the word at that stale position
+     * and the next letter would replace the space before it ("giải th" → "giảith|t").
+     */
+    private fun flushSelectionSync() {
+        val job = selectionSyncJob ?: return
+        if (!job.isActive) return
+        job.cancel()
+        syncSelection(pendingSyncCursor)
+    }
+
+    private fun syncSelection(cursor: Int) {
+        val ic = currentInputConnection ?: return
+        if (!telex.isEmpty) {
+            ic.finishComposingText()
+            telex.reset()
+        }
+        if (language == VoiceLanguage.VIETNAMESE && !passwordField && !emailField &&
+            layout == KeyboardLayoutType.ALPHA &&
+            !directCommit) {
+            pickupTelexContext(ic, cursor)
+        }
+        updateAutoCapitalize(currentInputEditorInfo)
+        refreshEmailSuggestions()
+        refreshPredictions()
     }
 
     private fun pickupTelexContext(ic: InputConnection, cursor: Int) {
@@ -515,6 +539,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onKey(key: Key) {
         val ic = currentInputConnection ?: return
+        flushSelectionSync()
         clearGlideSuggestions()
         // Only the key right after a fix can undo it.
         val pendingFix = lastAutoFix
@@ -540,6 +565,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onKeyRepeat(key: Key) {
         val ic = currentInputConnection ?: return
+        flushSelectionSync()
         clearGlideSuggestions()
         if (key.code == KeyCode.DELETE) handleDelete(ic)
         refreshPredictions()
