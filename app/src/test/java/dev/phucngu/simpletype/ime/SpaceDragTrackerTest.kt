@@ -10,7 +10,7 @@ import org.junit.Test
  * The space key carries two horizontal gestures. Time separates them: a flick that crosses the
  * swipe threshold before the hold timer fires toggles the language; resting on space until the
  * timer fires enters cursor mode, after which horizontal drag only moves the cursor.
- * swipeThreshold=56px, cursorStep=20px.
+ * swipeThreshold=56px, cursorStep=20px, so lineStep=60px (3x).
  */
 class SpaceDragTrackerTest {
 
@@ -84,5 +84,44 @@ class SpaceDragTrackerTest {
         t.down(100f)
         assertFalse(t.cursorMode)
         assertEquals(SpaceAction.LanguageSwipe(1), t.move(160f))
+    }
+
+    @Test
+    fun `hold then drag up moves cursor up a line`() {
+        val t = tracker()
+        t.down(500f, 300f)
+        assertTrue(t.onHoldElapsed())
+        assertNull(t.move(500f, 250f)) // under one line step
+        assertEquals(SpaceAction.CursorMove(0, -1), t.move(500f, 240f))
+        assertEquals(SpaceAction.CursorMove(0, -2), t.move(500f, 110f))
+        assertEquals(SpaceAction.CursorMove(0, 1), t.move(500f, 180f))
+        assertFalse(t.shouldTypeSpace())
+    }
+
+    @Test
+    fun `diagonal drag moves both axes`() {
+        val t = tracker()
+        t.down(500f, 300f)
+        t.onHoldElapsed()
+        assertEquals(SpaceAction.CursorMove(2, -1), t.move(540f, 240f))
+    }
+
+    @Test
+    fun `mostly horizontal drag with vertical wobble stays on the line`() {
+        val t = tracker()
+        t.down(500f, 300f)
+        t.onHoldElapsed()
+        val actions = (501..900 step 7).mapNotNull { t.move(it.toFloat(), 300f + (it % 3) * 15f) }
+        assertTrue(actions.all { it is SpaceAction.CursorMove && it.lines == 0 })
+    }
+
+    @Test
+    fun `vertical drag before hold is ignored`() {
+        val t = tracker()
+        t.down(500f, 300f)
+        assertNull(t.move(500f, 200f))
+        assertTrue(t.onHoldElapsed())
+        assertNull(t.move(500f, 160f)) // only 40px from where cursor mode began
+        assertEquals(SpaceAction.CursorMove(0, -1), t.move(500f, 140f))
     }
 }

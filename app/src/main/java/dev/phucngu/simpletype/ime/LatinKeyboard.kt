@@ -195,8 +195,11 @@ interface LatinKeyboardListener {
     fun onKey(key: Key)
     fun onKeyRepeat(key: Key)
     fun onSpaceSwipe(direction: Int)
-    /** Hold-then-drag on space: move the cursor by [steps] characters (negative = left). */
-    fun onSpaceCursorMove(steps: Int) {}
+    /**
+     * Hold-then-drag on space: move the cursor by [steps] characters (negative = left) and
+     * [lines] lines (negative = up).
+     */
+    fun onSpaceCursorMove(steps: Int, lines: Int) {}
     fun onShiftHold(active: Boolean)
     /** A completed swipe-to-type gesture over the letter keys. */
     fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {}
@@ -426,7 +429,7 @@ fun LatinKeyboard(
                                             }
 
                                             if (touchState.downOnSpace) {
-                                                spaceDrag.down(pos.x)
+                                                spaceDrag.down(pos.x, pos.y)
                                                 longPressJob = scope.launch {
                                                     delay(LONG_PRESS_MS)
                                                     if (spaceDrag.onHoldElapsed()) {
@@ -461,7 +464,7 @@ fun LatinKeyboard(
                                         if (!touchState.spaceCursorMode) {
                                             touchState.swipeOffset = pos.x - touchState.swipeStartX
                                         }
-                                        when (val action = spaceDrag.move(pos.x)) {
+                                        when (val action = spaceDrag.move(pos.x, pos.y)) {
                                             is SpaceAction.LanguageSwipe -> {
                                                 longPressJob?.cancel()
                                                 touchState.swipeFired = true
@@ -470,7 +473,7 @@ fun LatinKeyboard(
                                             }
                                             is SpaceAction.CursorMove -> {
                                                 hapticTap()
-                                                listener.onSpaceCursorMove(action.steps)
+                                                listener.onSpaceCursorMove(action.steps, action.lines)
                                             }
                                             null -> {}
                                         }

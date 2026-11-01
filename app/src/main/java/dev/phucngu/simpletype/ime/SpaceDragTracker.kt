@@ -5,27 +5,34 @@ import kotlin.math.abs
 sealed interface SpaceAction {
     /** Toggle input language; [direction] is +1 for right, -1 for left. */
     data class LanguageSwipe(val direction: Int) : SpaceAction
-    /** Move the cursor by [steps] characters; negative moves left. */
-    data class CursorMove(val steps: Int) : SpaceAction
+    /**
+     * Move the cursor by [steps] characters (negative = left) and [lines] lines (negative = up).
+     */
+    data class CursorMove(val steps: Int, val lines: Int = 0) : SpaceAction
 }
 
 /**
  * Disambiguates the two horizontal gestures on the space key by time: a flick that crosses
  * [swipeThreshold] before the hold timer fires is a language swipe, while resting on the key
- * until [onHoldElapsed] enters cursor mode, where every [cursorStep] of drag moves one character.
+ * until [onHoldElapsed] enters cursor mode, where every [cursorStep] of horizontal drag moves one
+ * character and every [LINE_STEP_FACTOR] x [cursorStep] of vertical drag moves one line. The larger
+ * vertical step keeps a sideways drag from wobbling onto another line.
  */
 class SpaceDragTracker(private val swipeThreshold: Float, private val cursorStep: Float) {
+    private val lineStep = cursorStep * LINE_STEP_FACTOR
     private var startX = 0f
     private var anchorX = 0f
+    private var anchorY = 0f
     private var swiped = false
     private var cursorMoved = false
 
     var cursorMode = false
         private set
 
-    fun down(x: Float) {
+    fun down(x: Float, y: Float = 0f) {
         startX = x
         anchorX = x
+        anchorY = y
         swiped = false
         cursorMoved = false
         cursorMode = false
@@ -38,13 +45,15 @@ class SpaceDragTracker(private val swipeThreshold: Float, private val cursorStep
         return true
     }
 
-    fun move(x: Float): SpaceAction? {
+    fun move(x: Float, y: Float = anchorY): SpaceAction? {
         if (cursorMode) {
             val steps = ((x - anchorX) / cursorStep).toInt()
-            if (steps == 0) return null
+            val lines = ((y - anchorY) / lineStep).toInt()
+            if (steps == 0 && lines == 0) return null
             anchorX += steps * cursorStep
+            anchorY += lines * lineStep
             cursorMoved = true
-            return SpaceAction.CursorMove(steps)
+            return SpaceAction.CursorMove(steps, lines)
         }
         if (!swiped && abs(x - startX) >= swipeThreshold) {
             swiped = true
@@ -52,10 +61,16 @@ class SpaceDragTracker(private val swipeThreshold: Float, private val cursorStep
         }
         // Track the latest position so drift before cursor mode isn't counted as movement.
         anchorX = x
+        anchorY = y
         return null
     }
 
     fun shouldTypeSpace(): Boolean = !swiped && !cursorMoved
+
+    companion object {
+        /** Vertical drag needed per line, as a multiple of the horizontal per-character step. */
+        const val LINE_STEP_FACTOR = 3f
+    }
 }
 
 /**

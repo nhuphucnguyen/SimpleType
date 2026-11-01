@@ -578,14 +578,42 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
-    override fun onSpaceCursorMove(steps: Int) {
+    override fun onSpaceCursorMove(steps: Int, lines: Int) {
         val ic = currentInputConnection ?: return
+        // In a single-line field DPAD up/down moves focus to another view, so only send it
+        // where there are lines to move between.
+        val verticalLines = if (isMultiLineField(currentInputEditorInfo)) lines else 0
+        if (steps == 0 && verticalLines == 0) return
         clearGlideSuggestions()
         finishComposing(ic)
         englishKeys.setLength(0)
         autoSwitchSession?.forget()
+        // An arrow key the editor can't act on (left/up at the start, right/down at the end) is
+        // treated as focus navigation and moves focus to a neighbouring view, losing the cursor.
+        // So each key is only sent while there is text on that side of the cursor. Up on the first
+        // line still goes to the start of the text, as the editor does it itself.
         val keyCode = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
-        repeat(abs(steps)) { sendDownUpKeyEvents(keyCode) }
+        repeat(abs(steps)) {
+            if (!hasTextToward(ic, backward = steps < 0)) return
+            sendDownUpKeyEvents(keyCode)
+        }
+        val lineKeyCode = if (verticalLines < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN
+        repeat(abs(verticalLines)) {
+            if (!hasTextToward(ic, backward = verticalLines < 0)) return
+            sendDownUpKeyEvents(lineKeyCode)
+        }
+    }
+
+    private fun hasTextToward(ic: InputConnection, backward: Boolean): Boolean {
+        val side = if (backward) ic.getTextBeforeCursor(1, 0) else ic.getTextAfterCursor(1, 0)
+        // Editors that can't report text (null) keep the old behaviour rather than freezing the cursor.
+        return side == null || side.isNotEmpty()
+    }
+
+    private fun isMultiLineField(info: EditorInfo?): Boolean {
+        val type = info?.inputType ?: return false
+        return type and InputType.TYPE_MASK_CLASS == InputType.TYPE_CLASS_TEXT &&
+            type and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0
     }
 
     // ---- Glide (swipe-to-type) ----
