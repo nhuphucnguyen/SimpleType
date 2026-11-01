@@ -31,15 +31,7 @@ class LanguageAutoSwitch(
      * [TelexEngine.rawKeys] and [TelexEngine.telexForm].
      */
     fun englishFor(typedKeys: String, rawKeys: String, telexForm: String): String? {
-        if (typedKeys.length < 2 || typedKeys == telexForm || isAcronym(typedKeys)) return null
-        if (!isLetters(typedKeys)) return null
-        // Backspace keeps the keys only roughly in step; trust them only if they replay to the
-        // word on screen, so a stale key can never be committed.
-        if (replay(typedKeys) != telexForm) return null
-        // Every key ("office"), or without a key pressed twice to escape Telex ("yesster").
-        val word = typedKeys.takeIf { it.lowercase() in english }
-            ?: rawKeys.takeIf { isLetters(it) && it.lowercase() in english }
-            ?: return null
+        val word = englishReading(typedKeys, rawKeys, telexForm) ?: return null
         val en = english.getValue(word.lowercase())
         val vi = vietnameseScore(telexForm) ?: return word
         return word.takeIf { vi < VI_COMMON && en >= vi + TIE_MARGIN }
@@ -59,6 +51,49 @@ class LanguageAutoSwitch(
         if (vi < en + EN_TIE_MARGIN) return null
         return form.takeUnless { previousWord != null && isClearlyEnglish(previousWord) }
     }
+
+    /**
+     * The English word the keys of a word typed in Vietnamese mode spell, or null. The arguments
+     * are as for [englishFor].
+     */
+    fun englishReading(typedKeys: String, rawKeys: String, telexForm: String): String? {
+        if (typedKeys.length < 2 || typedKeys == telexForm || isAcronym(typedKeys)) return null
+        if (!isLetters(typedKeys)) return null
+        // Backspace keeps the keys only roughly in step; trust them only if they replay to the
+        // word on screen, so a stale key can never be committed.
+        if (replay(typedKeys) != telexForm) return null
+        // Every key ("office"), or without a key pressed twice to escape Telex ("yesster").
+        return typedKeys.takeIf { it.lowercase() in english }
+            ?: rawKeys.takeIf { isLetters(it) && it.lowercase() in english }
+    }
+
+    /** The Vietnamese word Telex makes of [keys] typed in English mode ("cos" → "có"), or null. */
+    fun vietnameseReading(keys: String): String? {
+        if (keys.length < 2 || isAcronym(keys) || !isLetters(keys)) return null
+        val form = replay(keys)
+        return form.takeIf { vietnameseScore(it) != null }
+    }
+
+    /**
+     * Whether [typedKeys], which Telex left as they are, are an English word much more common
+     * than any Vietnamese reading ("makes", not "cho").
+     */
+    fun isPlainEnglish(typedKeys: String, telexForm: String): Boolean {
+        if (typedKeys != telexForm || typedKeys.length < 2 || isAcronym(typedKeys) || !isLetters(typedKeys)) return false
+        val lower = typedKeys.lowercase()
+        val en = english[lower] ?: return false
+        val vi = vietnamese[lower] ?: return true
+        return en >= vi + TIE_MARGIN
+    }
+
+    /** The English dictionary's Zipf × 100 for [word], or null when it isn't English. */
+    fun englishScore(word: String): Int? = english[word.lowercase()]
+
+    /** The Vietnamese dictionary's Zipf × 100 for [word], or null when it isn't a Telex result. */
+    fun vietnameseWordScore(word: String): Int? = vietnameseScore(word)
+
+    /** Whether Telex leaves [keys] exactly as typed ("makes", "cho"). */
+    fun isSameInBoth(keys: String): Boolean = isLetters(keys) && replay(keys) == keys
 
     /** A word with no Vietnamese reading at least as likely: "the", "video", but not "cos" (có). */
     private fun isClearlyEnglish(word: String): Boolean {
@@ -84,7 +119,7 @@ class LanguageAutoSwitch(
 
     private fun isLetters(word: String) = word.all { it in 'a'..'z' || it in 'A'..'Z' }
 
-    private fun isAcronym(word: String): Boolean = word.count { it.isUpperCase() } >= 2
+    fun isAcronym(word: String): Boolean = word.count { it.isUpperCase() } >= 2
 
     companion object {
         /** Shared-preferences key for the setting; on by default. */

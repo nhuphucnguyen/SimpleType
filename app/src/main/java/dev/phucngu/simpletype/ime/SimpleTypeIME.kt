@@ -57,6 +57,7 @@ import dev.phucngu.simpletype.ime.email.SavedEmails
 import dev.phucngu.simpletype.ime.emoji.EmojiRecents
 import dev.phucngu.simpletype.predict.NextWordPredictor
 import dev.phucngu.simpletype.predict.TypingContext
+import dev.phucngu.simpletype.text.AutoSwitchSession
 import dev.phucngu.simpletype.text.LanguageAutoSwitch
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.text.lastGraphemeLength
@@ -149,7 +150,8 @@ open class SimpleTypeIME : InputMethodService(),
     private var language = VoiceLanguage.ENGLISH
 
     // Automatic English/Vietnamese switching (see [LanguageAutoSwitch]).
-    @Volatile private var autoSwitch: LanguageAutoSwitch? = null
+    /** The words auto switch may still fix when a later word makes the language clear. */
+    @Volatile private var autoSwitchSession: AutoSwitchSession? = null
     private var autoSwitchAllowed = false
     /** Letters tapped in English for the word being typed, checked by auto switch at its end. */
     private val englishKeys = StringBuilder()
@@ -250,7 +252,7 @@ open class SimpleTypeIME : InputMethodService(),
             val english = dictionaries[VoiceLanguage.ENGLISH]
             val vietnamese = dictionaries[VoiceLanguage.VIETNAMESE]
             if (english != null && vietnamese != null) {
-                autoSwitch = LanguageAutoSwitch(english.scores(), vietnamese.scores())
+                autoSwitchSession = AutoSwitchSession(LanguageAutoSwitch(english.scores(), vietnamese.scores()))
             }
         }
         imeScope.launch {
@@ -424,6 +426,7 @@ open class SimpleTypeIME : InputMethodService(),
         autoSwitchAllowed = prefs.getBoolean(LanguageAutoSwitch.PREF_ENABLED, true) &&
             !passwordField && !emailField && !directCommit
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         lastAutoFix = null
         keptWord = null
 
@@ -580,6 +583,7 @@ open class SimpleTypeIME : InputMethodService(),
         clearGlideSuggestions()
         finishComposing(ic)
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         val keyCode = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
         repeat(abs(steps)) { sendDownUpKeyEvents(keyCode) }
     }
@@ -596,6 +600,7 @@ open class SimpleTypeIME : InputMethodService(),
 
         finishComposing(ic)
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         aiFix.invalidate()
         // Back-to-back glides never press space, so the previous glided word ends here.
         if (lastGlideWord != null) learnFinishedWord(ic)
@@ -676,6 +681,7 @@ open class SimpleTypeIME : InputMethodService(),
         aiFix.invalidate()
         finishComposing(ic)
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         val ctx = readTypingContext(ic) ?: return
         if (predictionLearning) predictions.learn(language, ctx, word)
         ic.beginBatchEdit()
@@ -841,6 +847,7 @@ open class SimpleTypeIME : InputMethodService(),
             }
             ic.commitText(c.toString(), 1)
             if (c.isLetter() && language == VoiceLanguage.ENGLISH) englishKeys.append(c) else englishKeys.setLength(0)
+            if (!c.isLetter() && c !in AUTO_SWITCH_WORD_ENDS) autoSwitchSession?.forget()
         }
         consumeShift()
     }
@@ -870,10 +877,12 @@ open class SimpleTypeIME : InputMethodService(),
         }
         if (shiftHeld) {
             englishKeys.setLength(0)
+            autoSwitchSession?.forget()
             deleteWordBeforeCursor(ic)
             return
         }
         if (englishKeys.isNotEmpty()) englishKeys.setLength(englishKeys.length - 1)
+        autoSwitchSession?.forget()
         val before = ic.getTextBeforeCursor(GRAPHEME_LOOKBEHIND, 0) ?: ""
         ic.deleteSurroundingText(lastGraphemeLength(before).coerceAtLeast(1), 0)
         updateAutoCapitalize(currentInputEditorInfo)
@@ -918,6 +927,7 @@ open class SimpleTypeIME : InputMethodService(),
         val ic = currentInputConnection ?: return
         finishComposing(ic)
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         ic.commitText(emoji, 1)
         composeEmojiRecents = EmojiRecents.record(composeEmojiRecents, emoji)
         EmojiRecents.save(prefs(), composeEmojiRecents)
@@ -1034,6 +1044,7 @@ open class SimpleTypeIME : InputMethodService(),
         }
         // The user chose the language: auto switch stays out of the way for a moment.
         englishKeys.setLength(0)
+        autoSwitchSession?.forget()
         lastAutoFix = null
         autoSwitchPausedUntil = SystemClock.uptimeMillis() + MANUAL_SWITCH_PAUSE_MS
 
@@ -1059,41 +1070,105 @@ open class SimpleTypeIME : InputMethodService(),
      * back along with the fix; null (enter) leaves nothing to undo.
      */
     private fun autoSwitchWord(ic: InputConnection, separator: String?) {
-        val switcher = autoSwitch
+        val session = autoSwitchSession
         val keys = englishKeys.toString()
         englishKeys.setLength(0)
         val kept = keptWord
         keptWord = null
-        if (switcher == null || !autoSwitchAllowed || layout != KeyboardLayoutType.ALPHA) return
-        if (SystemClock.uptimeMillis() < autoSwitchPausedUntil) return
+        if (session == null || !autoSwitchAllowed || layout != KeyboardLayoutType.ALPHA ||
+            SystemClock.uptimeMillis() < autoSwitchPausedUntil) {
+            session?.forget()
+            return
+        }
+        val spaceAfter = separator == " "
 
         if (!telex.isEmpty) {
             val original = telex.composing
-            if (original == kept) return
-            val english = switcher.englishFor(telex.typedKeys, telex.rawKeys, telex.telexForm) ?: return
-            ic.setComposingText(english, 1)
+            if (original == kept) {
+                session.forget()
+                return
+            }
+            val outcome = session.finishVietnamese(telex.typedKeys, telex.rawKeys, telex.telexForm, original, spaceAfter)
+            if (outcome.word == original && outcome.earlier.isEmpty()) return
+            if (outcome.word != original) ic.setComposingText(outcome.word, 1)
             ic.finishComposingText()
             telex.reset()
-            applyAutoFix(original, english, separator, VoiceLanguage.ENGLISH)
+            applyOutcome(ic, original, outcome, separator)
         } else if (language == VoiceLanguage.ENGLISH && keys.isNotEmpty() && keys != kept) {
-            val before = ic.getTextBeforeCursor(keys.length + AUTO_SWITCH_LOOKBEHIND, 0)?.toString() ?: return
-            if (!before.endsWith(keys)) return
+            val before = ic.getTextBeforeCursor(keys.length + AUTO_SWITCH_LOOKBEHIND, 0)?.toString()
+            if (before == null || !before.endsWith(keys)) {
+                session.forget()
+                return
+            }
             val head = before.dropLast(keys.length)
             // Only a whole word: after . _ - / or a digit it is part of a name or a path (obj.dir).
-            if (head.isNotEmpty() && !head.last().isWhitespace() && head.last() !in AUTO_SWITCH_WORD_STARTS) return
+            if (head.isNotEmpty() && !head.last().isWhitespace() && head.last() !in AUTO_SWITCH_WORD_STARTS) {
+                session.forget()
+                return
+            }
             val previous = head.trimEnd().takeLastWhile { it.isLetter() }.ifEmpty { null }
-            val vietnamese = switcher.vietnameseFor(keys, previous) ?: return
-            ic.beginBatchEdit()
-            ic.deleteSurroundingText(keys.length, 0)
-            ic.commitText(vietnamese, 1)
-            ic.endBatchEdit()
-            applyAutoFix(keys, vietnamese, separator, VoiceLanguage.VIETNAMESE)
+            val outcome = session.finishEnglish(keys, previous, spaceAfter)
+            if (outcome.word == keys && outcome.earlier.isEmpty()) return
+            if (outcome.word != keys) {
+                ic.beginBatchEdit()
+                ic.deleteSurroundingText(keys.length, 0)
+                ic.commitText(outcome.word, 1)
+                ic.endBatchEdit()
+            }
+            applyOutcome(ic, keys, outcome, separator)
+        } else {
+            session.forget()
         }
     }
 
-    private fun applyAutoFix(original: String, replacement: String, separator: String?, to: VoiceLanguage) {
-        if (separator != null) lastAutoFix = AutoFix(original, replacement, separator, language)
-        setLanguage(to)
+    /** Rewrites the earlier words of [outcome] and switches language; the current word is in place. */
+    private fun applyOutcome(ic: InputConnection, original: String, outcome: AutoSwitchSession.Outcome, separator: String?) {
+        val rewrote = outcome.earlier.isNotEmpty() && rewriteEarlierWords(ic, outcome)
+        val to = when (outcome.switchToVietnamese) {
+            true -> VoiceLanguage.VIETNAMESE
+            false -> VoiceLanguage.ENGLISH
+            null -> null
+        }
+        // Backspace undoes a fix of this word alone; a fix that reached back is kept.
+        if (separator != null && !rewrote && original != outcome.word) {
+            lastAutoFix = AutoFix(original, outcome.word, separator, language)
+        }
+        if (to != null && to != language) setLanguage(to)
+    }
+
+    /**
+     * Replaces the words before the current one as [outcome] says, if the text still shows them
+     * joined by single spaces. Returns whether it did.
+     */
+    private fun rewriteEarlierWords(ic: InputConnection, outcome: AutoSwitchSession.Outcome): Boolean {
+        val before = ic.getTextBeforeCursor(AUTO_SWITCH_LOOKBEHIND * 2, 0)?.toString() ?: return false
+        if (!before.endsWith(outcome.word)) return false
+        // Words before the current one, nearest first, as on screen.
+        val words = ArrayList<String>()
+        var end = before.length - outcome.word.length
+        val reach = outcome.earlier.maxOf { it.wordsBack }
+        while (words.size < reach) {
+            if (end == 0 || before[end - 1] != ' ') return false
+            var start = end - 1
+            while (start > 0 && !before[start - 1].isWhitespace()) start--
+            if (start == end - 1) return false
+            words += before.substring(start, end - 1)
+            end = start
+        }
+        val replaced = words.toMutableList()
+        for (rewrite in outcome.earlier) {
+            val word = words[rewrite.wordsBack - 1]
+            // An opening bracket or quote may sit before the word: "(thí".
+            if (!word.endsWith(rewrite.from) || word.dropLast(rewrite.from.length).any { it !in AUTO_SWITCH_WORD_STARTS }) return false
+            replaced[rewrite.wordsBack - 1] = word.dropLast(rewrite.from.length) + rewrite.to
+        }
+        val oldText = words.reversed().joinToString(" ") + " " + outcome.word
+        val newText = replaced.reversed().joinToString(" ") + " " + outcome.word
+        ic.beginBatchEdit()
+        ic.deleteSurroundingText(oldText.length, 0)
+        ic.commitText(newText, 1)
+        ic.endBatchEdit()
+        return true
     }
 
     /** Backspace right after a fix: puts the word back as it was, in its language. */
