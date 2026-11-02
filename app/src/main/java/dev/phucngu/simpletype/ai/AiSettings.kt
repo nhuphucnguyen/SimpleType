@@ -3,30 +3,31 @@ package dev.phucngu.simpletype.ai
 import android.content.SharedPreferences
 
 /**
- * A chat backend the text fixer can call. Most providers speak the OpenAI `/chat/completions`
- * format; Anthropic's Messages API is the exception and gets its own request/response handling.
+ * A chat backend the text fixer can call. Each entry pairs user-facing setup (URL, models, key)
+ * with the [ChatProtocol] that knows its wire format; adding a backend family means implementing
+ * [ChatProtocol] and referencing it here.
  */
 enum class AiProvider(
     val defaultBaseUrl: String,
     /** Models offered as a choice; empty means the user types a model ID. */
     val models: List<String>,
-    /** GLM-5.3 models always think; the request sets their thinking and sampling params. */
+    /** GLM-5.3 models always think; the OpenAI-family request sets their thinking and sampling params. */
     val isGlm: Boolean,
-    /** Anthropic Messages API (`/v1/messages`), not OpenAI chat-completions. */
-    val isAnthropic: Boolean,
+    /** How requests to this provider are encoded and replies decoded. */
+    val protocol: ChatProtocol,
 ) {
     /** GLM models billed against a GLM Coding Plan subscription. Flash first: fastest in testing. */
-    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", listOf("glm-5.3-flash", "glm-5.3"), isGlm = true, isAnthropic = false),
+    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", listOf("glm-5.3-flash", "glm-5.3"), isGlm = true, protocol = ChatCompletion),
 
     /**
      * Claude models billed to a Claude subscription. The user pastes a long-lived setup token
      * (minted by `claude setup-token`, `sk-ant-oat01-…`) as the API key; the token mint itself
      * happens outside the keyboard.
      */
-    CLAUDE_SUBSCRIPTION("https://api.anthropic.com", listOf("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"), isGlm = false, isAnthropic = true),
+    CLAUDE_SUBSCRIPTION("https://api.anthropic.com", listOf("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"), isGlm = false, protocol = AnthropicMessages),
 
     /** Any OpenAI-compatible endpoint; base URL and model are user-supplied. */
-    CUSTOM("", emptyList(), isGlm = false, isAnthropic = false);
+    CUSTOM("", emptyList(), isGlm = false, protocol = ChatCompletion);
 
     val defaultModel: String get() = models.firstOrNull() ?: ""
 }
@@ -45,8 +46,7 @@ data class AiSettings(
     val endpoint: String
         get() {
             val base = baseUrl.trim().trimEnd('/')
-            val path = if (provider.isAnthropic) "/v1/messages" else "/chat/completions"
-            return if (base.endsWith(path)) base else "$base$path"
+            return if (base.endsWith(provider.protocol.endpointPath)) base else base + provider.protocol.endpointPath
         }
 
     companion object {

@@ -5,10 +5,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Prompt, request body and response handling for the "fix my text" call. Pure functions over
- * strings so the wire format and the output cleanup are unit-testable without a network.
+ * The OpenAI chat-completions wire family (`/chat/completions`), used by GLM and custom
+ * endpoints.
+ *
+ * Also the shared home for cross-protocol pieces every backend reuses: the proofreader prompt,
+ * the user-message wrapper, the reply cleanup ([cleanReply]) and error-message extraction
+ * ([errorMessage]).
  */
-object ChatCompletion {
+object ChatCompletion : ChatProtocol {
+
+    override val endpointPath = "/chat/completions"
 
     val SYSTEM_PROMPT = """
         You are the proofreader inside a mobile keyboard. The user's text was typed quickly on a phone or produced by speech recognition, so it may contain typos, misheard words, missing or wrong punctuation, wrong capitalization, and numbers spelled out as words.
@@ -32,7 +38,7 @@ object ChatCompletion {
         return "Keyboard language: $lang (the text may mix languages).\n<text>\n$text\n</text>"
     }
 
-    fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
+    override fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
         val messages = JSONArray()
             .put(JSONObject().put("role", "system").put("content", SYSTEM_PROMPT))
             .put(JSONObject().put("role", "user").put("content", userMessage(text, language)))
@@ -55,7 +61,7 @@ object ChatCompletion {
     }
 
     /** The assistant's reply text, or throws [AiException] describing an error payload. */
-    fun parseReply(json: String): String {
+    override fun parseReply(json: String): String {
         val root = try {
             JSONObject(json)
         } catch (e: Exception) {

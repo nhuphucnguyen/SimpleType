@@ -5,9 +5,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Request body and response handling for the Anthropic Messages API (`/v1/messages`), used by the
- * Claude subscription provider. Pure functions over strings so the wire format is unit-testable
- * without a network.
+ * The Anthropic Messages API wire family (`/v1/messages`), used by the Claude subscription
+ * provider. Pure functions over strings so the wire format is unit-testable without a network.
  *
  * Subscription OAuth tokens (`sk-ant-oat01-…`) only answer requests shaped like Claude Code: the
  * `system` field must open with Anthropic's billing tag (verified live against
@@ -15,14 +14,18 @@ import org.json.JSONObject
  * a masked `429 rate_limit_error`). Our proofreader instructions follow in the same block, which
  * the gate explicitly allows.
  */
-object AnthropicMessages {
+object AnthropicMessages : ChatProtocol {
 
     /** Required by the Messages API alongside `Authorization: Bearer …`. */
     const val API_VERSION = "2023-06-01"
 
+    override val endpointPath = "/v1/messages"
+
+    override fun extraHeaders() = mapOf("anthropic-version" to API_VERSION)
+
     private const val BILLING_TAG = "x-anthropic-billing-header: cc_version=2.1.296.0e7; cc_entrypoint=simpletype;"
 
-    fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
+    override fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
         val messages = JSONArray()
             .put(JSONObject().put("role", "user").put("content", ChatCompletion.userMessage(text, language)))
         return JSONObject()
@@ -38,7 +41,7 @@ object AnthropicMessages {
     fun maxTokensFor(text: String): Int = (text.length * 2 + 512).coerceIn(1024, 8192)
 
     /** Concatenated text blocks of the reply, or throws [AiException] describing an error payload. */
-    fun parseReply(json: String): String {
+    override fun parseReply(json: String): String {
         val root = try {
             JSONObject(json)
         } catch (e: Exception) {

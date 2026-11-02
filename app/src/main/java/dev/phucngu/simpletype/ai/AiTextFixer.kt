@@ -48,33 +48,21 @@ class AiTextFixer(
 ) {
     suspend fun fix(text: String, language: VoiceLanguage): String = withContext(Dispatchers.IO) {
         if (!settings.isConfigured) throw AiException(AiException.Kind.NOT_CONFIGURED, "")
-        val anthropic = settings.provider.isAnthropic
+        val protocol = settings.provider.protocol
         val headers = buildMap {
             put("Authorization", "Bearer ${settings.apiKey.trim()}")
             put("Content-Type", "application/json; charset=utf-8")
             put("Accept", "application/json")
             put("Accept-Language", "en-US,en")
-            if (anthropic) put("anthropic-version", AnthropicMessages.API_VERSION)
-        }
-        val request = if (anthropic) {
-            AnthropicMessages.requestBody(settings, text, language)
-        } else {
-            ChatCompletion.requestBody(settings, text, language)
+            protocol.extraHeaders().forEach { (k, v) -> put(k, v) }
         }
         val result = try {
-            transport.post(settings.endpoint, headers, request)
+            transport.post(settings.endpoint, headers, protocol.requestBody(settings, text, language))
         } catch (e: IOException) {
             throw AiException(AiException.Kind.NETWORK, e.message ?: e.javaClass.simpleName)
         }
         when (result.code) {
-            in 200..299 -> {
-                val reply = if (anthropic) {
-                    AnthropicMessages.parseReply(result.body)
-                } else {
-                    ChatCompletion.parseReply(result.body)
-                }
-                ChatCompletion.cleanReply(reply, text)
-            }
+            in 200..299 -> ChatCompletion.cleanReply(protocol.parseReply(result.body), text)
             401, 403 -> throw AiException(AiException.Kind.AUTH, ChatCompletion.errorMessage(result.body))
             429 -> throw AiException(AiException.Kind.RATE_LIMIT, ChatCompletion.errorMessage(result.body))
             else -> throw AiException(
