@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
+import android.view.inputmethod.CursorAnchorInfo
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
@@ -452,6 +453,7 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         selectionSyncJob?.cancel()
         spaceCursorField = null
+        stopTrackpad()
         if (voice.isListening) voice.stop()
         aiFix.cancel()
         telex.reset()
@@ -468,6 +470,10 @@ open class SimpleTypeIME : InputMethodService(),
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
+        trackpadSession?.let { session ->
+            session.onSelection(newSelStart, newSelEnd)
+            if (trackpadEnding && !session.cursor.awaitingHit) stopTrackpad()
+        }
         val cursorAtComposingEnd =
             newSelStart == newSelEnd && candidatesEnd >= 0 && newSelEnd == candidatesEnd
         if (cursorAtComposingEnd) {
@@ -581,16 +587,23 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
-    override fun onSpaceCursorMove(steps: Int, lines: Int) {
+    override fun onSpaceCursorMove(steps: Int, lines: Int, dx: Float, dy: Float) {
         val ic = currentInputConnection ?: return
+        val trackpad = trackpadSession?.takeIf { it.cursor.ready }
         // In a single-line field DPAD up/down moves focus to another view, so only send it
         // where there are lines to move between.
         val verticalLines = if (isMultiLineField(currentInputEditorInfo)) lines else 0
-        if (steps == 0 && verticalLines == 0) return
+        if (trackpad == null && steps == 0 && verticalLines == 0) return
+        if (trackpad != null && dx == 0f && dy == 0f) return
         clearGlideSuggestions()
         finishComposing(ic)
         englishKeys.setLength(0)
         autoSwitchSession?.forget()
+        if (trackpad != null) {
+            // The editor reports where its caret is: move it like a trackpad pointer.
+            trackpad.onPointerDelta(dx, dy)
+            return
+        }
         if (steps != 0 && !moveCursorBySelection(ic, steps)) {
             sendCursorKeys(ic, steps, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT)
         }
@@ -601,8 +614,65 @@ open class SimpleTypeIME : InputMethodService(),
         }
     }
 
+    /** Trackpad-style cursor for the current space-drag, while the editor reports its caret. */
+    private var trackpadSession: TrackpadSession? = null
+    private var trackpadEnding = false
+    private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val stopTrackpadRunnable = Runnable { stopTrackpad() }
+    /** Created on first use: most sessions never drag the cursor. */
+    private var ghostCursor: GhostCursor? = null
+
+    override fun onSpaceCursorStart() {
+        stopTrackpad()
+        val ic = currentInputConnection ?: return
+        val info = currentInputEditorInfo
+        if (info?.inputType == InputType.TYPE_NULL) return
+        val field = readSpaceCursorField(ic)?.also { spaceCursorField = it }
+        val session = TrackpadSession(
+            ic, info, field?.text,
+            lineMover = { lines ->
+                isMultiLineField(currentInputEditorInfo).also { multi ->
+                    if (multi) sendCursorKeys(ic, lines, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)
+                }
+            },
+            mainExecutor = mainExecutor,
+            onPointer = { x, y, lineHeight, detached ->
+                val anchor = window?.window?.decorView
+                if (!detached) {
+                    ghostCursor?.hide()
+                } else if (!trackpadEnding && anchor != null) {
+                    (ghostCursor ?: GhostCursor(this).also { ghostCursor = it }).show(anchor, x, y, lineHeight)
+                }
+            },
+        )
+        if (session.start()) trackpadSession = session
+    }
+
+    override fun onUpdateCursorAnchorInfo(cursorAnchorInfo: CursorAnchorInfo) {
+        val session = trackpadSession ?: return
+        session.onCursorAnchorInfo(cursorAnchorInfo)
+        // After lift-off, keep listening only until a pending hit test is collapsed to a caret.
+        if (trackpadEnding && !session.cursor.awaitingHit) stopTrackpad()
+    }
+
     override fun onSpaceCursorEnd() {
         spaceCursorField = null
+        ghostCursor?.hide()
+        val session = trackpadSession ?: return
+        if (session.cursor.awaitingHit) {
+            trackpadEnding = true
+            mainHandler.postDelayed(stopTrackpadRunnable, TRACKPAD_END_GRACE_MS)
+        } else {
+            stopTrackpad()
+        }
+    }
+
+    private fun stopTrackpad() {
+        mainHandler.removeCallbacks(stopTrackpadRunnable)
+        ghostCursor?.hide()
+        trackpadSession?.stop()
+        trackpadSession = null
+        trackpadEnding = false
     }
 
     /** The field's text and our cursor in it, read once per space-drag. */
@@ -1440,6 +1510,8 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private companion object {
+        /** How long after lift-off to wait for a pending hit test before giving up. */
+        const val TRACKPAD_END_GRACE_MS = 300L
         const val WORD_DELETE_LOOKBEHIND = 64
         /** Long enough for the longest ZWJ emoji sequences (family/flag tags run ~14 chars). */
         const val GRAPHEME_LOOKBEHIND = 32

@@ -1,6 +1,7 @@
 package dev.phucngu.simpletype.ime
 
 import kotlin.math.abs
+import kotlin.math.hypot
 
 sealed interface SpaceAction {
     /** Toggle input language; [direction] is +1 for right, -1 for left. */
@@ -35,6 +36,8 @@ class SpaceDragTracker(
     private val swipeThreshold: Float,
     private val cursorStep: Float,
     private val density: Float = 1f,
+    /** Pointer px per finger px for slow drags (the cursor speed setting). */
+    private val pointerGain: Float = 1f,
 ) {
     private val lineStep = cursorStep * LINE_STEP_FACTOR
     private var startX = 0f
@@ -49,10 +52,14 @@ class SpaceDragTracker(
     private var accY = 0f
     private var swiped = false
     private var cursorMoved = false
+    /** Pointer movement for [TrackpadCursor] not yet taken by [consumePointerDelta], in px. */
+    private var pointerDx = 0f
+    private var pointerDy = 0f
+    private var pointerTravel = 0f
     private var lastTickTime = Long.MIN_VALUE
 
     /** Recent cursor-mode moves, for lift-off compensation. */
-    private class Sample(val time: Long, val steps: Int, val speedDpPerMs: Float)
+    private class Sample(val time: Long, val steps: Int, val speedDpPerMs: Float, val pdx: Float, val pdy: Float)
     private val samples = ArrayDeque<Sample>()
 
     var cursorMode = false
@@ -69,6 +76,9 @@ class SpaceDragTracker(
         accY = 0f
         swiped = false
         cursorMoved = false
+        pointerDx = 0f
+        pointerDy = 0f
+        pointerTravel = 0f
         cursorMode = false
         lastTickTime = Long.MIN_VALUE
         samples.clear()
@@ -108,6 +118,15 @@ class SpaceDragTracker(
     }
 
     private fun cursorMove(dx: Float, dy: Float, timeMs: Long): SpaceAction.CursorMove? {
+        // The trackpad pointer: both axes, no axis lock, accelerated by overall finger speed.
+        val pg = pointerGain * pointerAccel(hypot(vx, vy) / density)
+        val pdx = dx * pg
+        val pdy = dy * pg
+        pointerDx += pdx
+        pointerDy += pdy
+        pointerTravel += hypot(dx, dy)
+        if (pointerTravel >= cursorStep / 2f) cursorMoved = true
+
         val speedX = abs(vx) / density
         val speedY = abs(vy) / density
         var effDx = dx
@@ -122,7 +141,7 @@ class SpaceDragTracker(
         accX -= steps * cursorStep
         accY -= lines * lineStep
 
-        samples.addLast(Sample(timeMs, steps, speedX))
+        samples.addLast(Sample(timeMs, steps, speedX, pdx, pdy))
         while (samples.size > 1 && timeMs - samples.first().time > SAMPLE_HISTORY_MS) samples.removeFirst()
 
         if (steps == 0 && lines == 0) return null
@@ -131,9 +150,22 @@ class SpaceDragTracker(
     }
 
     /** Distance multiplier for a finger moving at [speed] dp/ms: 1 when slow, [MAX_GAIN] when fast. */
-    private fun gain(speed: Float): Float {
+    private fun gain(speed: Float): Float = 1f + (MAX_GAIN - 1f) * speedRamp(speed)
+
+    private fun pointerAccel(speed: Float): Float = 1f + (MAX_POINTER_GAIN - 1f) * speedRamp(speed)
+
+    /** 0 below [SLOW_DP_PER_MS], 1 above [FAST_DP_PER_MS], smooth in between. */
+    private fun speedRamp(speed: Float): Float {
         val t = ((speed - SLOW_DP_PER_MS) / (FAST_DP_PER_MS - SLOW_DP_PER_MS)).coerceIn(0f, 1f)
-        return 1f + (MAX_GAIN - 1f) * t * t * (3f - 2f * t)
+        return t * t * (3f - 2f * t)
+    }
+
+    /** Pointer movement since the last call, in px, for [TrackpadCursor]. */
+    fun consumePointerDelta(): Pair<Float, Float> {
+        val d = pointerDx to pointerDy
+        pointerDx = 0f
+        pointerDy = 0f
+        return d
     }
 
     /**
@@ -143,13 +175,21 @@ class SpaceDragTracker(
     fun up(timeMs: Long): SpaceAction.CursorMove? {
         if (!cursorMode) return null
         val windowStart = timeMs - LIFT_WINDOW_MS
-        val rolled = samples.filter { it.time >= windowStart }.sumOf { it.steps }
-        if (rolled == 0 || abs(rolled) > LIFT_MAX_STEPS) return null
+        val window = samples.filter { it.time >= windowStart }
         val before = samples.lastOrNull { it.time < windowStart }
         val wasResting = before == null ||
             windowStart - before.time >= REST_GAP_MS ||
             before.speedDpPerMs < SLOW_DP_PER_MS
-        return if (wasResting) SpaceAction.CursorMove(-rolled) else null
+        if (!wasResting) return null
+        val rollX = window.sumOf { it.pdx.toDouble() }.toFloat()
+        val rollY = window.sumOf { it.pdy.toDouble() }.toFloat()
+        if (hypot(rollX, rollY) <= LIFT_MAX_STEPS * cursorStep) {
+            pointerDx -= rollX
+            pointerDy -= rollY
+        }
+        val rolled = window.sumOf { it.steps }
+        if (rolled == 0 || abs(rolled) > LIFT_MAX_STEPS) return null
+        return SpaceAction.CursorMove(-rolled)
     }
 
     /** Whether a cursor tick vibration may play at [timeMs]; caps ticks so fast drags don't buzz. */
@@ -169,6 +209,8 @@ class SpaceDragTracker(
         /** At and above this finger speed (1200 dp/s) the drag moves [MAX_GAIN] times as far. */
         const val FAST_DP_PER_MS = 1.2f
         const val MAX_GAIN = 3f
+        /** Pointer px per finger px at and above [FAST_DP_PER_MS], times the pointer gain. */
+        const val MAX_POINTER_GAIN = 2.5f
         /** Time constant of the velocity smoothing. */
         const val VELOCITY_SMOOTHING_MS = 30f
         /** Along-axis velocity must exceed cross-axis velocity by this much to lock the axis. */

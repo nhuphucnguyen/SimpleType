@@ -197,9 +197,11 @@ interface LatinKeyboardListener {
     fun onSpaceSwipe(direction: Int)
     /**
      * Hold-then-drag on space: move the cursor by [steps] characters (negative = left) and
-     * [lines] lines (negative = up).
+     * [lines] lines (negative = up). [dx]/[dy] is the same movement as a trackpad pointer, in px.
      */
-    fun onSpaceCursorMove(steps: Int, lines: Int) {}
+    fun onSpaceCursorMove(steps: Int, lines: Int, dx: Float = 0f, dy: Float = 0f) {}
+    /** Holding space entered cursor mode. */
+    fun onSpaceCursorStart() {}
     /** The space-drag gesture ended: the finger lifted or the gesture was cancelled. */
     fun onSpaceCursorEnd() {}
     fun onShiftHold(active: Boolean)
@@ -321,7 +323,12 @@ fun LatinKeyboard(
 
     val swipeThreshold = 28f * densityFloat
     val spaceDrag = remember(densityFloat, cursorSpeed) {
-        SpaceDragTracker(swipeThreshold, cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat, density = densityFloat)
+        SpaceDragTracker(
+            swipeThreshold,
+            cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat,
+            density = densityFloat,
+            pointerGain = cursorSpeed.coerceIn(CursorSpeed.MIN, CursorSpeed.MAX),
+        )
     }
     // 0 = normal typing, 1 = cursor mode: labels fade out and the space bar turns accent.
     val cursorModeProgress by animateFloatAsState(
@@ -437,6 +444,7 @@ fun LatinKeyboard(
                                                     if (spaceDrag.onHoldElapsed()) {
                                                         touchState.spaceCursorMode = true
                                                         touchState.swipeOffset = 0f
+                                                        listener.onSpaceCursorStart()
                                                         if (hapticEnabled) haptics.longPress(hapticStrength)
                                                     }
                                                 }
@@ -487,9 +495,12 @@ fun LatinKeyboard(
                                                 null -> {}
                                             }
                                         }
+                                        val (pdx, pdy) = spaceDrag.consumePointerDelta()
                                         if (steps != 0 || lines != 0) {
                                             if (spaceDrag.hapticDue(activeChange.uptimeMillis)) hapticTap()
-                                            listener.onSpaceCursorMove(steps, lines)
+                                        }
+                                        if (steps != 0 || lines != 0 || pdx != 0f || pdy != 0f) {
+                                            listener.onSpaceCursorMove(steps, lines, pdx, pdy)
                                         }
                                         activeChange.consume()
                                     } else {
@@ -574,8 +585,10 @@ fun LatinKeyboard(
                                             touchState.activePointerId = null
                                             val wasOnSpace = touchState.downOnSpace
                                             if (wasOnSpace) {
-                                                spaceDrag.up(change.uptimeMillis)?.let {
-                                                    listener.onSpaceCursorMove(it.steps, it.lines)
+                                                val lift = spaceDrag.up(change.uptimeMillis)
+                                                val (pdx, pdy) = spaceDrag.consumePointerDelta()
+                                                if (lift != null || pdx != 0f || pdy != 0f) {
+                                                    listener.onSpaceCursorMove(lift?.steps ?: 0, lift?.lines ?: 0, pdx, pdy)
                                                 }
                                                 listener.onSpaceCursorEnd()
                                             }
