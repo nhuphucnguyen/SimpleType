@@ -138,8 +138,8 @@ class AiTextFixerTest {
         assertEquals("claude-haiku-5-5", body.getString("model"))
         // The Messages API requires max_tokens; output tracks input length with headroom.
         assertTrue(body.getInt("max_tokens") >= 1024)
-        // Subscription OAuth inference is gated on a Claude-Code-shaped request: `system` must
-        // open with the billing tag (values free-form), with our instructions after it.
+        // Subscription inference is gated on a Claude-Code-shaped request: `system` must open
+        // with the billing tag, with our instructions after it.
         val system = body.getString("system")
         assertTrue(system.startsWith("x-anthropic-billing-header: cc_version="))
         assertTrue(system.contains("proofreader"))
@@ -172,6 +172,17 @@ class AiTextFixerTest {
         assertEquals("https://api.anthropic.com", loaded.baseUrl)
         assertEquals("claude-haiku-5-5", loaded.model)
         assertEquals("https://api.anthropic.com/v1/messages", loaded.endpoint)
+    }
+
+    @Test
+    fun claude_request_sends_only_supported_params() = runBlocking {
+        val t = Recorder(HttpResult(200, anthropicReply("ok")))
+        AiTextFixer(claude, t).fix("ok", VoiceLanguage.ENGLISH)
+        val body = JSONObject(t.body)
+        val keys = mutableSetOf<String>()
+        body.keys().forEach { keys.add(it) }
+        // Claude models reject sampling params such as temperature.
+        assertEquals(setOf("model", "max_tokens", "system", "messages"), keys)
     }
 
     private fun freshPrefs(name: String) =

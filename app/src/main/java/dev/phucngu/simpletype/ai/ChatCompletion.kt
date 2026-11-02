@@ -5,8 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * The OpenAI chat-completions wire family (`/chat/completions`), used by GLM and custom
- * endpoints.
+ * The OpenAI chat-completions wire family (`/chat/completions`).
  *
  * Also the shared home for cross-protocol pieces every backend reuses: the proofreader prompt,
  * the user-message wrapper, the reply cleanup ([cleanReply]) and error-message extraction

@@ -8,11 +8,9 @@ import org.json.JSONObject
  * The Anthropic Messages API wire family (`/v1/messages`), used by the Claude subscription
  * provider. Pure functions over strings so the wire format is unit-testable without a network.
  *
- * Subscription OAuth tokens (`sk-ant-oat01-…`) only answer requests shaped like Claude Code: the
- * `system` field must open with Anthropic's billing tag (verified live against
- * api.anthropic.com — values are free-form, but without the tag the API rejects the request with
- * a masked `429 rate_limit_error`). Our proofreader instructions follow in the same block, which
- * the gate explicitly allows.
+ * Subscription tokens only answer Claude-Code-shaped requests: `system` must open with the
+ * billing tag, otherwise the API rejects the call with a masked `429 rate_limit_error`. The
+ * proofreader instructions follow the tag in the same system block.
  */
 object AnthropicMessages : ChatProtocol {
 
@@ -28,11 +26,11 @@ object AnthropicMessages : ChatProtocol {
     override fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
         val messages = JSONArray()
             .put(JSONObject().put("role", "user").put("content", ChatCompletion.userMessage(text, language)))
+        // No sampling params: Claude models reject temperature and friends.
         return JSONObject()
             .put("model", settings.model)
             .put("max_tokens", maxTokensFor(text))
             .put("system", "$BILLING_TAG\n\n${ChatCompletion.SYSTEM_PROMPT}")
-            .put("temperature", 0.2)
             .put("messages", messages)
             .toString()
     }

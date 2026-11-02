@@ -4,10 +4,8 @@ import dev.phucngu.simpletype.voice.VoiceLanguage
 
 /**
  * The wire protocol an [AiProvider] speaks: how a fix request is encoded and how a successful
- * reply is decoded. This is the extension seam for new backend families — implement this
- * interface (see [ChatCompletion] for the OpenAI chat-completions family and [AnthropicMessages]
- * for the Anthropic Messages API), reference the instance from an [AiProvider] entry, and
- * [AiTextFixer] picks it up with no further changes.
+ * reply is decoded. Implement this for a new backend family and reference the instance from an
+ * [AiProvider] entry; [AiTextFixer] picks it up with no further changes.
  *
  * Cross-protocol concerns live elsewhere on purpose: prompts and reply cleanup in
  * [ChatCompletion] (shared by every protocol), error-message extraction and HTTP-status mapping
