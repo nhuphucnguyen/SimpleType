@@ -8,6 +8,7 @@ import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.ExtractedTextRequest
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
@@ -61,6 +62,7 @@ import dev.phucngu.simpletype.text.AutoSwitchSession
 import dev.phucngu.simpletype.text.LanguageAutoSwitch
 import dev.phucngu.simpletype.text.TelexEngine
 import dev.phucngu.simpletype.text.lastGraphemeLength
+import dev.phucngu.simpletype.text.moveByGraphemes
 import dev.phucngu.simpletype.ui.MicPermissionActivity
 import dev.phucngu.simpletype.voice.AsrEngine
 import dev.phucngu.simpletype.voice.AsrListener
@@ -449,6 +451,7 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         selectionSyncJob?.cancel()
+        spaceCursorField = null
         if (voice.isListening) voice.stop()
         aiFix.cancel()
         telex.reset()
@@ -588,19 +591,64 @@ open class SimpleTypeIME : InputMethodService(),
         finishComposing(ic)
         englishKeys.setLength(0)
         autoSwitchSession?.forget()
-        // An arrow key the editor can't act on (left/up at the start, right/down at the end) is
-        // treated as focus navigation and moves focus to a neighbouring view, losing the cursor.
-        // So each key is only sent while there is text on that side of the cursor. Up on the first
-        // line still goes to the start of the text, as the editor does it itself.
-        val keyCode = if (steps < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
-        repeat(abs(steps)) {
-            if (!hasTextToward(ic, backward = steps < 0)) return
-            sendDownUpKeyEvents(keyCode)
+        if (steps != 0 && !moveCursorBySelection(ic, steps)) {
+            sendCursorKeys(ic, steps, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT)
         }
-        val lineKeyCode = if (verticalLines < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN
-        repeat(abs(verticalLines)) {
-            if (!hasTextToward(ic, backward = verticalLines < 0)) return
-            sendDownUpKeyEvents(lineKeyCode)
+        if (verticalLines != 0) {
+            // The editor decides where a line move lands, so the cached cursor is stale after it.
+            spaceCursorField = null
+            sendCursorKeys(ic, verticalLines, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN)
+        }
+    }
+
+    override fun onSpaceCursorEnd() {
+        spaceCursorField = null
+    }
+
+    /** The field's text and our cursor in it, read once per space-drag. */
+    private class SpaceCursorField(val text: CharSequence, var cursor: Int)
+
+    private var spaceCursorField: SpaceCursorField? = null
+
+    /**
+     * Moves the cursor [steps] characters with a single setSelection. One arrow key per character
+     * makes the app process a backlog of key events during a fast drag, so the cursor trails the
+     * finger and catches up after it stops. Returns false where the field's text isn't available
+     * (terminals, editors that don't extract text), so the caller falls back to arrow keys.
+     */
+    private fun moveCursorBySelection(ic: InputConnection, steps: Int): Boolean {
+        if (currentInputEditorInfo?.inputType == InputType.TYPE_NULL) return false
+        val field = spaceCursorField ?: readSpaceCursorField(ic)?.also { spaceCursorField = it } ?: return false
+        val target = moveByGraphemes(field.text, field.cursor, steps)
+        if (target != field.cursor) {
+            ic.setSelection(target, target)
+            field.cursor = target
+        }
+        return true
+    }
+
+    private fun readSpaceCursorField(ic: InputConnection): SpaceCursorField? {
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return null
+        val text = extracted.text ?: return null
+        val cursor = extracted.selectionStart
+        // Only whole-text extractions with a plain cursor: offsets into a partial extraction, or a
+        // selection the arrow keys would collapse, aren't worth special-casing.
+        if (extracted.startOffset != 0 || cursor != extracted.selectionEnd || cursor !in 0..text.length) return null
+        return SpaceCursorField(text, cursor)
+    }
+
+    /**
+     * An arrow key the editor can't act on (left/up at the start, right/down at the end) is
+     * treated as focus navigation and moves focus to a neighbouring view, losing the cursor. So
+     * each key is only sent while there is text on that side of the cursor. Up on the first line
+     * still goes to the start of the text, as the editor does it itself.
+     */
+    private fun sendCursorKeys(ic: InputConnection, count: Int, backwardKey: Int, forwardKey: Int) {
+        val backward = count < 0
+        val keyCode = if (backward) backwardKey else forwardKey
+        for (i in 0 until abs(count)) {
+            if (!hasTextToward(ic, backward)) break
+            sendDownUpKeyEvents(keyCode)
         }
     }
 

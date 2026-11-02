@@ -200,6 +200,8 @@ interface LatinKeyboardListener {
      * [lines] lines (negative = up).
      */
     fun onSpaceCursorMove(steps: Int, lines: Int) {}
+    /** The space-drag gesture ended: the finger lifted or the gesture was cancelled. */
+    fun onSpaceCursorEnd() {}
     fun onShiftHold(active: Boolean)
     /** A completed swipe-to-type gesture over the letter keys. */
     fun onGlideTyped(path: List<GesturePoint>, geometry: KeyGeometry) {}
@@ -319,7 +321,7 @@ fun LatinKeyboard(
 
     val swipeThreshold = 28f * densityFloat
     val spaceDrag = remember(densityFloat, cursorSpeed) {
-        SpaceDragTracker(swipeThreshold, cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat)
+        SpaceDragTracker(swipeThreshold, cursorStep = CursorSpeed.stepDp(cursorSpeed) * densityFloat, density = densityFloat)
     }
     // 0 = normal typing, 1 = cursor mode: labels fade out and the space bar turns accent.
     val cursorModeProgress by animateFloatAsState(
@@ -429,7 +431,7 @@ fun LatinKeyboard(
                                             }
 
                                             if (touchState.downOnSpace) {
-                                                spaceDrag.down(pos.x, pos.y)
+                                                spaceDrag.down(pos.x, pos.y, change.uptimeMillis)
                                                 longPressJob = scope.launch {
                                                     delay(LONG_PRESS_MS)
                                                     if (spaceDrag.onHoldElapsed()) {
@@ -464,18 +466,30 @@ fun LatinKeyboard(
                                         if (!touchState.spaceCursorMode) {
                                             touchState.swipeOffset = pos.x - touchState.swipeStartX
                                         }
-                                        when (val action = spaceDrag.move(pos.x, pos.y)) {
-                                            is SpaceAction.LanguageSwipe -> {
-                                                longPressJob?.cancel()
-                                                touchState.swipeFired = true
-                                                hapticTap()
-                                                listener.onSpaceSwipe(action.direction)
+                                        // Feed every sample the frame batched, so the tracker sees the
+                                        // finger's real speed; the cursor then moves once per frame.
+                                        var steps = 0
+                                        var lines = 0
+                                        val samples = activeChange.historical.map { Triple(it.position.x, it.position.y, it.uptimeMillis) } +
+                                            Triple(pos.x, pos.y, activeChange.uptimeMillis)
+                                        for ((x, y, t) in samples) {
+                                            when (val action = spaceDrag.move(x, y, t)) {
+                                                is SpaceAction.LanguageSwipe -> {
+                                                    longPressJob?.cancel()
+                                                    touchState.swipeFired = true
+                                                    hapticTap()
+                                                    listener.onSpaceSwipe(action.direction)
+                                                }
+                                                is SpaceAction.CursorMove -> {
+                                                    steps += action.steps
+                                                    lines += action.lines
+                                                }
+                                                null -> {}
                                             }
-                                            is SpaceAction.CursorMove -> {
-                                                hapticTap()
-                                                listener.onSpaceCursorMove(action.steps, action.lines)
-                                            }
-                                            null -> {}
+                                        }
+                                        if (steps != 0 || lines != 0) {
+                                            if (spaceDrag.hapticDue(activeChange.uptimeMillis)) hapticTap()
+                                            listener.onSpaceCursorMove(steps, lines)
                                         }
                                         activeChange.consume()
                                     } else {
@@ -559,6 +573,12 @@ fun LatinKeyboard(
                                             pressedPlacement = null
                                             touchState.activePointerId = null
                                             val wasOnSpace = touchState.downOnSpace
+                                            if (wasOnSpace) {
+                                                spaceDrag.up(change.uptimeMillis)?.let {
+                                                    listener.onSpaceCursorMove(it.steps, it.lines)
+                                                }
+                                                listener.onSpaceCursorEnd()
+                                            }
                                             touchState.downOnSpace = false
                                             touchState.spaceCursorMode = false
                                             touchState.swipeOffset = 0f
@@ -582,6 +602,7 @@ fun LatinKeyboard(
                     } finally {
                         repeatJob?.cancel()
                         longPressJob?.cancel()
+                        if (touchState.downOnSpace) listener.onSpaceCursorEnd()
                         pressedPlacement = null
                         touchState.activePointerId = null
                         touchState.downOnSpace = false
