@@ -1025,6 +1025,12 @@ private fun AiSettingsContent(
             onClick = { onProviderChange(AiProvider.GLM_CODING_PLAN) },
         )
         ChoiceRow(
+            title = stringResource(R.string.ai_provider_claude),
+            desc = stringResource(R.string.ai_provider_claude_desc),
+            selected = settings.provider == AiProvider.CLAUDE_SUBSCRIPTION,
+            onClick = { onProviderChange(AiProvider.CLAUDE_SUBSCRIPTION) },
+        )
+        ChoiceRow(
             title = stringResource(R.string.ai_provider_custom),
             desc = stringResource(R.string.ai_provider_custom_desc),
             selected = settings.provider == AiProvider.CUSTOM,

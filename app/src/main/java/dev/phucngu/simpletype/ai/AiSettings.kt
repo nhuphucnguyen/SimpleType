@@ -3,8 +3,8 @@ package dev.phucngu.simpletype.ai
 import android.content.SharedPreferences
 
 /**
- * A chat-completions backend the text fixer can call. Every provider speaks the OpenAI
- * `/chat/completions` format; the GLM Coding Plan is first-class and only needs an API key.
+ * A chat backend the text fixer can call. Most providers speak the OpenAI `/chat/completions`
+ * format; Anthropic's Messages API is the exception and gets its own request/response handling.
  */
 enum class AiProvider(
     val defaultBaseUrl: String,
@@ -12,12 +12,21 @@ enum class AiProvider(
     val models: List<String>,
     /** GLM-5.3 models always think; the request sets their thinking and sampling params. */
     val isGlm: Boolean,
+    /** Anthropic Messages API (`/v1/messages`), not OpenAI chat-completions. */
+    val isAnthropic: Boolean,
 ) {
     /** GLM models billed against a GLM Coding Plan subscription. Flash first: fastest in testing. */
-    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", listOf("glm-5.3-flash", "glm-5.3"), isGlm = true),
+    GLM_CODING_PLAN("https://api.z.ai/api/coding/paas/v4", listOf("glm-5.3-flash", "glm-5.3"), isGlm = true, isAnthropic = false),
+
+    /**
+     * Claude models billed to a Claude subscription. The user pastes a long-lived setup token
+     * (minted by `claude setup-token`, `sk-ant-oat01-…`) as the API key; the token mint itself
+     * happens outside the keyboard.
+     */
+    CLAUDE_SUBSCRIPTION("https://api.anthropic.com", listOf("claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"), isGlm = false, isAnthropic = true),
 
     /** Any OpenAI-compatible endpoint; base URL and model are user-supplied. */
-    CUSTOM("", emptyList(), isGlm = false);
+    CUSTOM("", emptyList(), isGlm = false, isAnthropic = false);
 
     val defaultModel: String get() = models.firstOrNull() ?: ""
 }
@@ -32,11 +41,12 @@ data class AiSettings(
     val isConfigured: Boolean
         get() = apiKey.isNotBlank() && model.isNotBlank() && baseUrl.isNotBlank()
 
-    /** Full chat-completions URL, tolerating a trailing slash or a pasted full path. */
+    /** Full request URL, tolerating a trailing slash or a pasted full path. */
     val endpoint: String
         get() {
             val base = baseUrl.trim().trimEnd('/')
-            return if (base.endsWith("/chat/completions")) base else "$base/chat/completions"
+            val path = if (provider.isAnthropic) "/v1/messages" else "/chat/completions"
+            return if (base.endsWith(path)) base else "$base$path"
         }
 
     companion object {

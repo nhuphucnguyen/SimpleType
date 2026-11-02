@@ -175,6 +175,8 @@
     <string name="ai_provider_title">Provider</string>
     <string name="ai_provider_glm_coding">GLM Coding Plan</string>
     <string name="ai_provider_glm_coding_desc">Z.ai API key, billed to your GLM Coding Plan</string>
+    <string name="ai_provider_claude">Claude Subscription</string>
+    <string name="ai_provider_claude_desc">Setup token from the Claude CLI (starts sk-ant-oat01-…), billed to your Claude plan</string>
     <string name="ai_model_title">Model</string>
     <string name="ai_model_fast_desc">Fastest. Recommended</string>
     <string name="ai_model_strong_desc">Larger model, noticeably slower</string>

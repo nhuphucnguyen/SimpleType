@@ -20,9 +20,16 @@ import org.robolectric.annotation.Config
 class AiTextFixerTest {
 
     private val glm = AiSettings(AiProvider.GLM_CODING_PLAN, "sk-test", "glm-5.3", AiProvider.GLM_CODING_PLAN.defaultBaseUrl)
+    private val claude = AiSettings(AiProvider.CLAUDE_SUBSCRIPTION, "sk-ant-oat01-test", "claude-haiku-5-5", AiProvider.CLAUDE_SUBSCRIPTION.defaultBaseUrl)
 
     private fun reply(content: String) = JSONObject()
         .put("choices", org.json.JSONArray().put(JSONObject().put("message", JSONObject().put("role", "assistant").put("content", content))))
+        .toString()
+
+    private fun anthropicReply(vararg texts: String) = JSONObject()
+        .put("content", org.json.JSONArray().apply {
+            texts.forEach { put(JSONObject().put("type", "text").put("text", it)) }
+        })
         .toString()
 
     private class Recorder(val result: HttpResult) : HttpTransport {
@@ -117,6 +124,54 @@ class AiTextFixerTest {
         assertEquals("Hi.", ChatCompletion.cleanReply("\"Hi.\"", "hi"))
         // Quotes the user actually wrote are kept.
         assertEquals("\"Hi.\"", ChatCompletion.cleanReply("\"Hi.\"", "\"hi\""))
+    }
+
+    @Test
+    fun claude_subscription_sends_messages_api_request_with_billing_tag() = runBlocking {
+        val t = Recorder(HttpResult(200, anthropicReply("I have 2 apples.")))
+        AiTextFixer(claude, t).fix("i have two apples", VoiceLanguage.ENGLISH)
+
+        assertEquals("https://api.anthropic.com/v1/messages", t.url)
+        assertEquals("Bearer sk-ant-oat01-test", t.headers["Authorization"])
+        assertEquals("2023-06-01", t.headers["anthropic-version"])
+        val body = JSONObject(t.body)
+        assertEquals("claude-haiku-5-5", body.getString("model"))
+        // The Messages API requires max_tokens; output tracks input length with headroom.
+        assertTrue(body.getInt("max_tokens") >= 1024)
+        // Subscription OAuth inference is gated on a Claude-Code-shaped request: `system` must
+        // open with the billing tag (values free-form), with our instructions after it.
+        val system = body.getString("system")
+        assertTrue(system.startsWith("x-anthropic-billing-header: cc_version="))
+        assertTrue(system.contains("proofreader"))
+        val messages = body.getJSONArray("messages")
+        assertEquals("user", messages.getJSONObject(0).getString("role"))
+        assertTrue(messages.getJSONObject(0).getString("content").contains("<text>\ni have two apples\n</text>"))
+    }
+
+    @Test
+    fun claude_reply_joins_content_text_blocks() = runBlocking {
+        val t = Recorder(HttpResult(200, anthropicReply("I have 2", " apples.")))
+        assertEquals("I have 2 apples. ", AiTextFixer(claude, t).fix("i have two apples ", VoiceLanguage.ENGLISH))
+    }
+
+    @Test
+    fun claude_unauthorized_maps_to_auth_error_with_server_message() = runBlocking {
+        val t = Recorder(HttpResult(401, """{"type":"error","error":{"type":"authentication_error","message":"invalid token"}}"""))
+        try {
+            AiTextFixer(claude, t).fix("x", VoiceLanguage.ENGLISH)
+            fail("expected AiException")
+        } catch (e: AiException) {
+            assertEquals(AiException.Kind.AUTH, e.kind)
+            assertEquals("invalid token", e.message)
+        }
+    }
+
+    @Test
+    fun claude_settings_default_to_haiku_on_anthropic_base() {
+        val loaded = AiSettings.forProvider(freshPrefs("ai_claude_default"), AiProvider.CLAUDE_SUBSCRIPTION)
+        assertEquals("https://api.anthropic.com", loaded.baseUrl)
+        assertEquals("claude-haiku-5-5", loaded.model)
+        assertEquals("https://api.anthropic.com/v1/messages", loaded.endpoint)
     }
 
     private fun freshPrefs(name: String) =
