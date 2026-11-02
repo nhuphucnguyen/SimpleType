@@ -67,6 +67,8 @@ object LatinKeyboardView {
     const val PREF_HAPTIC_STRENGTH = "kb_haptic_strength"
     const val PREF_GLIDE = "kb_glide"
     const val PREF_CURSOR_SPEED = "kb_cursor_speed"
+    /** Tick while the space-drag cursor moves. Off by default: a buzz per character is a lot. */
+    const val PREF_CURSOR_HAPTIC = "kb_cursor_haptic"
     const val DEFAULT_HAPTIC_PERCENT = 60
     const val DEFAULT_HAPTIC_STRENGTH = DEFAULT_HAPTIC_PERCENT / 100f
 }
@@ -256,6 +258,7 @@ fun LatinKeyboard(
     var hapticEnabled by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_HAPTIC, true)) }
     var hapticPercent by remember { mutableStateOf(prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)) }
     var cursorSpeed by remember { mutableStateOf(prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)) }
+    var cursorHaptic by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_CURSOR_HAPTIC, false)) }
 
     DisposableEffect(prefs) {
         val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -265,6 +268,8 @@ fun LatinKeyboard(
                 hapticPercent = prefs.getInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
             } else if (key == LatinKeyboardView.PREF_CURSOR_SPEED) {
                 cursorSpeed = prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
+            } else if (key == LatinKeyboardView.PREF_CURSOR_HAPTIC) {
+                cursorHaptic = prefs.getBoolean(LatinKeyboardView.PREF_CURSOR_HAPTIC, false)
             }
         }
         prefs.registerOnSharedPreferenceChangeListener(listener)
@@ -497,7 +502,7 @@ fun LatinKeyboard(
                                         }
                                         val (pdx, pdy) = spaceDrag.consumePointerDelta()
                                         if (steps != 0 || lines != 0) {
-                                            if (spaceDrag.hapticDue(activeChange.uptimeMillis)) hapticTap()
+                                            if (cursorHaptic && spaceDrag.hapticDue(activeChange.uptimeMillis)) hapticTap()
                                         }
                                         if (steps != 0 || lines != 0 || pdx != 0f || pdy != 0f) {
                                             listener.onSpaceCursorMove(steps, lines, pdx, pdy)

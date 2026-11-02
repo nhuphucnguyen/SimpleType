@@ -552,6 +552,7 @@ fun SettingsScreen(
     var cursorSpeed by remember {
         mutableStateOf(prefs.getFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT))
     }
+    var cursorHaptic by remember { mutableStateOf(prefs.getBoolean(LatinKeyboardView.PREF_CURSOR_HAPTIC, false)) }
     val installedText = stringResource(R.string.model_installed)
     val aiPrefs = remember(context) { context.getSharedPreferences(AiSettings.PREFS_NAME, Context.MODE_PRIVATE) }
     var aiSettings by remember { mutableStateOf(AiSettings.load(aiPrefs)) }
@@ -821,6 +822,15 @@ fun SettingsScreen(
                         valueRange = CursorSpeed.MIN..CursorSpeed.MAX,
                         steps = ((CursorSpeed.MAX - CursorSpeed.MIN) / CursorSpeed.INCREMENT).toInt() - 1,
                     )
+                    ToggleRow(
+                        title = stringResource(R.string.cursor_haptic_title),
+                        desc = stringResource(R.string.cursor_haptic_desc),
+                        checked = cursorHaptic,
+                        onCheckedChange = { checked ->
+                            cursorHaptic = checked
+                            prefs.edit().putBoolean(LatinKeyboardView.PREF_CURSOR_HAPTIC, checked).apply()
+                        },
+                    )
                 }
 
                 SettingsCard {
@@ -862,6 +872,7 @@ fun SettingsScreen(
                         hapticEnabled = true
                         hapticLevel = 2
                         cursorSpeed = CursorSpeed.DEFAULT
+                        cursorHaptic = false
                         prefs.edit()
                             .putBoolean(LatinKeyboardView.PREF_GLIDE, true)
                             .putBoolean(WordPredictions.PREF_ENABLED, true)
@@ -869,6 +880,7 @@ fun SettingsScreen(
                             .putBoolean(LatinKeyboardView.PREF_HAPTIC, true)
                             .putInt(LatinKeyboardView.PREF_HAPTIC_STRENGTH, LatinKeyboardView.DEFAULT_HAPTIC_PERCENT)
                             .putFloat(LatinKeyboardView.PREF_CURSOR_SPEED, CursorSpeed.DEFAULT)
+                            .putBoolean(LatinKeyboardView.PREF_CURSOR_HAPTIC, false)
                             .apply()
                     },
                     modifier = Modifier.fillMaxWidth()

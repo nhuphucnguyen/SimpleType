@@ -132,6 +132,8 @@
     <string name="cursor_speed_desc">Hold the space bar, then drag to move the cursor.</string>
     <string name="cursor_speed_label">Cursor speed</string>
     <string name="cursor_speed_value">%1$s×</string>
+    <string name="cursor_haptic_title">Vibrate while moving</string>
+    <string name="cursor_haptic_desc">Tick as the cursor passes each character.</string>
     <string name="size_haptic_strength">Vibration strength: %1$s</string>
     <!-- Anchor labels under the slider; keep in sync with the ends/centre of haptic_levels. -->
     <string name="haptic_level_min">Subtle</string>
