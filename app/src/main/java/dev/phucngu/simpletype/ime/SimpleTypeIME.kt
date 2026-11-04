@@ -453,6 +453,8 @@ open class SimpleTypeIME : InputMethodService(),
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
         selectionSyncJob?.cancel()
         spaceCursorField = null
+        spaceDragging = false
+        syncDeferredByDrag = false
         stopTrackpad()
         if (voice.isListening) voice.stop()
         aiFix.cancel()
@@ -489,12 +491,25 @@ open class SimpleTypeIME : InputMethodService(),
         // extend the burst. Handling each update synchronously starves touch events,
         // which turns the next glide gesture into a sparse, mis-decoded path. Debounce
         // so a burst collapses into a single re-sync once the updates settle.
+        pendingSyncCursor = newSelStart
+        if (spaceDragging) {
+            // Picking up the word under the caret would underline it at every step of the drag;
+            // onSpaceCursorEnd re-syncs once where the caret lands.
+            selectionSyncJob?.cancel()
+            selectionSyncJob = null
+            syncDeferredByDrag = true
+            return
+        }
+        scheduleSelectionSync()
+    }
+
+    private fun scheduleSelectionSync() {
+        val cursor = pendingSyncCursor
         selectionSyncJob?.cancel()
         selectionSyncJob = imeScope.launch {
             delay(SELECTION_SYNC_DEBOUNCE_MS)
-            syncSelection(newSelStart)
+            syncSelection(cursor)
         }
-        pendingSyncCursor = newSelStart
     }
 
     /**
@@ -617,6 +632,10 @@ open class SimpleTypeIME : InputMethodService(),
     /** Trackpad-style cursor for the current space-drag, while the editor reports its caret. */
     private var trackpadSession: TrackpadSession? = null
     private var trackpadEnding = false
+    /** A space-drag is moving the cursor: hold off the selection re-sync until it ends. */
+    private var spaceDragging = false
+    /** The cursor moved during the space-drag, so its end owes a selection re-sync. */
+    private var syncDeferredByDrag = false
     private val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val stopTrackpadRunnable = Runnable { stopTrackpad() }
     /** Created on first use: most sessions never drag the cursor. */
@@ -624,6 +643,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onSpaceCursorStart() {
         stopTrackpad()
+        spaceDragging = true
         val ic = currentInputConnection ?: return
         val info = currentInputEditorInfo
         if (info?.inputType == InputType.TYPE_NULL) return
@@ -657,6 +677,11 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onSpaceCursorEnd() {
         spaceCursorField = null
+        spaceDragging = false
+        if (syncDeferredByDrag) {
+            syncDeferredByDrag = false
+            scheduleSelectionSync()
+        }
         ghostCursor?.hide()
         val session = trackpadSession ?: return
         if (session.cursor.awaitingHit) {
