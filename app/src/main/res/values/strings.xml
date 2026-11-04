@@ -192,4 +192,10 @@
     <string name="ai_testing">Testing…</string>
     <string name="ai_test_sample">i have too apples and fourty five dollar its ok</string>
     <string name="ai_test_ok">Works: “%1$s”</string>
+    <string name="ai_prompt_override">Custom system prompt</string>
+    <string name="ai_prompt_override_desc">Replace the built-in proofreading instructions. Turn off to go back to the built-in prompt; your text is kept.</string>
+    <string name="ai_prompt_label">System prompt</string>
+    <string name="ai_prompt_hint">Used for every provider. The text to fix is sent inside &lt;text&gt; tags.</string>
+    <string name="ai_prompt_blank_hint">Empty: the built-in prompt is used</string>
+    <string name="ai_prompt_reset">Reset to built-in prompt</string>
 </resources>

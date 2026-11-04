@@ -10,7 +10,7 @@ import org.json.JSONObject
  *
  * Subscription tokens only answer Claude-Code-shaped requests: `system` must open with the
  * billing tag, otherwise the API rejects the call with a masked `429 rate_limit_error`. The
- * proofreader instructions follow the tag in the same system block.
+ * proofreader instructions (built-in or the user's override) follow the tag in the same block.
  */
 object AnthropicMessages : ChatProtocol {
 
@@ -30,10 +30,19 @@ object AnthropicMessages : ChatProtocol {
         return JSONObject()
             .put("model", settings.model)
             .put("max_tokens", maxTokensFor(text))
-            .put("system", "$BILLING_TAG\n\n${ChatCompletion.SYSTEM_PROMPT}")
+            // The tag stays first even with a user-supplied prompt: without it the token is refused.
+            // It gets a block of its own, as Claude Code sends it: the API consumes that block as
+            // billing metadata, so instructions placed in it never reach the model.
+            .put(
+                "system", JSONArray()
+                    .put(textBlock(BILLING_TAG))
+                    .put(textBlock(settings.systemPrompt)),
+            )
             .put("messages", messages)
             .toString()
     }
+
+    private fun textBlock(text: String) = JSONObject().put("type", "text").put("text", text)
 
     /** The Messages API demands max_tokens; output tracks input length with headroom for fixes. */
     fun maxTokensFor(text: String): Int = (text.length * 2 + 512).coerceIn(1024, 8192)

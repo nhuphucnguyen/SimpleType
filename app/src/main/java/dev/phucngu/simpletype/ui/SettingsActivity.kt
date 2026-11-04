@@ -55,6 +55,7 @@ import dev.phucngu.simpletype.ai.AiException
 import dev.phucngu.simpletype.ai.AiProvider
 import dev.phucngu.simpletype.ai.AiSettings
 import dev.phucngu.simpletype.ai.AiTextFixer
+import dev.phucngu.simpletype.ai.ChatCompletion
 import dev.phucngu.simpletype.ai.describe
 import dev.phucngu.simpletype.ime.HapticPlayer
 import dev.phucngu.simpletype.ime.keyboard.layout.QwertyKeyboardLayout
@@ -1120,6 +1121,43 @@ private fun AiSettingsContent(
             }
             testResult?.let {
                 Text(it, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+
+    SettingsCard(spacing = 12.dp) {
+        ToggleRow(
+            title = stringResource(R.string.ai_prompt_override),
+            desc = stringResource(R.string.ai_prompt_override_desc),
+            checked = settings.promptOverride,
+            onCheckedChange = { on ->
+                // First time on: start from the built-in prompt so there is something to edit.
+                val text = settings.customPrompt.ifBlank { ChatCompletion.SYSTEM_PROMPT }
+                onChange(settings.copy(promptOverride = on, customPrompt = if (on) text else settings.customPrompt))
+            },
+        )
+        if (settings.promptOverride) {
+            OutlinedTextField(
+                value = settings.customPrompt,
+                onValueChange = { onChange(settings.copy(customPrompt = it)) },
+                label = { Text(stringResource(R.string.ai_prompt_label)) },
+                minLines = 6,
+                maxLines = 16,
+                textStyle = MaterialTheme.typography.bodySmall,
+                supportingText = {
+                    Text(
+                        stringResource(
+                            if (settings.customPrompt.isBlank()) R.string.ai_prompt_blank_hint else R.string.ai_prompt_hint
+                        )
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            TextButton(
+                onClick = { onChange(settings.copy(customPrompt = ChatCompletion.SYSTEM_PROMPT)) },
+                enabled = settings.customPrompt != ChatCompletion.SYSTEM_PROMPT,
+            ) {
+                Text(stringResource(R.string.ai_prompt_reset))
             }
         }
     }

@@ -32,13 +32,27 @@ enum class AiProvider(
     val defaultModel: String get() = models.firstOrNull() ?: ""
 }
 
-/** The user's AI configuration: which provider, and the key/model/URL to call it with. */
+/**
+ * The user's AI configuration: which provider, the key/model/URL to call it with, and an optional
+ * system prompt override shared by every provider.
+ */
 data class AiSettings(
     val provider: AiProvider,
     val apiKey: String,
     val model: String,
     val baseUrl: String,
+    /** When on, [customPrompt] replaces the built-in proofreader prompt. */
+    val promptOverride: Boolean = false,
+    /** Kept while [promptOverride] is off so switching it back on restores the user's text. */
+    val customPrompt: String = "",
 ) {
+    /**
+     * The instructions to send: the user's prompt when the override is on and non-blank, else the
+     * built-in one. Protocols wrap this as they need (Claude prepends its billing tag).
+     */
+    val systemPrompt: String
+        get() = customPrompt.takeIf { promptOverride && it.isNotBlank() } ?: ChatCompletion.SYSTEM_PROMPT
+
     val isConfigured: Boolean
         get() = apiKey.isNotBlank() && model.isNotBlank() && baseUrl.isNotBlank()
 
@@ -53,6 +67,8 @@ data class AiSettings(
         /** Separate from the keyboard prefs so API keys can be excluded from backups. */
         const val PREFS_NAME = "simpletype_ai"
         private const val KEY_PROVIDER = "provider"
+        private const val KEY_PROMPT_OVERRIDE = "system_prompt_override"
+        private const val KEY_CUSTOM_PROMPT = "system_prompt_custom"
 
         /** Pre-release preset (GLM-5.3 Flash on the general API); its key works on the Coding Plan. */
         private const val LEGACY_GLM_FLASH = "GLM_FLASH"
@@ -92,6 +108,8 @@ data class AiSettings(
                 } else {
                     provider.defaultBaseUrl
                 },
+                promptOverride = prefs.getBoolean(KEY_PROMPT_OVERRIDE, false),
+                customPrompt = prefs.getString(KEY_CUSTOM_PROMPT, "") ?: "",
             )
         }
 
@@ -101,6 +119,8 @@ data class AiSettings(
                 .putString(KEY_PROVIDER, p.name)
                 .putString(keyFor(p), settings.apiKey.trim())
                 .putString(modelFor(p), settings.model.trim())
+                .putBoolean(KEY_PROMPT_OVERRIDE, settings.promptOverride)
+                .putString(KEY_CUSTOM_PROMPT, settings.customPrompt)
                 .apply { if (p == AiProvider.CUSTOM) putString(baseUrlFor(p), settings.baseUrl.trim()) }
                 .apply()
         }

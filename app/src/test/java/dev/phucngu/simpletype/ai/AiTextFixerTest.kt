@@ -140,12 +140,27 @@ class AiTextFixerTest {
         assertTrue(body.getInt("max_tokens") >= 1024)
         // Subscription inference is gated on a Claude-Code-shaped request: `system` must open
         // with the billing tag, with our instructions after it.
-        val system = body.getString("system")
-        assertTrue(system.startsWith("x-anthropic-billing-header: cc_version="))
-        assertTrue(system.contains("proofreader"))
+        // The tag goes in its own block, as Claude Code sends it: the API treats that block as
+        // billing metadata, so instructions sharing it are lost (Sonnet then answered the text
+        // as a chat message instead of proofreading it).
+        val system = body.getJSONArray("system")
+        assertEquals(2, system.length())
+        val tag = system.getJSONObject(0).getString("text")
+        assertTrue(tag.startsWith("x-anthropic-billing-header: cc_version="))
+        assertTrue(!tag.contains("proofreader"))
+        assertEquals(ChatCompletion.SYSTEM_PROMPT, system.getJSONObject(1).getString("text"))
         val messages = body.getJSONArray("messages")
         assertEquals("user", messages.getJSONObject(0).getString("role"))
         assertTrue(messages.getJSONObject(0).getString("content").contains("<text>\ni have two apples\n</text>"))
+    }
+
+    @Test
+    fun user_message_restates_the_task_next_to_the_text() {
+        // Models read the user turn closest; it must say the text is to be corrected, not answered.
+        val msg = ChatCompletion.userMessage("Cô bê làm gì?", VoiceLanguage.VIETNAMESE)
+        assertTrue(msg.contains("Proofread"))
+        assertTrue(msg.contains("Do not answer"))
+        assertTrue(msg.contains("<text>\nCô bê làm gì?\n</text>"))
     }
 
     @Test
@@ -183,6 +198,57 @@ class AiTextFixerTest {
         body.keys().forEach { keys.add(it) }
         // Claude models reject sampling params such as temperature.
         assertEquals(setOf("model", "max_tokens", "system", "messages"), keys)
+    }
+
+    @Test
+    fun default_prompt_is_used_when_override_is_off_even_if_text_is_saved() = runBlocking {
+        val t = Recorder(HttpResult(200, reply("ok")))
+        AiTextFixer(glm.copy(promptOverride = false, customPrompt = "Be a pirate."), t).fix("ok", VoiceLanguage.ENGLISH)
+        val system = JSONObject(t.body).getJSONArray("messages").getJSONObject(0).getString("content")
+        assertEquals(ChatCompletion.SYSTEM_PROMPT, system)
+    }
+
+    @Test
+    fun custom_prompt_replaces_system_message_on_openai_family() = runBlocking {
+        val t = Recorder(HttpResult(200, reply("ok")))
+        AiTextFixer(glm.copy(promptOverride = true, customPrompt = "Be a pirate."), t).fix("ok", VoiceLanguage.ENGLISH)
+        val system = JSONObject(t.body).getJSONArray("messages").getJSONObject(0).getString("content")
+        assertEquals("Be a pirate.", system)
+    }
+
+    @Test
+    fun blank_custom_prompt_falls_back_to_default() = runBlocking {
+        val t = Recorder(HttpResult(200, reply("ok")))
+        AiTextFixer(glm.copy(promptOverride = true, customPrompt = "  \n "), t).fix("ok", VoiceLanguage.ENGLISH)
+        val system = JSONObject(t.body).getJSONArray("messages").getJSONObject(0).getString("content")
+        assertEquals(ChatCompletion.SYSTEM_PROMPT, system)
+    }
+
+    @Test
+    fun claude_custom_prompt_keeps_billing_tag_first() = runBlocking {
+        val t = Recorder(HttpResult(200, anthropicReply("ok")))
+        AiTextFixer(claude.copy(promptOverride = true, customPrompt = "Be a pirate."), t).fix("ok", VoiceLanguage.ENGLISH)
+        val system = JSONObject(t.body).getJSONArray("system")
+        // Subscription tokens are rejected without the tag, so a custom prompt must never drop it.
+        assertTrue(system.getJSONObject(0).getString("text").startsWith("x-anthropic-billing-header: cc_version="))
+        assertEquals("Be a pirate.", system.getJSONObject(1).getString("text"))
+        assertFalse(system.toString().contains("proofreader"))
+    }
+
+    @Test
+    fun prompt_override_is_shared_across_providers_and_round_trips() {
+        val prefs = freshPrefs("ai_prompt")
+        AiSettings.save(prefs, glm.copy(promptOverride = true, customPrompt = "Be a pirate."))
+        val claudeLoaded = AiSettings.forProvider(prefs, AiProvider.CLAUDE_SUBSCRIPTION)
+        assertTrue(claudeLoaded.promptOverride)
+        assertEquals("Be a pirate.", claudeLoaded.customPrompt)
+
+        // Turning the override off keeps the text, so turning it back on restores it.
+        AiSettings.save(prefs, claudeLoaded.copy(promptOverride = false))
+        val off = AiSettings.load(prefs)
+        assertFalse(off.promptOverride)
+        assertEquals("Be a pirate.", off.customPrompt)
+        assertEquals(ChatCompletion.SYSTEM_PROMPT, off.systemPrompt)
     }
 
     private fun freshPrefs(name: String) =
