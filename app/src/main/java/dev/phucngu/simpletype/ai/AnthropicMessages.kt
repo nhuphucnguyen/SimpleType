@@ -39,8 +39,31 @@ object AnthropicMessages : ChatProtocol {
                     .put(textBlock(settings.systemPrompt)),
             )
             .put("messages", messages)
+            // A forced tool call: Claude cannot write prose before or around it, so musings like
+            // "Hmm, this is likely Kobe..." never reach the text field.
+            .put("tools", JSONArray().put(correctionTool()))
+            .put("tool_choice", JSONObject().put("type", "tool").put("name", TOOL_NAME))
             .toString()
     }
+
+    /** The only tool Claude is offered and must call; its `text` argument is the reply. */
+    const val TOOL_NAME = "submit_corrected_text"
+
+    private fun correctionTool() = JSONObject()
+        .put("name", TOOL_NAME)
+        .put("description", "Submit the corrected text. It replaces the user's text verbatim, so pass only the text itself.")
+        .put(
+            "input_schema", JSONObject()
+                .put("type", "object")
+                .put(
+                    "properties", JSONObject().put(
+                        "text", JSONObject()
+                            .put("type", "string")
+                            .put("description", "The full corrected text, nothing else."),
+                    ),
+                )
+                .put("required", JSONArray().put("text")),
+        )
 
     private fun textBlock(text: String) = JSONObject().put("type", "text").put("text", text)
 
@@ -58,6 +81,14 @@ object AnthropicMessages : ChatProtocol {
             throw AiException(AiException.Kind.SERVER, err.optString("message", err.toString()))
         }
         val content = root.optJSONArray("content") ?: JSONArray()
+        // The tool call is authoritative; text blocks are only a fallback should a model skip it.
+        for (i in 0 until content.length()) {
+            val block = content.optJSONObject(i) ?: continue
+            if (block.optString("type") == "tool_use" && block.optString("name") == TOOL_NAME) {
+                val fixed = block.optJSONObject("input")?.optString("text", "").orEmpty()
+                if (fixed.isNotBlank()) return fixed
+            }
+        }
         val text = buildString {
             for (i in 0 until content.length()) {
                 val block = content.optJSONObject(i) ?: continue

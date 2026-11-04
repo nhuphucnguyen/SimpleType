@@ -155,6 +155,36 @@ class AiTextFixerTest {
     }
 
     @Test
+    fun claude_is_forced_to_answer_through_the_correction_tool() = runBlocking {
+        // Sonnet "thought aloud" in plain text (draft, "Hmm, ...", final). A forced tool call
+        // leaves no room for prose: the reply is the tool's single text argument.
+        val t = Recorder(HttpResult(200, anthropicReply("ok")))
+        AiTextFixer(claude, t).fix("ok", VoiceLanguage.ENGLISH)
+        val body = JSONObject(t.body)
+        val tool = body.getJSONArray("tools").getJSONObject(0)
+        assertEquals(AnthropicMessages.TOOL_NAME, tool.getString("name"))
+        val schema = tool.getJSONObject("input_schema")
+        assertEquals("text", schema.getJSONArray("required").getString(0))
+        val choice = body.getJSONObject("tool_choice")
+        assertEquals("tool", choice.getString("type"))
+        assertEquals(AnthropicMessages.TOOL_NAME, choice.getString("name"))
+    }
+
+    @Test
+    fun claude_reply_is_read_from_the_tool_call_ignoring_stray_text() = runBlocking {
+        val reply = JSONObject().put(
+            "content", org.json.JSONArray()
+                .put(JSONObject().put("type", "text").put("text", "Hmm, \"cô bê\" is likely Kobe."))
+                .put(
+                    JSONObject().put("type", "tool_use").put("name", AnthropicMessages.TOOL_NAME)
+                        .put("input", JSONObject().put("text", "Vợ chồng mình đi Kobe.")),
+                ),
+        ).toString()
+        val t = Recorder(HttpResult(200, reply))
+        assertEquals("Vợ chồng mình đi Kobe.", AiTextFixer(claude, t).fix("vợ chồng mình đi cô bê", VoiceLanguage.VIETNAMESE))
+    }
+
+    @Test
     fun user_message_restates_the_task_next_to_the_text() {
         // Models read the user turn closest; it must say the text is to be corrected, not answered.
         val msg = ChatCompletion.userMessage("Cô bê làm gì?", VoiceLanguage.VIETNAMESE)
@@ -197,7 +227,7 @@ class AiTextFixerTest {
         val keys = mutableSetOf<String>()
         body.keys().forEach { keys.add(it) }
         // Claude models reject sampling params such as temperature.
-        assertEquals(setOf("model", "max_tokens", "system", "messages"), keys)
+        assertEquals(setOf("model", "max_tokens", "system", "messages", "tools", "tool_choice"), keys)
     }
 
     @Test
