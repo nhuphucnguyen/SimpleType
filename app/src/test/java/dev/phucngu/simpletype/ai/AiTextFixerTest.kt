@@ -155,33 +155,25 @@ class AiTextFixerTest {
     }
 
     @Test
-    fun claude_is_forced_to_answer_through_the_correction_tool() = runBlocking {
-        // Sonnet "thought aloud" in plain text (draft, "Hmm, ...", final). A forced tool call
-        // leaves no room for prose: the reply is the tool's single text argument.
-        val t = Recorder(HttpResult(200, anthropicReply("ok")))
+    fun claude_reply_is_constrained_to_a_json_schema() = runBlocking {
+        // Sonnet "thought aloud" in plain text (draft, "Hmm, ...", final), and forced tool_choice
+        // is rejected for Sonnet 5.5. Structured output constrains decoding to {"text": ...},
+        // leaving no room for prose (verified live on haiku/sonnet/opus 5.5).
+        val t = Recorder(HttpResult(200, anthropicReply("{\"text\":\"ok\"}")))
         AiTextFixer(claude, t).fix("ok", VoiceLanguage.ENGLISH)
         val body = JSONObject(t.body)
-        val tool = body.getJSONArray("tools").getJSONObject(0)
-        assertEquals(AnthropicMessages.TOOL_NAME, tool.getString("name"))
-        val schema = tool.getJSONObject("input_schema")
+        assertFalse(body.has("tool_choice"))
+        val format = body.getJSONObject("output_config").getJSONObject("format")
+        assertEquals("json_schema", format.getString("type"))
+        val schema = format.getJSONObject("schema")
         assertEquals("text", schema.getJSONArray("required").getString(0))
-        val choice = body.getJSONObject("tool_choice")
-        assertEquals("tool", choice.getString("type"))
-        assertEquals(AnthropicMessages.TOOL_NAME, choice.getString("name"))
+        assertFalse(schema.getBoolean("additionalProperties"))
     }
 
     @Test
-    fun claude_reply_is_read_from_the_tool_call_ignoring_stray_text() = runBlocking {
-        val reply = JSONObject().put(
-            "content", org.json.JSONArray()
-                .put(JSONObject().put("type", "text").put("text", "Hmm, \"cô bê\" is likely Kobe."))
-                .put(
-                    JSONObject().put("type", "tool_use").put("name", AnthropicMessages.TOOL_NAME)
-                        .put("input", JSONObject().put("text", "Vợ chồng mình đi Kobe.")),
-                ),
-        ).toString()
-        val t = Recorder(HttpResult(200, reply))
-        assertEquals("Vợ chồng mình đi Kobe.", AiTextFixer(claude, t).fix("vợ chồng mình đi cô bê", VoiceLanguage.VIETNAMESE))
+    fun claude_json_reply_is_unwrapped() = runBlocking {
+        val t = Recorder(HttpResult(200, anthropicReply("{\"text\":\"Vợ chồng mình đi Kobe.\"}")))
+        assertEquals("Vợ chồng mình đi Kobe. ", AiTextFixer(claude, t).fix("vợ chồng mình đi cô bê ", VoiceLanguage.VIETNAMESE))
     }
 
     @Test
@@ -227,7 +219,7 @@ class AiTextFixerTest {
         val keys = mutableSetOf<String>()
         body.keys().forEach { keys.add(it) }
         // Claude models reject sampling params such as temperature.
-        assertEquals(setOf("model", "max_tokens", "system", "messages", "tools", "tool_choice"), keys)
+        assertEquals(setOf("model", "max_tokens", "system", "messages", "output_config"), keys)
     }
 
     @Test

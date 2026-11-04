@@ -39,38 +39,30 @@ object AnthropicMessages : ChatProtocol {
                     .put(textBlock(settings.systemPrompt)),
             )
             .put("messages", messages)
-            // A forced tool call: Claude cannot write prose before or around it, so musings like
-            // "Hmm, this is likely Kobe..." never reach the text field.
-            .put("tools", JSONArray().put(correctionTool()))
-            .put("tool_choice", JSONObject().put("type", "tool").put("name", TOOL_NAME))
+            // Structured output: decoding is constrained to {"text": ...}, so musings like
+            // "Hmm, this is likely Kobe..." cannot reach the reply. (A forced tool_choice would do
+            // the same, but Sonnet 5.5 rejects it.)
+            .put("output_config", JSONObject().put("format", REPLY_FORMAT))
             .toString()
     }
 
-    /** The only tool Claude is offered and must call; its `text` argument is the reply. */
-    const val TOOL_NAME = "submit_corrected_text"
-
-    private fun correctionTool() = JSONObject()
-        .put("name", TOOL_NAME)
-        .put("description", "Submit the corrected text. It replaces the user's text verbatim, so pass only the text itself.")
-        .put(
-            "input_schema", JSONObject()
-                .put("type", "object")
-                .put(
-                    "properties", JSONObject().put(
-                        "text", JSONObject()
-                            .put("type", "string")
-                            .put("description", "The full corrected text, nothing else."),
-                    ),
-                )
-                .put("required", JSONArray().put("text")),
-        )
+    private val REPLY_FORMAT: JSONObject
+        get() = JSONObject()
+            .put("type", "json_schema")
+            .put(
+                "schema", JSONObject()
+                    .put("type", "object")
+                    .put("properties", JSONObject().put("text", JSONObject().put("type", "string")))
+                    .put("required", JSONArray().put("text"))
+                    .put("additionalProperties", false),
+            )
 
     private fun textBlock(text: String) = JSONObject().put("type", "text").put("text", text)
 
     /** The Messages API demands max_tokens; output tracks input length with headroom for fixes. */
     fun maxTokensFor(text: String): Int = (text.length * 2 + 512).coerceIn(1024, 8192)
 
-    /** Concatenated text blocks of the reply, or throws [AiException] describing an error payload. */
+    /** The `text` field of the JSON reply (or the raw text blocks), or throws [AiException] describing an error payload. */
     override fun parseReply(json: String): String {
         val root = try {
             JSONObject(json)
@@ -81,14 +73,6 @@ object AnthropicMessages : ChatProtocol {
             throw AiException(AiException.Kind.SERVER, err.optString("message", err.toString()))
         }
         val content = root.optJSONArray("content") ?: JSONArray()
-        // The tool call is authoritative; text blocks are only a fallback should a model skip it.
-        for (i in 0 until content.length()) {
-            val block = content.optJSONObject(i) ?: continue
-            if (block.optString("type") == "tool_use" && block.optString("name") == TOOL_NAME) {
-                val fixed = block.optJSONObject("input")?.optString("text", "").orEmpty()
-                if (fixed.isNotBlank()) return fixed
-            }
-        }
         val text = buildString {
             for (i in 0 until content.length()) {
                 val block = content.optJSONObject(i) ?: continue
@@ -96,6 +80,9 @@ object AnthropicMessages : ChatProtocol {
             }
         }
         if (text.isBlank()) throw AiException(AiException.Kind.BAD_RESPONSE, json.take(200))
-        return text
+        // The reply is {"text": ...}; anything else (should a model ignore the format) passes
+        // through as plain text.
+        val fixed = runCatching { JSONObject(text.trim()).optString("text", "") }.getOrNull()
+        return fixed?.takeIf { it.isNotBlank() } ?: text
     }
 }
