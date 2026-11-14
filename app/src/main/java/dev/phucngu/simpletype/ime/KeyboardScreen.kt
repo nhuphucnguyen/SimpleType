@@ -293,8 +293,9 @@ fun KeyboardScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
-                } else if (writerOpen) {
-                    // Strips would write into the field, not the request.
+                } else if (writerOpen || optionsExpanded) {
+                    // The writer: strips would write into the field, not the request. The
+                    // menu: its buttons need the room, and the strip would compete with them.
                 } else if (suggestions.isNotEmpty()) {
                     SuggestionStrip(
                         suggestions = suggestions,
@@ -307,7 +308,8 @@ fun KeyboardScreen(
                         selectedSuggestion = null,
                         onSuggestionClick = onEmailSuggestionClick,
                     )
-                } else if (predictions.isNotEmpty()) {
+                } else if (predictions.isNotEmpty() && !fieldEmpty) {
+                    // An empty field gets no guesses: nothing has been typed to predict from.
                     PredictionStrip(
                         predictions = predictions,
                         onPredictionClick = onPredictionClick,
