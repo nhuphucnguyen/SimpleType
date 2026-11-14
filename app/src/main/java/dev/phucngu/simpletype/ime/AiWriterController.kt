@@ -42,8 +42,8 @@ class AiWriterController(
 
     val phase: Phase get() = ui.phase
 
-    /** Keys go to the request rather than the field. */
-    val capturesKeys: Boolean get() = phase == Phase.PROMPT
+    /** Keys go to the request rather than the field (and are ignored while a draft is written). */
+    val capturesKeys: Boolean get() = phase == Phase.PROMPT || phase == Phase.WORKING
 
     val isOpen: Boolean get() = phase != Phase.CLOSED
 

@@ -41,6 +41,8 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ai.AiSettings
 import dev.phucngu.simpletype.ai.AiTextFixer
+import dev.phucngu.simpletype.ai.AiWriter
+import dev.phucngu.simpletype.ai.WriterContext
 import dev.phucngu.simpletype.ai.describe
 import dev.phucngu.simpletype.gesture.GestureCommit
 import dev.phucngu.simpletype.gesture.GestureDecoder
@@ -126,6 +128,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeGlideEnabled by mutableStateOf(false)
     private var composeAiFixVisible by mutableStateOf(false)
     private var composeAiFixState by mutableStateOf(AiFixController.State.IDLE)
+    private var composeAiWriter by mutableStateOf(AiWriterController.Ui())
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var selectionSyncJob: Job? = null
@@ -228,6 +231,26 @@ open class SimpleTypeIME : InputMethodService(),
             onOutcome = { onAiFixOutcome(it) },
         )
     }
+    private val aiWriter by lazy {
+        AiWriterController(
+            scope = imeScope,
+            connection = { currentInputConnection },
+            prepare = { finishComposing(it) },
+            readContext = { readWriterContext(it) },
+            writer = { prompt, context -> AiWriter(AiSettings.load(aiPrefs())).write(prompt, context) },
+            onChange = { onAiWriterChanged(it) },
+            onError = { showTransientStatus(it.describe(this), ERROR_STATUS_MS) },
+        )
+    }
+    private val aiWriterActions by lazy {
+        AiWriterActions(
+            onClose = { aiWriter.close() },
+            onGenerate = { generateAiDraft() },
+            onCancel = { aiWriter.cancel() },
+            onEdit = { aiWriter.edit() },
+            onAccept = { acceptAiDraft() },
+        )
+    }
     private var statusHideJob: Job? = null
 
     private val commandMatcher = CommandMatcher()
@@ -326,6 +349,9 @@ open class SimpleTypeIME : InputMethodService(),
                     aiFixVisible = composeAiFixVisible,
                     aiFixState = composeAiFixState,
                     onAiFixClick = { handleAiFix() },
+                    aiWriterUi = composeAiWriter,
+                    onAiWriterClick = { toggleAiWriter() },
+                    aiWriterActions = aiWriterActions,
                     onSetupClick = { openSettings() },
                     onClipboardClick = { showClipboard() },
                     onMenuClick = { toggleOptions() },
@@ -401,6 +427,7 @@ open class SimpleTypeIME : InputMethodService(),
         setMicListening(false)
         aiFix.cancel()
         aiFix.invalidate()
+        aiWriter.close()
         composeAiFixVisible = !passwordField && AiSettings.load(aiPrefs()).isConfigured
 
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
@@ -458,6 +485,7 @@ open class SimpleTypeIME : InputMethodService(),
         stopTrackpad()
         if (voice.isListening) voice.stop()
         aiFix.cancel()
+        aiWriter.close()
         telex.reset()
     }
 
@@ -567,6 +595,10 @@ open class SimpleTypeIME : InputMethodService(),
     // ---- Key handling ----
 
     override fun onKey(key: Key) {
+        if (aiWriter.capturesKeys) {
+            onAiWriterKey(key)
+            return
+        }
         val ic = currentInputConnection ?: return
         flushSelectionSync()
         clearGlideSuggestions()
@@ -593,6 +625,10 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     override fun onKeyRepeat(key: Key) {
+        if (aiWriter.capturesKeys) {
+            if (key.code == KeyCode.DELETE) onAiWriterKey(key)
+            return
+        }
         val ic = currentInputConnection ?: return
         flushSelectionSync()
         clearGlideSuggestions()
@@ -603,6 +639,7 @@ open class SimpleTypeIME : InputMethodService(),
     override fun onSpaceSwipe(direction: Int) = toggleLanguage()
 
     override fun onSpaceCursorMove(steps: Int, lines: Int, dx: Float, dy: Float) {
+        if (aiWriter.isOpen) return
         val ic = currentInputConnection ?: return
         val trackpad = trackpadSession?.takeIf { it.cursor.ready }
         // In a single-line field DPAD up/down moves focus to another view, so only send it
@@ -643,6 +680,7 @@ open class SimpleTypeIME : InputMethodService(),
 
     override fun onSpaceCursorStart() {
         stopTrackpad()
+        if (aiWriter.isOpen) return
         spaceDragging = true
         val ic = currentInputConnection ?: return
         val info = currentInputEditorInfo
@@ -768,6 +806,13 @@ open class SimpleTypeIME : InputMethodService(),
 
         val candidates = decoder.decode(path, geometry)
         if (candidates.isEmpty()) return
+        if (aiWriter.capturesKeys) {
+            if (aiWriter.phase == AiWriterController.Phase.PROMPT) {
+                aiWriter.prompt.appendWords(candidates[0].word)
+                aiWriter.promptChanged()
+            }
+            return
+        }
 
         finishComposing(ic)
         englishKeys.setLength(0)
@@ -1438,6 +1483,110 @@ open class SimpleTypeIME : InputMethodService(),
         showTransientStatus(msg, if (outcome is AiFixController.Outcome.Failed) ERROR_STATUS_MS else STATUS_MS)
     }
 
+    // ---- AI writer ----
+
+    private fun toggleAiWriter() {
+        if (aiWriter.isOpen) {
+            aiWriter.close()
+            return
+        }
+        if (passwordField) {
+            showTransientStatus(getString(R.string.ai_writer_password_disabled))
+            return
+        }
+        if (voice.isListening) {
+            voice.stop()
+            setMicListening(false)
+            hideStatus()
+        }
+        aiFix.cancel()
+        currentInputConnection?.let { finishComposing(it) }
+        clearGlideSuggestions()
+        composeOptionsExpanded = false
+        composeEmojiVisible = false
+        hideClipboard()
+        if (layout != KeyboardLayoutType.ALPHA) switchLayout(KeyboardLayoutType.ALPHA)
+        // The request starts lowercase; Shift still works for names.
+        shifted = false
+        autoShifted = false
+        capsLock = false
+        syncShiftToView()
+        aiWriter.open()
+    }
+
+    private fun onAiWriterKey(key: Key) {
+        if (aiWriter.phase != AiWriterController.Phase.PROMPT) return
+        val prompt = aiWriter.prompt
+        when (key.code) {
+            KeyCode.SHIFT -> cycleShift()
+            KeyCode.DELETE -> if (shiftHeld) prompt.deleteWord() else prompt.backspace()
+            KeyCode.ENTER -> {
+                generateAiDraft()
+                return
+            }
+            KeyCode.SPACE -> prompt.type(' ', vietnamese = false)
+            KeyCode.SYMBOLS -> switchLayout(KeyboardLayoutType.SYMBOLS)
+            KeyCode.SYMBOLS_ALT -> switchLayout(KeyboardLayoutType.SYMBOLS_ALT)
+            KeyCode.ALPHA -> switchLayout(KeyboardLayoutType.ALPHA)
+            KeyCode.EMOJI -> Unit // the emoji panel writes to the field
+            KeyCode.DOUBLE_ZERO -> "00".forEach { prompt.type(it, vietnamese = false) }
+            else -> if (key.isPrintable) {
+                var c = key.code.toChar()
+                if (c.isLetter() && (shifted || capsLock)) c = c.uppercaseChar()
+                prompt.type(c, vietnamese = language == VoiceLanguage.VIETNAMESE && layout == KeyboardLayoutType.ALPHA)
+                consumeShift()
+            }
+        }
+        aiWriter.promptChanged()
+    }
+
+    private fun generateAiDraft() {
+        if (voice.isListening) {
+            voice.stop()
+            setMicListening(false)
+            hideStatus()
+        }
+        aiWriter.generate()
+    }
+
+    private fun acceptAiDraft() {
+        aiFix.invalidate()
+        if (aiWriter.accept()) showTransientStatus(getString(R.string.ai_writer_inserted))
+    }
+
+    private fun onAiWriterChanged(ui: AiWriterController.Ui) {
+        val wasOpen = composeAiWriter.phase != AiWriterController.Phase.CLOSED
+        composeAiWriter = ui
+        val open = ui.phase != AiWriterController.Phase.CLOSED
+        composeEnterIconRes = if (ui.phase == AiWriterController.Phase.PROMPT) {
+            R.drawable.ic_kb_send
+        } else {
+            EnterAction.resolve(currentInputEditorInfo).iconRes
+        }
+        if (wasOpen && !open) {
+            if (voice.isListening) {
+                voice.stop()
+                setMicListening(false)
+                hideStatus()
+            }
+            updateAutoCapitalize(currentInputEditorInfo)
+            refreshPredictions()
+        }
+    }
+
+    /** The field around the cursor and what the app says about it, as context for a draft. */
+    private fun readWriterContext(ic: InputConnection): WriterContext {
+        val info = currentInputEditorInfo
+        return WriterContext(
+            before = ic.getTextBeforeCursor(AiWriter.CONTEXT_CHARS, 0)?.toString().orEmpty(),
+            selected = ic.getSelectedText(0)?.toString().orEmpty(),
+            after = ic.getTextAfterCursor(AiWriter.CONTEXT_CHARS, 0)?.toString().orEmpty(),
+            language = language,
+            app = info?.packageName,
+            fieldHint = info?.hintText?.toString(),
+        )
+    }
+
     /** Shows [text] in the status slot, then clears it unless something replaced it meanwhile. */
     private fun showTransientStatus(text: String, durationMs: Long = STATUS_MS) {
         showStatus(text)
@@ -1458,11 +1607,24 @@ open class SimpleTypeIME : InputMethodService(),
     private val voiceListener = object : AsrListener {
         override fun onPartial(text: String) {
             setMicListening(true)
+            if (aiWriter.isOpen) {
+                // Dictating the request: show it in the status line, not the field.
+                showStatus(text)
+                return
+            }
             showStatus(getString(language.listeningStatusRes()))
             currentInputConnection?.setComposingText(text, 1)
         }
 
         override fun onFinal(text: String, confidence: Float, join: SegmentJoin) {
+            if (aiWriter.isOpen) {
+                showStatus(getString(language.listeningStatusRes()))
+                if (aiWriter.phase == AiWriterController.Phase.PROMPT) {
+                    aiWriter.prompt.appendWords(text)
+                    aiWriter.promptChanged()
+                }
+                return
+            }
             val ic = currentInputConnection ?: return
             aiFix.invalidate()
             ic.finishComposingText()

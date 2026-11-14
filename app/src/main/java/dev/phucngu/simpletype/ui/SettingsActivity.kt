@@ -1169,6 +1169,11 @@ private fun AiSettingsContent(
             title = stringResource(R.string.ai_feature_fix),
             desc = stringResource(R.string.ai_feature_fix_desc),
         )
+        AiFeatureRow(
+            iconRes = R.drawable.ic_ai_sparkle,
+            title = stringResource(R.string.ai_feature_writer),
+            desc = stringResource(R.string.ai_feature_writer_desc),
+        )
     }
 }
 

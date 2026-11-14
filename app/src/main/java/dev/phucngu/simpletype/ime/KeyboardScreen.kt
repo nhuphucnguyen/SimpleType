@@ -126,6 +126,9 @@ fun KeyboardScreen(
     aiFixVisible: Boolean = false,
     aiFixState: AiFixController.State = AiFixController.State.IDLE,
     onAiFixClick: () -> Unit = {},
+    aiWriterUi: AiWriterController.Ui = AiWriterController.Ui(),
+    onAiWriterClick: () -> Unit = {},
+    aiWriterActions: AiWriterActions = AiWriterActions(),
     onSetupClick: () -> Unit,
     onClipboardClick: () -> Unit,
     onMenuClick: () -> Unit,
@@ -147,6 +150,7 @@ fun KeyboardScreen(
     val micActiveColor = colorResource(R.color.kb_mic_active)
     val primaryContainerColor = colorResource(R.color.kb_primary_container)
     val onPrimaryContainerColor = colorResource(R.color.kb_on_primary_container)
+    val writerOpen = aiWriterUi.phase != AiWriterController.Phase.CLOSED
 
     Column(
         modifier = modifier
@@ -219,6 +223,8 @@ fun KeyboardScreen(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                } else if (writerOpen) {
+                    // Strips would write into the field, not the request.
                 } else if (suggestions.isNotEmpty()) {
                     SuggestionStrip(
                         suggestions = suggestions,
@@ -240,11 +246,21 @@ fun KeyboardScreen(
             }
 
             if (aiFixVisible) {
-                AiFixButton(
-                    state = aiFixState,
-                    onClick = onAiFixClick,
-                    tint = chromeIconColor,
-                    background = chromeButtonBg,
+                if (!writerOpen) {
+                    AiFixButton(
+                        state = aiFixState,
+                        onClick = onAiFixClick,
+                        tint = chromeIconColor,
+                        background = chromeButtonBg,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                CircleIconButton(
+                    iconRes = R.drawable.ic_ai_sparkle,
+                    contentDescription = stringResource(R.string.toolbar_ai_writer),
+                    onClick = onAiWriterClick,
+                    tint = if (writerOpen) onPrimaryContainerColor else chromeIconColor,
+                    background = if (writerOpen) primaryContainerColor else chromeButtonBg,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
@@ -269,6 +285,10 @@ fun KeyboardScreen(
                     modifier = Modifier.size(17.dp)
                 )
             }
+        }
+
+        if (aiWriterUi.phase == AiWriterController.Phase.PROMPT || aiWriterUi.phase == AiWriterController.Phase.WORKING) {
+            AiWriterPromptBar(ui = aiWriterUi, actions = aiWriterActions)
         }
 
         // Keyboard / Clipboard / Emoji Box Area
@@ -298,6 +318,15 @@ fun KeyboardScreen(
                     onPin = onClipboardPin,
                     onDelete = onClipboardDelete,
                     modifier = Modifier.matchParentSize()
+                )
+            }
+
+            if (aiWriterUi.phase == AiWriterController.Phase.REVIEW) {
+                AiWriterReviewPanel(
+                    ui = aiWriterUi,
+                    actions = aiWriterActions,
+                    bgColor = bgColor,
+                    modifier = Modifier.matchParentSize(),
                 )
             }
 

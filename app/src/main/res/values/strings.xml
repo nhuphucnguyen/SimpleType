@@ -157,6 +157,17 @@
     <string name="ai_status_stale">Text changed while fixing — result discarded</string>
     <string name="ai_status_undone">Original text restored</string>
     <string name="ai_status_undo_unavailable">Can’t undo — the text was edited</string>
+    <string name="toolbar_ai_writer">Write with AI</string>
+    <string name="ai_writer_hint">Describe what to write…</string>
+    <string name="ai_writer_close">Close AI writer</string>
+    <string name="ai_writer_generate">Write</string>
+    <string name="ai_writer_stop">Stop writing</string>
+    <string name="ai_writer_discard">Discard</string>
+    <string name="ai_writer_edit">Edit</string>
+    <string name="ai_writer_retry">Retry</string>
+    <string name="ai_writer_insert">Insert</string>
+    <string name="ai_writer_inserted">Inserted</string>
+    <string name="ai_writer_password_disabled">AI writer is off in password fields</string>
     <string name="ai_password_disabled">AI fix is off in password fields</string>
     <string name="ai_error_not_configured">Set up AI in SimpleType settings</string>
     <string name="ai_error_auth">AI: API key rejected (%1$s)</string>
@@ -172,6 +183,8 @@
     <string name="ai_features_title">Features</string>
     <string name="ai_feature_fix">AI fix</string>
     <string name="ai_feature_fix_desc">Tap the wand next to the mic to fix typos, punctuation, misheard words and spelled-out numbers. Fixes the selection, or the whole field if nothing is selected. Tap again to undo.</string>
+    <string name="ai_feature_writer">AI writer</string>
+    <string name="ai_feature_writer_desc">Tap the sparkles, then type or dictate what you want, like “reply that I’ll be 10 minutes late”. Review the draft, then insert it, retry or edit your request. Uses the field’s text as context; selected text is rewritten.</string>
     <string name="ai_provider_title">Provider</string>
     <string name="ai_provider_glm_coding">GLM Coding Plan</string>
     <string name="ai_provider_glm_coding_desc">Z.ai API key, billed to your GLM Coding Plan</string>
