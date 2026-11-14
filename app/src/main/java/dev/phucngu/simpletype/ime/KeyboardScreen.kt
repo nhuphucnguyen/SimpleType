@@ -39,15 +39,34 @@ import dev.phucngu.simpletype.R
 import dev.phucngu.simpletype.ime.emoji.EmojiPanel
 import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 
+/** Which AI action the toolbar slot beside the mic offers. */
+enum class AiSlot {
+    FIX, WRITE;
+
+    companion object {
+        /**
+         * Write on an empty field (there is nothing to fix), fix once it has text. A fix in
+         * flight or waiting to be undone keeps the slot on fix, and an open writer keeps it on write.
+         */
+        fun choose(fieldEmpty: Boolean, fixState: AiFixController.State, writerOpen: Boolean): AiSlot = when {
+            writerOpen -> WRITE
+            fixState != AiFixController.State.IDLE -> FIX
+            fieldEmpty -> WRITE
+            else -> FIX
+        }
+    }
+}
+
 /**
- * The two AI actions as one rounded pill beside the mic, always in the same places: fix
- * (spellcheck, left) and write (pencil, right). Fix pulses while the model works (tap to
- * cancel), then turns into undo until the user edits the field. Write is highlighted while the
- * writer is open, and fix steps aside then. Long-press either half for its name.
+ * The AI slot beside the mic: write (pencil) on an empty field, fix (spellcheck) once it has
+ * text. Fix pulses while the model works (tap to cancel), then turns into undo until the user
+ * edits the field. Long-press fix to open the writer anyway (e.g. to rewrite a selection);
+ * long-press write shows its name.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AiToolsPill(
+private fun AiSlotButton(
+    slot: AiSlot,
     fixState: AiFixController.State,
     writerOpen: Boolean,
     onFix: () -> Unit,
@@ -71,52 +90,40 @@ private fun AiToolsPill(
         1f
     }
     val undo = fixState == AiFixController.State.UNDOABLE
-    val fixLabel = stringResource(if (undo) R.string.toolbar_ai_undo else R.string.toolbar_ai_fix)
-    val writeLabel = stringResource(if (writerOpen) R.string.ai_writer_close else R.string.toolbar_ai_writer)
-
-    Row(
+    val isFix = slot == AiSlot.FIX
+    val label = stringResource(
+        when {
+            !isFix && writerOpen -> R.string.ai_writer_close
+            !isFix -> R.string.toolbar_ai_writer
+            undo -> R.string.toolbar_ai_undo
+            else -> R.string.toolbar_ai_fix
+        }
+    )
+    val writeLabel = stringResource(R.string.toolbar_ai_writer)
+    val active = !isFix && writerOpen
+    Box(
         modifier = Modifier
-            .height(32.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(background),
-        verticalAlignment = Alignment.CenterVertically,
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(if (active) activeBackground else background)
+            .combinedClickable(
+                onClick = if (isFix) onFix else onWrite,
+                onLongClick = if (isFix && !undo && !working) onWrite else ({ onLabel(writeLabel) }),
+            ),
+        contentAlignment = Alignment.Center,
     ) {
-        if (!writerOpen) {
-            Box(
-                modifier = Modifier
-                    .size(width = 38.dp, height = 32.dp)
-                    .combinedClickable(onClick = onFix, onLongClick = { onLabel(fixLabel) }),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(if (undo) R.drawable.ic_kb_undo else R.drawable.ic_kb_ai_fix),
-                    contentDescription = fixLabel,
-                    tint = tint,
-                    modifier = Modifier.size(18.dp).alpha(pulse),
-                )
-            }
-            Box(
-                modifier = Modifier
-                    .width(1.dp)
-                    .height(16.dp)
-                    .background(tint.copy(alpha = 0.25f)),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(width = 38.dp, height = 32.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(if (writerOpen) activeBackground else Color.Transparent)
-                .combinedClickable(onClick = onWrite, onLongClick = { onLabel(writeLabel) }),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.ic_kb_ai_write),
-                contentDescription = writeLabel,
-                tint = if (writerOpen) activeTint else tint,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        Icon(
+            painter = painterResource(
+                when {
+                    !isFix -> R.drawable.ic_kb_ai_write
+                    undo -> R.drawable.ic_kb_undo
+                    else -> R.drawable.ic_kb_ai_fix
+                }
+            ),
+            contentDescription = label,
+            tint = if (active) activeTint else tint,
+            modifier = Modifier.size(18.dp).alpha(pulse),
+        )
     }
 }
 
@@ -173,6 +180,8 @@ fun KeyboardScreen(
     onPredictionClick: (String) -> Unit = {},
     onMicClick: () -> Unit,
     aiFixVisible: Boolean = false,
+    /** The field holds no text: the AI slot offers write instead of fix. */
+    fieldEmpty: Boolean = false,
     aiFixState: AiFixController.State = AiFixController.State.IDLE,
     onAiFixClick: () -> Unit = {},
     aiWriterUi: AiWriterController.Ui = AiWriterController.Ui(),
@@ -245,6 +254,16 @@ fun KeyboardScreen(
                             tint = chromeIconColor,
                             background = chromeButtonBg
                         )
+                        if (aiFixVisible) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircleIconButton(
+                                iconRes = R.drawable.ic_kb_ai_write,
+                                contentDescription = stringResource(R.string.toolbar_ai_writer),
+                                onClick = onAiWriterClick,
+                                tint = chromeIconColor,
+                                background = chromeButtonBg
+                            )
+                        }
                     }
                 }
             }
@@ -297,7 +316,8 @@ fun KeyboardScreen(
             }
 
             if (aiFixVisible) {
-                AiToolsPill(
+                AiSlotButton(
+                    slot = AiSlot.choose(fieldEmpty, aiFixState, writerOpen),
                     fixState = aiFixState,
                     writerOpen = writerOpen,
                     onFix = onAiFixClick,

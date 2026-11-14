@@ -129,6 +129,7 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeAiFixVisible by mutableStateOf(false)
     private var composeAiFixState by mutableStateOf(AiFixController.State.IDLE)
     private var composeAiWriter by mutableStateOf(AiWriterController.Ui())
+    private var composeFieldEmpty by mutableStateOf(true)
 
     private val imeScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var selectionSyncJob: Job? = null
@@ -347,6 +348,7 @@ open class SimpleTypeIME : InputMethodService(),
                     onPredictionClick = { onPredictionSelected(it) },
                     onMicClick = { handleMic() },
                     aiFixVisible = composeAiFixVisible,
+                    fieldEmpty = composeFieldEmpty,
                     aiFixState = composeAiFixState,
                     onAiFixClick = { handleAiFix() },
                     aiWriterUi = composeAiWriter,
@@ -430,6 +432,7 @@ open class SimpleTypeIME : InputMethodService(),
         aiFix.invalidate()
         aiWriter.close()
         composeAiFixVisible = !passwordField && AiSettings.load(aiPrefs()).isConfigured
+        updateFieldEmpty(info.initialSelStart, info.initialSelEnd)
 
         val prefs = getSharedPreferences("simpletype_prefs", MODE_PRIVATE)
         val langTag = prefs.getString("language", VoiceLanguage.ENGLISH.name)
@@ -501,6 +504,7 @@ open class SimpleTypeIME : InputMethodService(),
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
+        updateFieldEmpty(newSelStart, newSelEnd)
         trackpadSession?.let { session ->
             session.onSelection(newSelStart, newSelEnd)
             if (trackpadEnding && !session.cursor.awaitingHit) stopTrackpad()
@@ -1487,6 +1491,7 @@ open class SimpleTypeIME : InputMethodService(),
     // ---- AI writer ----
 
     private fun toggleAiWriter() {
+        composeOptionsExpanded = false
         if (aiWriter.isOpen) {
             aiWriter.close()
             return
@@ -1573,6 +1578,16 @@ open class SimpleTypeIME : InputMethodService(),
             updateAutoCapitalize(currentInputEditorInfo)
             refreshPredictions()
         }
+    }
+
+    /**
+     * Tracks whether the field holds any text, for the AI slot. A caret past the start means
+     * text; only a caret at 0 needs a look after it, so most updates cost no IPC.
+     */
+    private fun updateFieldEmpty(selStart: Int, selEnd: Int) {
+        val empty = selStart <= 0 && selEnd <= 0 &&
+            currentInputConnection?.getTextAfterCursor(1, 0).isNullOrEmpty()
+        if (empty != composeFieldEmpty) composeFieldEmpty = empty
     }
 
     /** The field around the cursor and what the app says about it, as context for a draft. */

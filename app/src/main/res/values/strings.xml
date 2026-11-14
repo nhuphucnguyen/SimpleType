@@ -184,7 +184,7 @@
     <string name="ai_feature_fix">AI fix</string>
     <string name="ai_feature_fix_desc">Tap the spellcheck button (A✓) next to the mic to fix typos, punctuation, misheard words and spelled-out numbers. Fixes the selection, or the whole field if nothing is selected. Tap again to undo.</string>
     <string name="ai_feature_writer">AI writer</string>
-    <string name="ai_feature_writer_desc">Tap the pencil next to the mic, then type or dictate what you want, like “reply that I’ll be 10 minutes late”. Review the draft, then insert it, retry or edit your request. Uses the field’s text as context; selected text is rewritten.</string>
+    <string name="ai_feature_writer_desc">On an empty field, tap the pencil next to the mic (or long-press the spellcheck button, or find it in the ☰ menu), then type or dictate what you want, like “reply that I’ll be 10 minutes late”. Review the draft, then insert it, retry or edit your request. Uses the field’s text as context; selected text is rewritten.</string>
     <string name="ai_provider_title">Provider</string>
     <string name="ai_provider_glm_coding">GLM Coding Plan</string>
     <string name="ai_provider_glm_coding_desc">Z.ai API key, billed to your GLM Coding Plan</string>
