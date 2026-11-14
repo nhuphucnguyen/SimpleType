@@ -7,7 +7,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** One HTTP POST: status code and response body. Swappable so the fixer is testable offline. */
+/** One HTTP POST: status code and response body. Swappable so the AI features are testable offline. */
 fun interface HttpTransport {
     fun post(url: String, headers: Map<String, String>, body: String): HttpResult
 }
@@ -39,14 +39,14 @@ object UrlConnectionTransport : HttpTransport {
 }
 
 /**
- * Asks the configured model to fix typos, punctuation and spelled-out numbers in a piece of
- * text, returning the corrected text. Throws [AiException] on any failure.
+ * Sends an [AiRequest] to the configured provider and returns the model's raw reply text.
+ * Throws [AiException] on any failure.
  */
-class AiTextFixer(
+class AiClient(
     private val settings: AiSettings,
     private val transport: HttpTransport = UrlConnectionTransport,
 ) {
-    suspend fun fix(text: String, language: VoiceLanguage): String = withContext(Dispatchers.IO) {
+    suspend fun complete(request: AiRequest): String = withContext(Dispatchers.IO) {
         if (!settings.isConfigured) throw AiException(AiException.Kind.NOT_CONFIGURED, "")
         val protocol = settings.provider.protocol
         val headers = buildMap {
@@ -57,12 +57,12 @@ class AiTextFixer(
             protocol.extraHeaders().forEach { (k, v) -> put(k, v) }
         }
         val result = try {
-            transport.post(settings.endpoint, headers, protocol.requestBody(settings, text, language))
+            transport.post(settings.endpoint, headers, protocol.requestBody(settings, request))
         } catch (e: IOException) {
             throw AiException(AiException.Kind.NETWORK, e.message ?: e.javaClass.simpleName)
         }
         when (result.code) {
-            in 200..299 -> ChatCompletion.cleanReply(protocol.parseReply(result.body), text)
+            in 200..299 -> protocol.parseReply(result.body)
             401, 403 -> throw AiException(AiException.Kind.AUTH, ChatCompletion.errorMessage(result.body))
             429 -> throw AiException(AiException.Kind.RATE_LIMIT, ChatCompletion.errorMessage(result.body))
             else -> throw AiException(
@@ -70,5 +70,29 @@ class AiTextFixer(
                 "HTTP ${result.code}: ${ChatCompletion.errorMessage(result.body)}",
             )
         }
+    }
+}
+
+/**
+ * Asks the configured model to fix typos, punctuation and spelled-out numbers in a piece of
+ * text, returning the corrected text. Throws [AiException] on any failure.
+ */
+class AiTextFixer(
+    private val settings: AiSettings,
+    private val transport: HttpTransport = UrlConnectionTransport,
+) {
+    suspend fun fix(text: String, language: VoiceLanguage): String {
+        val request = AiRequest(
+            system = settings.systemPrompt,
+            user = ChatCompletion.userMessage(text, language),
+            maxTokens = maxTokensFor(text),
+            temperature = 0.2,
+        )
+        return ChatCompletion.cleanReply(AiClient(settings, transport).complete(request), text)
+    }
+
+    companion object {
+        /** Output tracks input length, with headroom for fixes. */
+        fun maxTokensFor(text: String): Int = (text.length * 2 + 512).coerceIn(1024, 8192)
     }
 }

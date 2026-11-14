@@ -8,8 +8,8 @@ import org.json.JSONObject
  * The OpenAI chat-completions wire family (`/chat/completions`).
  *
  * Also the shared home for cross-protocol pieces every backend reuses: the proofreader prompt,
- * the user-message wrapper, the reply cleanup ([cleanReply]) and error-message extraction
- * ([errorMessage]).
+ * the user-message wrapper, the reply cleanup ([cleanReply], [stripWrappers]) and error-message
+ * extraction ([errorMessage]).
  */
 object ChatCompletion : ChatProtocol {
 
@@ -40,10 +40,10 @@ object ChatCompletion : ChatProtocol {
             "Keyboard language: $lang (the text may mix languages).\n<text>\n$text\n</text>"
     }
 
-    override fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
+    override fun requestBody(settings: AiSettings, request: AiRequest): String {
         val messages = JSONArray()
-            .put(JSONObject().put("role", "system").put("content", settings.systemPrompt))
-            .put(JSONObject().put("role", "user").put("content", userMessage(text, language)))
+            .put(JSONObject().put("role", "system").put("content", request.system))
+            .put(JSONObject().put("role", "user").put("content", request.user))
         val body = JSONObject()
             .put("model", settings.model)
             .put("messages", messages)
@@ -57,7 +57,7 @@ object ChatCompletion : ChatProtocol {
                 .put("temperature", 1.0)
                 .put("top_p", 0.95)
         } else {
-            body.put("temperature", 0.2)
+            body.put("temperature", request.temperature)
         }
         return body.toString()
     }
@@ -95,9 +95,7 @@ object ChatCompletion : ChatProtocol {
      * whitespace, which models drop but the cursor position depends on.
      */
     fun cleanReply(reply: String, original: String): String {
-        var s = reply.replace(THINK_BLOCK, "").trim()
-        FENCE.matchEntire(s)?.let { s = it.groupValues[1].trim() }
-        TEXT_TAGS.matchEntire(s)?.let { s = it.groupValues[1].trim() }
+        var s = stripWrappers(reply)
         val core = original.trim()
         for ((open, close) in QUOTE_PAIRS) {
             if (s.length >= 2 && s.startsWith(open) && s.endsWith(close) &&
@@ -110,6 +108,14 @@ object ChatCompletion : ChatProtocol {
         val lead = original.takeWhile { it.isWhitespace() }
         val trail = original.takeLastWhile { it.isWhitespace() }
         return lead + s + trail
+    }
+
+    /** Drops reasoning blocks and a fence or `<text>` tags wrapping the whole reply. */
+    fun stripWrappers(reply: String): String {
+        var s = reply.replace(THINK_BLOCK, "").trim()
+        FENCE.matchEntire(s)?.let { s = it.groupValues[1].trim() }
+        TEXT_TAGS.matchEntire(s)?.let { s = it.groupValues[1].trim() }
+        return s
     }
 
     private val THINK_BLOCK = Regex("(?s)<think>.*?</think>")

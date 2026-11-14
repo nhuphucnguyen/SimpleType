@@ -1,6 +1,5 @@
 package dev.phucngu.simpletype.ai
 
-import dev.phucngu.simpletype.voice.VoiceLanguage
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -10,7 +9,7 @@ import org.json.JSONObject
  *
  * Subscription tokens only answer Claude-Code-shaped requests: `system` must open with the
  * billing tag, otherwise the API rejects the call with a masked `429 rate_limit_error`. The
- * proofreader instructions (built-in or the user's override) follow the tag in the same block.
+ * feature's instructions follow the tag in a block of their own.
  */
 object AnthropicMessages : ChatProtocol {
 
@@ -23,20 +22,20 @@ object AnthropicMessages : ChatProtocol {
 
     private const val BILLING_TAG = "x-anthropic-billing-header: cc_version=2.1.296.0e7; cc_entrypoint=simpletype;"
 
-    override fun requestBody(settings: AiSettings, text: String, language: VoiceLanguage): String {
+    override fun requestBody(settings: AiSettings, request: AiRequest): String {
         val messages = JSONArray()
-            .put(JSONObject().put("role", "user").put("content", ChatCompletion.userMessage(text, language)))
+            .put(JSONObject().put("role", "user").put("content", request.user))
         // No sampling params: Claude models reject temperature and friends.
         return JSONObject()
             .put("model", settings.model)
-            .put("max_tokens", maxTokensFor(text))
+            .put("max_tokens", request.maxTokens)
             // The tag stays first even with a user-supplied prompt: without it the token is refused.
             // It gets a block of its own, as Claude Code sends it: the API consumes that block as
             // billing metadata, so instructions placed in it never reach the model.
             .put(
                 "system", JSONArray()
                     .put(textBlock(BILLING_TAG))
-                    .put(textBlock(settings.systemPrompt)),
+                    .put(textBlock(request.system)),
             )
             .put("messages", messages)
             // Structured output: decoding is constrained to {"text": ...}, so musings like
@@ -58,9 +57,6 @@ object AnthropicMessages : ChatProtocol {
             )
 
     private fun textBlock(text: String) = JSONObject().put("type", "text").put("text", text)
-
-    /** The Messages API demands max_tokens; output tracks input length with headroom for fixes. */
-    fun maxTokensFor(text: String): Int = (text.length * 2 + 512).coerceIn(1024, 8192)
 
     /** The `text` field of the JSON reply (or the raw text blocks), or throws [AiException] describing an error payload. */
     override fun parseReply(json: String): String {
