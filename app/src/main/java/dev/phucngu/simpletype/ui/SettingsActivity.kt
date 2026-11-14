@@ -1170,7 +1170,7 @@ private fun AiSettingsContent(
             desc = stringResource(R.string.ai_feature_fix_desc),
         )
         AiFeatureRow(
-            iconRes = R.drawable.ic_ai_sparkle,
+            iconRes = R.drawable.ic_kb_ai_write,
             title = stringResource(R.string.ai_feature_writer),
             desc = stringResource(R.string.ai_feature_writer_desc),
         )

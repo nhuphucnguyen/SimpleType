@@ -7,7 +7,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -38,17 +40,25 @@ import dev.phucngu.simpletype.ime.emoji.EmojiPanel
 import dev.phucngu.simpletype.ime.keyboard.model.Keyboard
 
 /**
- * Toolbar button for the AI fix: a wand that pulses while the model works (tap to cancel),
- * then turns into undo until the user edits the field.
+ * The two AI actions as one rounded pill beside the mic, always in the same places: fix
+ * (spellcheck, left) and write (pencil, right). Fix pulses while the model works (tap to
+ * cancel), then turns into undo until the user edits the field. Write is highlighted while the
+ * writer is open, and fix steps aside then. Long-press either half for its name.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AiFixButton(
-    state: AiFixController.State,
-    onClick: () -> Unit,
+private fun AiToolsPill(
+    fixState: AiFixController.State,
+    writerOpen: Boolean,
+    onFix: () -> Unit,
+    onWrite: () -> Unit,
+    onLabel: (String) -> Unit,
     tint: Color,
     background: Color,
+    activeTint: Color,
+    activeBackground: Color,
 ) {
-    val working = state == AiFixController.State.WORKING
+    val working = fixState == AiFixController.State.WORKING
     val pulse = if (working) {
         val transition = rememberInfiniteTransition(label = "aiFix")
         transition.animateFloat(
@@ -60,15 +70,54 @@ private fun AiFixButton(
     } else {
         1f
     }
-    val undo = state == AiFixController.State.UNDOABLE
-    CircleIconButton(
-        iconRes = if (undo) R.drawable.ic_kb_undo else R.drawable.ic_kb_ai_fix,
-        contentDescription = stringResource(if (undo) R.string.toolbar_ai_undo else R.string.toolbar_ai_fix),
-        onClick = onClick,
-        tint = tint,
-        background = background,
-        modifier = Modifier.alpha(pulse),
-    )
+    val undo = fixState == AiFixController.State.UNDOABLE
+    val fixLabel = stringResource(if (undo) R.string.toolbar_ai_undo else R.string.toolbar_ai_fix)
+    val writeLabel = stringResource(if (writerOpen) R.string.ai_writer_close else R.string.toolbar_ai_writer)
+
+    Row(
+        modifier = Modifier
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(background),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (!writerOpen) {
+            Box(
+                modifier = Modifier
+                    .size(width = 38.dp, height = 32.dp)
+                    .combinedClickable(onClick = onFix, onLongClick = { onLabel(fixLabel) }),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(if (undo) R.drawable.ic_kb_undo else R.drawable.ic_kb_ai_fix),
+                    contentDescription = fixLabel,
+                    tint = tint,
+                    modifier = Modifier.size(18.dp).alpha(pulse),
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .width(1.dp)
+                    .height(16.dp)
+                    .background(tint.copy(alpha = 0.25f)),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(width = 38.dp, height = 32.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(if (writerOpen) activeBackground else Color.Transparent)
+                .combinedClickable(onClick = onWrite, onLongClick = { onLabel(writeLabel) }),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_kb_ai_write),
+                contentDescription = writeLabel,
+                tint = if (writerOpen) activeTint else tint,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
 }
 
 /** A round tonal icon button used throughout the keyboard chrome (M3 Expressive). */
@@ -128,6 +177,8 @@ fun KeyboardScreen(
     onAiFixClick: () -> Unit = {},
     aiWriterUi: AiWriterController.Ui = AiWriterController.Ui(),
     onAiWriterClick: () -> Unit = {},
+    /** Long-press on an AI button: show its name. */
+    onAiLabel: (String) -> Unit = {},
     aiWriterActions: AiWriterActions = AiWriterActions(),
     onSetupClick: () -> Unit,
     onClipboardClick: () -> Unit,
@@ -246,21 +297,16 @@ fun KeyboardScreen(
             }
 
             if (aiFixVisible) {
-                if (!writerOpen) {
-                    AiFixButton(
-                        state = aiFixState,
-                        onClick = onAiFixClick,
-                        tint = chromeIconColor,
-                        background = chromeButtonBg,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                CircleIconButton(
-                    iconRes = R.drawable.ic_ai_sparkle,
-                    contentDescription = stringResource(R.string.toolbar_ai_writer),
-                    onClick = onAiWriterClick,
-                    tint = if (writerOpen) onPrimaryContainerColor else chromeIconColor,
-                    background = if (writerOpen) primaryContainerColor else chromeButtonBg,
+                AiToolsPill(
+                    fixState = aiFixState,
+                    writerOpen = writerOpen,
+                    onFix = onAiFixClick,
+                    onWrite = onAiWriterClick,
+                    onLabel = onAiLabel,
+                    tint = chromeIconColor,
+                    background = chromeButtonBg,
+                    activeTint = onPrimaryContainerColor,
+                    activeBackground = primaryContainerColor,
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }

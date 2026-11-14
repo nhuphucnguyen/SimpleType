@@ -181,7 +181,7 @@ fun AiWriterReviewPanel(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                painter = painterResource(R.drawable.ic_ai_sparkle),
+                painter = painterResource(R.drawable.ic_kb_ai_write),
                 contentDescription = null,
                 tint = accent,
                 modifier = Modifier.size(16.dp),
