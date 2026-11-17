@@ -13,7 +13,6 @@ on:
   push:
     tags:
       - "v*"
-    branches: [ci/release-apk]  # TEMP: verify on branch
   workflow_dispatch:
 
 permissions:
