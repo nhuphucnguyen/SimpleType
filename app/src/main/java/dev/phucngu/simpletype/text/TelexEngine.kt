@@ -287,18 +287,33 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         while (i < s.length && isConsonant(s[i])) i++
         val onset = s.substring(0, i).lowercase()
         if (onset.isNotEmpty() && onset !in ONSETS && ONSETS.none { it.startsWith(onset) }) return false
+        val nucleus = StringBuilder()
         val coda = StringBuilder()
         while (i < s.length) {
             val c = s[i]
             when {
-                isVowel(c) -> if (coda.isNotEmpty()) return false // a 2nd vowel group → not one syllable
+                isVowel(c) -> {
+                    if (coda.isNotEmpty()) return false // a 2nd vowel group → not one syllable
+                    nucleus.append(plainVowel(c))
+                }
                 isConsonant(c) -> coda.append(c)
                 else -> return false
             }
             i++
         }
+        // The `qu` / `gi` glide belongs to the onset ("quai", "giường"), not the nucleus.
+        if (nucleus.length > 1 && ((onset == "q" && nucleus[0] == 'u') || (onset == "g" && nucleus[0] == 'i'))) {
+            nucleus.deleteCharAt(0)
+        }
+        // An impossible vowel cluster (Huawei → "ưaei") means English, not a syllable in progress.
+        if (nucleus.length > 1 && NUCLEI.none { it.startsWith(nucleus) }) return false
         // Every real Vietnamese final cluster is in CODAS; an impossible one (ld, mb…) means English.
         return coda.isEmpty() || coda.toString().lowercase() in CODAS
+    }
+
+    /** The bare lowercase letter of a vowel, tone and circumflex/horn/breve dropped: ướ→u, ậ→a. */
+    private fun plainVowel(c: Char): Char = when (val base = decompose(c).first.lowercaseChar()) {
+        'â', 'ă' -> 'a'; 'ê' -> 'e'; 'ô', 'ơ' -> 'o'; 'ư' -> 'u'; else -> base
     }
 
     /** The plain (lowercase) vowel underlying a circumflex char: â→a, ê→e, ô→o, else null. */
@@ -662,6 +677,18 @@ class TelexEngine(private val modernStyle: Boolean = true) {
         private val ONSETS: Set<String> = setOf(
             "b", "c", "ch", "d", "đ", "g", "gh", "gi", "h", "k", "kh", "l", "m", "n", "ng",
             "ngh", "nh", "p", "ph", "qu", "r", "s", "t", "th", "tr", "v", "x",
+        )
+
+        /**
+         * Every Vietnamese vowel nucleus of two or more vowels, as bare letters (marks and tone
+         * dropped, so "ươi" is "uoi", "oă" is "oa"), with any `qu`/`gi` glide already removed.
+         * [isVietnameseSyllable] accepts a nucleus that is one of these or a prefix of one.
+         */
+        private val NUCLEI: Set<String> = setOf(
+            "ai", "ao", "au", "ay", "eo", "eu", "ia", "ie", "io", "iu", "oa", "oe", "oi", "oo",
+            "ua", "ue", "ui", "uo", "uu", "uy", "ye",
+            "ieu", "oai", "oao", "oay", "oeo", "uai", "uay", "ueu", "uoi", "uou", "uya", "uye",
+            "uyu", "yeu",
         )
 
         /** The only possible Vietnamese final consonant clusters (codas), used to gate rime-retype. */
