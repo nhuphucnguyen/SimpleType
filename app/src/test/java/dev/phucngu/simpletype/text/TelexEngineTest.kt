@@ -175,6 +175,21 @@ class TelexEngineTest {
         assertEquals("web", type("wweb"))
         assertEquals("receipt", type("receeipt"))
     }
+    // "ua"+w horns the u (Hưa), then e,i pile up into the nucleus "ưaei", which no Vietnamese
+    // syllable has. The impossible vowel cluster must restore the raw keys: "Huawei", not "Hưaei".
+    @Test fun autorestore_huawei_impossible_nucleus() {
+        assertEquals("Huawei", type("Huawei"))
+        assertEquals("huawei", type("huawei"))
+    }
+    // Valid nuclei still compose, including tones typed before the horn (nguoif + w → người).
+    @Test fun valid_nuclei_still_compose() {
+        assertEquals("người", type("nguoifw"))
+        assertEquals("khuya", type("khuya"))
+        assertEquals("khuyên", type("khuyeen"))
+        assertEquals("quạu", type("quauj"))
+        assertEquals("giường", type("giuongwf"))
+        assertEquals("khuỷu", type("khuyur"))
+    }
     // A coda 'e' that re-types the nucleus 'e' (mb between them) must not echo a circumflex back.
     @Test fun member_stays_literal() = assertEquals("member", type("member"))
 
