@@ -170,6 +170,9 @@ fun KeyboardScreen(
     clipboardItems: List<ClipboardItem>,
     clipboardVisible: Boolean,
     listener: LatinKeyboardListener,
+    /** The just-copied clip, offered as a one-tap paste chip on the strip. */
+    clipOffer: ClipboardSuggestion.Offer? = null,
+    onClipOfferClick: () -> Unit = {},
     glideEnabled: Boolean = false,
     suggestions: List<String> = emptyList(),
     selectedSuggestion: String? = null,
@@ -302,6 +305,8 @@ fun KeyboardScreen(
                         selectedSuggestion = selectedSuggestion,
                         onSuggestionClick = onSuggestionClick,
                     )
+                } else if (clipOffer != null) {
+                    ClipOfferChip(offer = clipOffer, onClick = onClipOfferClick)
                 } else if (emailSuggestions.isNotEmpty()) {
                     SuggestionStrip(
                         suggestions = emailSuggestions,
@@ -409,6 +414,43 @@ fun KeyboardScreen(
                 )
             }
         }
+    }
+}
+
+/** The just-copied clip as one chip, Gboard-style: tap to paste it. */
+@Composable
+private fun ClipOfferChip(
+    offer: ClipboardSuggestion.Offer,
+    onClick: () -> Unit,
+) {
+    val bg = colorResource(R.color.kb_primary_container)
+    val fg = colorResource(R.color.kb_on_primary_container)
+    val description = stringResource(R.string.clip_offer_paste)
+    Row(
+        modifier = Modifier
+            .fillMaxHeight()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(bg)
+            .clickable(onClickLabel = description, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.ic_kb_clipboard),
+            contentDescription = description,
+            tint = fg,
+            modifier = Modifier.size(16.dp),
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = offer.preview,
+            color = fg,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

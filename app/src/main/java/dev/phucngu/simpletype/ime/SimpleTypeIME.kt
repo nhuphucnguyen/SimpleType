@@ -119,6 +119,10 @@ open class SimpleTypeIME : InputMethodService(),
     private var composeOptionsExpanded by mutableStateOf(false)
     private var composeClipboardItems by mutableStateOf<List<ClipboardItem>>(emptyList())
     private var composeClipboardVisible by mutableStateOf(false)
+    /** The just-copied clip offered on the strip, Gboard-style; null when there is none. */
+    private var composeClipOffer by mutableStateOf<ClipboardSuggestion.Offer?>(null)
+    private val clipSuggestion = ClipboardSuggestion()
+    private var clipOfferExpiry: Job? = null
     private var composeEmojiVisible by mutableStateOf(false)
     private var composeEmojiRecents by mutableStateOf<List<String>>(emptyList())
     private var composeSuggestions by mutableStateOf<List<String>>(emptyList())
@@ -289,15 +293,7 @@ open class SimpleTypeIME : InputMethodService(),
         }
         clipboardHistory = ClipboardHistoryManager(this)
         val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        cm.addPrimaryClipChangedListener {
-            val clip = cm.primaryClip
-            if (clip != null && clip.itemCount > 0) {
-                val text = clip.getItemAt(0).text
-                if (!text.isNullOrEmpty()) {
-                    clipboardHistory.addItem(text.toString())
-                }
-            }
-        }
+        cm.addPrimaryClipChangedListener { readPrimaryClip(cm) }
     }
 
     override fun onCreateInputView(): View {
@@ -337,6 +333,8 @@ open class SimpleTypeIME : InputMethodService(),
                     optionsExpanded = composeOptionsExpanded,
                     clipboardItems = composeClipboardItems,
                     clipboardVisible = composeClipboardVisible,
+                    clipOffer = composeClipOffer,
+                    onClipOfferClick = { pasteClipOffer() },
                     listener = this@SimpleTypeIME,
                     glideEnabled = composeGlideEnabled,
                     suggestions = composeSuggestions,
@@ -361,7 +359,10 @@ open class SimpleTypeIME : InputMethodService(),
                     onClipboardClose = { hideClipboard() },
                     onClipboardSelect = { text ->
                         aiFix.invalidate()
-                        currentInputConnection?.commitText(text, 1)
+                        currentInputConnection?.let { ic ->
+                            finishComposing(ic)
+                            ic.commitText(text, 1)
+                        }
                         hideClipboard()
                     },
                     onClipboardPin = { id ->
@@ -416,15 +417,8 @@ open class SimpleTypeIME : InputMethodService(),
         composeOptionsExpanded = false
         hideClipboard()
 
-        // Sync latest clipboard item
-        val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        cm.primaryClip?.let { clip ->
-            if (clip.itemCount > 0) {
-                clip.getItemAt(0).text?.let {
-                    if (it.isNotEmpty()) clipboardHistory.addItem(it.toString())
-                }
-            }
-        }
+        // Sync latest clipboard item (a copy made while the service wasn't listening).
+        readPrimaryClip(getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager)
 
         if (voice.isListening) voice.stop()
         setMicListening(false)
@@ -610,6 +604,7 @@ open class SimpleTypeIME : InputMethodService(),
         // Only the key right after a fix can undo it.
         val pendingFix = lastAutoFix
         lastAutoFix = null
+        if (key.code !in CLIP_KEEPING_KEYS) dismissClipOffer()
         when (key.code) {
             KeyCode.SHIFT -> cycleShift()
             KeyCode.DELETE -> if (!undoAutoFix(ic, pendingFix)) handleDelete(ic)
@@ -811,6 +806,7 @@ open class SimpleTypeIME : InputMethodService(),
 
         val candidates = decoder.decode(path, geometry)
         if (candidates.isEmpty()) return
+        dismissClipOffer()
         if (aiWriter.capturesKeys) {
             if (aiWriter.phase == AiWriterController.Phase.PROMPT) {
                 aiWriter.prompt.appendWords(candidates[0].word)
@@ -1149,6 +1145,7 @@ open class SimpleTypeIME : InputMethodService(),
         finishComposing(ic)
         englishKeys.setLength(0)
         autoSwitchSession?.forget()
+        dismissClipOffer()
         ic.commitText(emoji, 1)
         composeEmojiRecents = EmojiRecents.record(composeEmojiRecents, emoji)
         EmojiRecents.save(prefs(), composeEmojiRecents)
@@ -1697,6 +1694,51 @@ open class SimpleTypeIME : InputMethodService(),
         composeVoiceStatus = null
     }
 
+    // ---- Paste-the-latest-copy chip ----
+
+    private fun readPrimaryClip(cm: android.content.ClipboardManager) {
+        val clip = cm.primaryClip ?: return
+        if (clip.itemCount == 0) return
+        val text = clip.getItemAt(0).text?.toString().orEmpty()
+        if (text.isEmpty()) return
+        clipboardHistory.addItem(text)
+        val description = clip.description
+        val sensitive = android.os.Build.VERSION.SDK_INT >= 33 &&
+            description.extras?.getBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE) == true
+        // The copy time, not now: reopening the keyboard re-reads an old clip.
+        val copiedAt = description.timestamp.takeIf { it > 0 } ?: System.currentTimeMillis()
+        clipSuggestion.onClip(text, copiedAt, sensitive)
+        refreshClipOffer()
+    }
+
+    private fun refreshClipOffer() {
+        val now = System.currentTimeMillis()
+        val offer = clipSuggestion.offer(now)
+        composeClipOffer = offer
+        clipOfferExpiry?.cancel()
+        clipOfferExpiry = if (offer == null) null else imeScope.launch {
+            delay(clipSuggestion.remainingMs(now) + 50)
+            refreshClipOffer()
+        }
+    }
+
+    private fun dismissClipOffer() {
+        if (composeClipOffer == null) return
+        clipSuggestion.consume()
+        refreshClipOffer()
+    }
+
+    private fun pasteClipOffer() {
+        val offer = composeClipOffer ?: return
+        val ic = currentInputConnection ?: return
+        aiFix.invalidate()
+        clearGlideSuggestions()
+        finishComposing(ic)
+        ic.commitText(offer.text, 1)
+        dismissClipOffer()
+        refreshPredictions()
+    }
+
     private fun showClipboard() {
         composeOptionsExpanded = false
         composeEmojiVisible = false
@@ -1713,6 +1755,10 @@ open class SimpleTypeIME : InputMethodService(),
     }
 
     private companion object {
+        /** Keys that only change the keyboard, so the paste chip survives them. */
+        val CLIP_KEEPING_KEYS = setOf(
+            KeyCode.SHIFT, KeyCode.SYMBOLS, KeyCode.SYMBOLS_ALT, KeyCode.ALPHA, KeyCode.EMOJI,
+        )
         /** How long after lift-off to wait for a pending hit test before giving up. */
         const val TRACKPAD_END_GRACE_MS = 300L
         const val WORD_DELETE_LOOKBEHIND = 64

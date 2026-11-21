@@ -82,4 +82,13 @@ class ClipboardSuggestionTest {
         assertEquals(true, offer.masked)
         assertEquals("•••••", offer.preview)
     }
+
+    @Test fun remaining_time_counts_down_to_expiry() {
+        val s = ClipboardSuggestion()
+        assertEquals(0L, s.remainingMs(now = t0))
+        s.onClip("hello", copiedAt = t0, sensitive = false)
+        assertEquals(ttl - 1_000, s.remainingMs(now = t0 + 1_000))
+        s.consume()
+        assertEquals(0L, s.remainingMs(now = t0 + 1_000))
+    }
 }

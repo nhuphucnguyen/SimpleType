@@ -52,6 +52,10 @@ class ClipboardSuggestion {
         )
     }
 
+    /** How long the current offer has left at [now]; 0 when there is none. */
+    fun remainingMs(now: Long): Long =
+        if (offer(now) == null) 0 else (copiedAt + OFFER_TTL_MS - now).coerceAtLeast(0)
+
     private fun preview(clip: String): String {
         val line = clip.trim().replace(WHITESPACE, " ")
         return if (line.length <= PREVIEW_MAX) line else line.take(PREVIEW_MAX) + "…"
