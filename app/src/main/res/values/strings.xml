@@ -50,6 +50,7 @@
 
     <!-- Keyboard content descriptions -->
     <string name="key_clipboard">Clipboard</string>
+    <string name="clip_offer_paste">Paste copied text</string>
     <string name="clipboard_title">Clipboard</string>
     <string name="clipboard_close">Close clipboard</string>
     <string name="clipboard_pin">Pin item</string>
